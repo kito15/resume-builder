@@ -123,14 +123,29 @@ async function convertHtmlToPdf(htmlContent) {
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     const page = await browser.newPage();
-    await page.setContent(htmlContent);
-    const pdfBuffer = await page.pdf({
-        format: 'Letter',
-        printBackground: true
+    
+    // Set the content and ensure styles are preserved
+    await page.setContent(htmlContent, {
+        waitUntil: 'networkidle0' // Wait until all network requests (like CSS, fonts) are complete
     });
+    
+    // Adjust the PDF settings
+    const pdfBuffer = await page.pdf({
+        format: 'Letter', // Or specify other formats like A4
+        printBackground: true, // Ensure background colors and images are printed
+        scale: 1, // Scale to 1 ensures the correct font size is maintained
+        margin: {
+            top: '0.5in',
+            bottom: '0.5in',
+            left: '0.5in',
+            right: '0.5in'
+        }
+    });
+    
     await browser.close();
     return pdfBuffer;
 }
+
 
 app.post('/customize-resume', async (req, res) => {
     try {
