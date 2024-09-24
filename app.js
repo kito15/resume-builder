@@ -139,13 +139,7 @@ async function convertHtmlToPdf(htmlContent) {
 
     const pdfBuffer = await page.pdf({
         format: 'letter',
-        printBackground: true,
-        margin: {
-            top: '0.5in',
-            right: '0.5in',
-            bottom: '0.5in',
-            left: '0.5in'
-        }
+        printBackground: true
     });
     await browser.close();
     return pdfBuffer;
