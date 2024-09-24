@@ -123,35 +123,11 @@ async function convertHtmlToPdf(htmlContent) {
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     const page = await browser.newPage();
-
-    // Set the content and wait for the page to load completely
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-
-    // Set the viewport to match US Letter size in pixels (1 inch = 96 pixels)
-    await page.setViewport({
-        width: 816,  // 8.5 inches * 96 dpi
-        height: 1056 // 11 inches * 96 dpi
-    });
-
-    // Adjust the page content to fit the viewport
-    await page.evaluate(() => {
-        document.body.style.width = '816px';
-        document.body.style.height = '1056px';
-        document.body.style.margin = '0';
-        document.body.style.padding = '48px'; // 0.5 inch margin (48px = 0.5 * 96)
-        document.body.style.boxSizing = 'border-box';
-        document.body.style.fontSize = '11pt';
-        document.body.style.lineHeight = '1.1';
-        document.body.style.fontFamily = "'Calibri', 'Arial', sans-serif";
-    });
-
-    // Generate PDF
+    await page.setContent(htmlContent);
     const pdfBuffer = await page.pdf({
         format: 'Letter',
-        printBackground: true,
-        preferCSSPageSize: true,
+        printBackground: true
     });
-
     await browser.close();
     return pdfBuffer;
 }
