@@ -6,7 +6,11 @@
   "author": "alphasec",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "body-parser": "",
+    "puppeteer": "",
+    "axios": "",
+    "cheerio": ""
   },
   "scripts": {
     "start": "node app.js"
