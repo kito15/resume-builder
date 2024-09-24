@@ -123,19 +123,23 @@ async function convertHtmlToPdf(htmlContent) {
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-    
-    // Set the viewport to match a letter-size page
+    await page.setContent(htmlContent);
+
+    // Set the viewport size to match the page size
     await page.setViewport({
-        width: 8.5 * 96, // 8.5 inches * 96 DPI
-        height: 11 * 96, // 11 inches * 96 DPI
-        deviceScaleFactor: 1,
+        width: 850, // 8.5 inches
+        height: 1100 // 11 inches
+    });
+
+    // Set the page scale to 100% to maintain the original font size
+    await page.evaluate(() => {
+        document.body.style.transform = 'scale(1)';
+        document.body.style.transformOrigin = 'top left';
     });
 
     const pdfBuffer = await page.pdf({
-        format: 'Letter',
+        format: 'letter',
         printBackground: true,
-        preferCSSPageSize: true,
         margin: {
             top: '0.5in',
             right: '0.5in',
@@ -143,7 +147,6 @@ async function convertHtmlToPdf(htmlContent) {
             left: '0.5in'
         }
     });
-    
     await browser.close();
     return pdfBuffer;
 }
