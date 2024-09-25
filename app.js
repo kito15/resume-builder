@@ -131,12 +131,8 @@ async function convertHtmlToPdf(htmlContent) {
             margin: 0.5in;
         }
         body {
-            font-family: 'Calibri', 'Arial', sans-serif;
-            font-size: 11pt;
-            line-height: 1.1;
-            margin: 0;
-            padding: 0;
-            color: #333;
+            font-size: 12px;
+            line-height: 1.2;
         }
     `;
 
