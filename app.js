@@ -131,8 +131,12 @@ async function convertHtmlToPdf(htmlContent) {
             margin: 0.5in;
         }
         body {
-            font-size: 11px;
+            font-family: 'Calibri', 'Arial', sans-serif;
+            font-size: 11pt;
             line-height: 1.1;
+            margin: 0;
+            padding: 0;
+            color: #333;
         }
     `;
 
@@ -146,13 +150,7 @@ async function convertHtmlToPdf(htmlContent) {
     const pdfBuffer = await page.pdf({
         format: 'Letter',
         printBackground: true,
-        preferCSSPageSize: true,
-        margin: {
-            top: '0.5in',
-            right: '0.5in',
-            bottom: '0.5in',
-            left: '0.5in'
-        }
+        preferCSSPageSize: true
     });
 
     await browser.close();
