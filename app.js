@@ -114,7 +114,7 @@ function shuffleArray(array) {
     return array;
 }
 
-async function updateResumeSection(sections, keywords, context, fullTailoring) {
+async function updateResumeSection($, sections, keywords, context, fullTailoring) {
     let previousFirstVerb = '';
 
     for (let i = 0; i < sections.length; i++) {
@@ -125,7 +125,9 @@ async function updateResumeSection(sections, keywords, context, fullTailoring) {
             if (fullTailoring && bulletList.find('li').length > 0) {
                 // Extract existing bullets and tailor them
                 const existingBullets = bulletList.find('li')
-                    .map((_, el) => $(el).text()).get();
+                    .map((_, el) => $(el).text())
+                    .get();
+                    
                 const tailoredPoints = await generateTailoredBulletPoints(
                     existingBullets,
                     keywords[i % keywords.length],
@@ -163,9 +165,9 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         Array(5).fill(keywords.join(', ')) : // Create multiple copies for different sections
         [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
 
-    await updateResumeSection($('.job-details'), keywordGroups, 'for a job experience', fullTailoring);
-    await updateResumeSection($('.project-details'), keywordGroups, 'for a project', fullTailoring);
-    await updateResumeSection($('.education-details'), keywordGroups, 'for education', fullTailoring);
+    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring);
+    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring);
+    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring);
 
     return $.html();
 }
