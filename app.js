@@ -12,6 +12,7 @@ const openaiApiKey = process.env.api_key; // Replace with your actual OpenAI API
 app.use(bodyParser.text({ type: 'text/html' }));
 
 async function generateBulletPoints(keywords, context) {
+    const keywordsStr = Array.isArray(keywords) ? keywords.join(', ') : keywords;
     const prompt = `As an expert resume writer, your task is to create bullet points for a resume ${context}, with each bullet point limited to 15 words or less. Create enough bullet points to incorporate all provided keywords, with a maximum of five bullet points. It is crucial that ALL provided keywords are incorporated into the bullet points. Do not omit any keywords.
 
 Before we proceed, let's ensure we're on the same page:
@@ -19,7 +20,7 @@ Before we proceed, let's ensure we're on the same page:
 - What are personal pronouns and why should they be avoided in this context?
 - Can you provide an example of a strong action verb?
 
-The bullet points should be tailored to the following keywords: ${keywords}.
+The bullet points should be tailored to the following keywords: ${keywordsStr}.
 
 For at least two of the bullet points, include numbers to quantify achievements. Despite limited experience, aim to make your bullet points impressive. Can you provide an example of how to do this?
 
@@ -101,19 +102,16 @@ async function updateResumeSection(sections, keywords, context) {
     }
 }
 
-async function updateResume(htmlContent) {
+async function updateResume(htmlContent, jobKeywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
+    const sections = $('.job-details');
 
-    const jobKeywords = [
-        'JavaScript, React, Node.js',
-        'Python, Django, Flask',
-        'Java, Spring Boot, Hibernate',
-        'C++, Qt, Boost',
-        'Ruby, Rails, Sinatra'
-    ];
+    // Modify the context based on fullTailoring mode
+    const context = fullTailoring ? 
+        'optimizing for maximum keyword matching and detailed experience descriptions' :
+        'maintaining a balanced approach with selective keyword integration';
 
-    await updateResumeSection($('.job-details'), jobKeywords, 'for a job experience');
-    await updateResumeSection($('.project-details'), jobKeywords, 'for a project');
+    await updateResumeSection(sections, jobKeywords, context);
 
     return $.html();
 }
@@ -159,15 +157,17 @@ async function convertHtmlToPdf(htmlContent) {
 
 app.post('/customize-resume', async (req, res) => {
     try {
-        if (!req.body || typeof req.body !== 'string') {
-            return res.status(400).send('Invalid input: HTML content is required');
+        const { html, keywords, fullTailoring } = req.body;
+
+        if (!html || !keywords || !Array.isArray(keywords)) {
+            return res.status(400).send('Invalid input: HTML content and keywords array are required');
         }
 
-        console.log('Received HTML content');
-        const htmlContent = req.body;
-        
-        console.log('Updating resume');
-        const updatedHtmlContent = await updateResume(htmlContent);
+        console.log('Received keywords:', keywords);
+        console.log('Full tailoring mode:', fullTailoring);
+
+        console.log('Updating resume with keywords');
+        const updatedHtmlContent = await updateResume(html, keywords, fullTailoring);
         
         console.log('Converting to PDF');
         const pdfBuffer = await convertHtmlToPdf(updatedHtmlContent);
