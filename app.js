@@ -70,11 +70,11 @@ Keyword checklist:
 }
 
 async function generateTailoredBulletPoints(existingBullets, keywords, context) {
-    const prompt = `As an expert resume writer, enhance the following bullet points by incorporating these keywords: ${keywords} while maintaining their original meaning. 
+    const prompt = `As an expert resume writer, enhance the following bullet points by incorporating these keywords: ${keywords} while maintaining their original meaning. Ensure that modifications to each bullet point are minimal, only adjusting slightly to incorporate the keywords.
     Each bullet point must:
     - Be prefixed with '>>'.
     - Contain no more than 15 words.
-    - Preserve the core meaning.
+    - Preserve the core meaning with minimal changes.
     - Incorporate keywords naturally.
     - Follow the STAR method where applicable.
     
@@ -84,9 +84,10 @@ async function generateTailoredBulletPoints(existingBullets, keywords, context) 
     Rules:
     1. **Prefix each bullet with '>>'.** This is mandatory.
     2. **Do not exceed 15 words per bullet.** Count words carefully.
-    3. **Maintain the original meaning** of each bullet point.
+    3. **Maintain the original meaning** of each bullet point with minimal modifications.
     4. **Incorporate keywords naturally** without forcing them.
     5. **Use the STAR method** when applicable.
+    6. **Avoid significant changes** to the bullet points; only slight adjustments are allowed to include keywords.
     
     Please format your response strictly as bullet points prefixed with '>>', each having a maximum of 15 words. Do not include any additional text or explanations.`;
 
