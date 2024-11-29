@@ -79,7 +79,7 @@ async function generateTailoredBulletPoints(existingBullets, keywords, context) 
     Rules:
     1. Preserve the core meaning of each bullet point
     2. Incorporate keywords naturally
-    3. Keep within 15 words per bullet
+    3. Keep within 12 words per bullet
     4. Use the STAR method where applicable
     
     Please format your response as bullet points prefixed with '>>'`;
