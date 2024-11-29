@@ -70,41 +70,31 @@ Keyword checklist:
 }
 
 async function generateTailoredBulletPoints(existingBullets, keywords, context) {
-    const prompt = `As an expert resume writer, enhance the following bullet points by incorporating these keywords: ${keywords}
-    while maintaining their original meaning. Follow these steps for each bullet point:
+    const prompt = `As an expert resume writer, enhance these bullet points by incorporating keywords: ${keywords}
+    Follow these steps for EACH bullet point:
 
-    1. Read the original bullet point
-    2. Count the current words
-    3. Identify potential spots to naturally insert keywords
-    4. Make minimal changes to include keywords
-    5. Count words in the new version (must be ≤15)
-    6. Verify the core meaning remains unchanged
-
-    Existing bullet points:
-    ${existingBullets.join('\n')}
-
-    Rules:
-    1. STRICT 15-word limit per bullet point
-    2. Make minimal changes - only modify what's needed to insert keywords
-    3. Keywords must blend naturally into existing content
-    4. Keep the original action verb when possible
-    5. Maintain the original achievement/impact
-
-    Format each bullet point response as:
-    [Word count: X] >> [Enhanced bullet point]
-
-    Example:
-    Original: "Led development team of 5 engineers in cloud migration project"
-    Keywords to add: "AWS, Docker"
-    [Word count: 12] >> "Led development team of 5 engineers in AWS cloud migration using Docker"
-
-    Note how the example:
-    - Kept the original structure
-    - Added keywords naturally
-    - Stayed under 15 words
-    - Preserved the core meaning
-
-    Please provide your enhanced bullet points following this format.`;
+    1. First, count the words in the original bullet point
+    2. Identify one or two keywords that could naturally fit
+    3. Make minimal changes to include the keyword(s)
+    4. Count words in the new version - must be 15 or fewer
+    5. If over 15 words, reduce while keeping the keyword(s)
+    
+    Original bullet points to enhance:
+    ${existingBullets.map((bullet, index) => 
+        `${index + 1}. ${bullet} (Word count: ${bullet.split(/\s+/).length})`
+    ).join('\n')}
+    
+    Requirements:
+    - Keep the core meaning of each point
+    - Each enhanced point MUST be 15 words or fewer (count explicitly)
+    - Show word count after each enhancement
+    - Make minimal changes - only what's needed to add keywords
+    - Format each point with '>>' prefix
+    
+    Example format:
+    >>Enhanced point here (Word count: X)
+    
+    Begin your enhancement, ensuring each point starts with '>>' and includes its word count:`;
 
     try {
         const response = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -121,7 +111,14 @@ async function generateTailoredBulletPoints(existingBullets, keywords, context) 
         });
 
         const content = response.data.choices[0].message.content.trim();
-        return content.match(/^\>\>(.+)$/gm).map(bp => bp.replace(/^>>\s*/, ''));
+        const bulletPoints = content.match(/^\>\>(.+)$/gm)
+            .map(bp => bp.replace(/^>>\s*/, ''))
+            .filter(bp => {
+                const wordCount = bp.split(/\s+/).length;
+                return wordCount <= 15;
+            });
+            
+        return bulletPoints;
     } catch (error) {
         console.error('Error generating tailored bullet points:', error);
         throw error;
