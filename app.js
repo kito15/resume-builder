@@ -71,18 +71,40 @@ Keyword checklist:
 
 async function generateTailoredBulletPoints(existingBullets, keywords, context) {
     const prompt = `As an expert resume writer, enhance the following bullet points by incorporating these keywords: ${keywords}
-    while maintaining their original meaning. Each bullet point should not exceed 15 words.
-    
+    while maintaining their original meaning. Follow these steps for each bullet point:
+
+    1. Read the original bullet point
+    2. Count the current words
+    3. Identify potential spots to naturally insert keywords
+    4. Make minimal changes to include keywords
+    5. Count words in the new version (must be ≤15)
+    6. Verify the core meaning remains unchanged
+
     Existing bullet points:
     ${existingBullets.join('\n')}
-    
+
     Rules:
-    1. Preserve the core meaning of each bullet point
-    2. Incorporate keywords naturally
-    3. Keep within 12 words per bullet
-    4. Use the STAR method where applicable
-    
-    Please format your response as bullet points prefixed with '>>'`;
+    1. STRICT 15-word limit per bullet point
+    2. Make minimal changes - only modify what's needed to insert keywords
+    3. Keywords must blend naturally into existing content
+    4. Keep the original action verb when possible
+    5. Maintain the original achievement/impact
+
+    Format each bullet point response as:
+    [Word count: X] >> [Enhanced bullet point]
+
+    Example:
+    Original: "Led development team of 5 engineers in cloud migration project"
+    Keywords to add: "AWS, Docker"
+    [Word count: 12] >> "Led development team of 5 engineers in AWS cloud migration using Docker"
+
+    Note how the example:
+    - Kept the original structure
+    - Added keywords naturally
+    - Stayed under 15 words
+    - Preserved the core meaning
+
+    Please provide your enhanced bullet points following this format.`;
 
     try {
         const response = await axios.post('https://api.openai.com/v1/chat/completions', {
