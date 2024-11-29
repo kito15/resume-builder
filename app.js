@@ -70,31 +70,19 @@ Keyword checklist:
 }
 
 async function generateTailoredBulletPoints(existingBullets, keywords, context) {
-    const prompt = `As an expert resume writer, enhance these bullet points by incorporating keywords: ${keywords}
-    Follow these steps for EACH bullet point:
-
-    1. First, count the words in the original bullet point
-    2. Identify one or two keywords that could naturally fit
-    3. Make minimal changes to include the keyword(s)
-    4. Count words in the new version - must be 15 or fewer
-    5. If over 15 words, reduce while keeping the keyword(s)
+    const prompt = `As an expert resume writer, enhance the following bullet points by incorporating these keywords: ${keywords}
+    while maintaining their original meaning. Each bullet point should not exceed 15 words.
     
-    Original bullet points to enhance:
-    ${existingBullets.map((bullet, index) => 
-        `${index + 1}. ${bullet} (Word count: ${bullet.split(/\s+/).length})`
-    ).join('\n')}
+    Existing bullet points:
+    ${existingBullets.join('\n')}
     
-    Requirements:
-    - Keep the core meaning of each point
-    - Each enhanced point MUST be 15 words or fewer (count explicitly)
-    - Show word count after each enhancement
-    - Make minimal changes - only what's needed to add keywords
-    - Format each point with '>>' prefix
+    Rules:
+    1. Preserve the core meaning of each bullet point
+    2. Incorporate keywords naturally
+    3. Keep within 13 words per bullet
+    4. Use the STAR method where applicable
     
-    Example format:
-    >>Enhanced point here (Word count: X)
-    
-    Begin your enhancement, ensuring each point starts with '>>' and includes its word count:`;
+    Please format your response as bullet points prefixed with '>>'`;
 
     try {
         const response = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -111,14 +99,7 @@ async function generateTailoredBulletPoints(existingBullets, keywords, context) 
         });
 
         const content = response.data.choices[0].message.content.trim();
-        const bulletPoints = content.match(/^\>\>(.+)$/gm)
-            .map(bp => bp.replace(/^>>\s*/, ''))
-            .filter(bp => {
-                const wordCount = bp.split(/\s+/).length;
-                return wordCount <= 15;
-            });
-            
-        return bulletPoints;
+        return content.match(/^\>\>(.+)$/gm).map(bp => bp.replace(/^>>\s*/, ''));
     } catch (error) {
         console.error('Error generating tailored bullet points:', error);
         throw error;
