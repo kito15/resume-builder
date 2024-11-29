@@ -10,6 +10,7 @@ const port = 3000;
 const openaiApiKey = process.env.api_key; // Replace with your actual OpenAI API key
 
 app.use(bodyParser.text({ type: 'text/html' }));
+app.use(bodyParser.json({ limit: '50mb' }));
 
 async function generateBulletPoints(keywords, context) {
     const prompt = `As an expert resume writer, your task is to create bullet points for a resume ${context}, with each bullet point limited to 15 words or less. Create enough bullet points to incorporate all provided keywords, with a maximum of five bullet points. It is crucial that ALL provided keywords are incorporated into the bullet points. Do not omit any keywords.
@@ -101,19 +102,19 @@ async function updateResumeSection(sections, keywords, context) {
     }
 }
 
-async function updateResume(htmlContent) {
+async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
 
-    const jobKeywords = [
-        'JavaScript, React, Node.js',
-        'Python, Django, Flask',
-        'Java, Spring Boot, Hibernate',
-        'C++, Qt, Boost',
-        'Ruby, Rails, Sinatra'
-    ];
+    // Use the provided keywords instead of hardcoded ones
+    const keywordGroups = fullTailoring ? 
+        [keywords.join(', ')] : 
+        [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
 
-    await updateResumeSection($('.job-details'), jobKeywords, 'for a job experience');
-    await updateResumeSection($('.project-details'), jobKeywords, 'for a project');
+    await updateResumeSection($('.job-details'), keywordGroups, 'for a job experience');
+    
+    if (fullTailoring) {
+        await updateResumeSection($('.project-details'), keywordGroups, 'for a project');
+    }
 
     return $.html();
 }
@@ -159,26 +160,29 @@ async function convertHtmlToPdf(htmlContent) {
 
 app.post('/customize-resume', async (req, res) => {
     try {
-        if (!req.body || typeof req.body !== 'string') {
-            return res.status(400).send('Invalid input: HTML content is required');
+        const { htmlContent, keywords, fullTailoring } = req.body;
+        
+        if (!htmlContent || !Array.isArray(keywords)) {
+            return res.status(400).send('Invalid input: HTML content and keywords array are required');
         }
 
-        console.log('Received HTML content');
-        const htmlContent = req.body;
+        console.log('Received keywords:', keywords);
+        console.log('Full tailoring enabled:', fullTailoring);
         
-        console.log('Updating resume');
-        const updatedHtmlContent = await updateResume(htmlContent);
+        // Update resume with keywords
+        const updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
         
-        console.log('Converting to PDF');
+        // Convert to PDF
         const pdfBuffer = await convertHtmlToPdf(updatedHtmlContent);
 
-        console.log('Sending PDF response');
+        // Send response
         res.contentType('application/pdf');
         res.set('Content-Disposition', 'attachment; filename=customized_resume.pdf');
         res.send(Buffer.from(pdfBuffer));
+
     } catch (error) {
         console.error('Error processing resume:', error);
-        res.status(500).send('An error occurred while processing the resume: ' + error.message);
+        res.status(500).send('Error processing resume: ' + error.message);
     }
 });
 
