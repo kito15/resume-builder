@@ -69,6 +69,43 @@ Keyword checklist:
     }
 }
 
+async function generateTailoredBulletPoints(existingBullets, keywords, context) {
+    const prompt = `As an expert resume writer, enhance the following bullet points by incorporating these keywords: ${keywords}
+    while maintaining their original meaning. Each bullet point should not exceed 15 words.
+    
+    Existing bullet points:
+    ${existingBullets.join('\n')}
+    
+    Rules:
+    1. Preserve the core meaning of each bullet point
+    2. Incorporate keywords naturally
+    3. Keep within 15 words per bullet
+    4. Use the STAR method where applicable
+    
+    Please format your response as bullet points prefixed with '>>'`;
+
+    try {
+        const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+            model: 'gpt-4o-mini',
+            messages: [
+                { role: 'system', content: 'You are a professional resume writer.' },
+                { role: 'user', content: prompt }
+            ]
+        }, {
+            headers: {
+                'Authorization': `Bearer ${openaiApiKey}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const content = response.data.choices[0].message.content.trim();
+        return content.match(/^\>\>(.+)$/gm).map(bp => bp.replace(/^>>\s*/, ''));
+    } catch (error) {
+        console.error('Error generating tailored bullet points:', error);
+        throw error;
+    }
+}
+
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -77,44 +114,58 @@ function shuffleArray(array) {
     return array;
 }
 
-async function updateResumeSection(sections, keywords, context) {
+async function updateResumeSection(sections, keywords, context, fullTailoring) {
     let previousFirstVerb = '';
 
     for (let i = 0; i < sections.length; i++) {
         const section = sections.eq(i);
         const bulletList = section.find('ul');
 
-        if (bulletList.length > 0 && bulletList.find('li').length === 0) {
-            let bulletPoints = await generateBulletPoints(keywords[i % keywords.length], context);
-            
-            bulletPoints = shuffleArray(bulletPoints);
-
-            while (bulletPoints[0].split(' ')[0].toLowerCase() === previousFirstVerb.toLowerCase()) {
+        if (bulletList.length > 0) {
+            if (fullTailoring && bulletList.find('li').length > 0) {
+                // Extract existing bullets and tailor them
+                const existingBullets = bulletList.find('li')
+                    .map((_, el) => $(el).text()).get();
+                const tailoredPoints = await generateTailoredBulletPoints(
+                    existingBullets,
+                    keywords[i % keywords.length],
+                    context
+                );
+                
+                bulletList.empty();
+                tailoredPoints.forEach(point => {
+                    bulletList.append(`<li>${point}</li>`);
+                });
+            } else if (bulletList.find('li').length === 0) {
+                // Original behavior for empty sections
+                let bulletPoints = await generateBulletPoints(keywords[i % keywords.length], context);
+                
                 bulletPoints = shuffleArray(bulletPoints);
+
+                while (bulletPoints[0].split(' ')[0].toLowerCase() === previousFirstVerb.toLowerCase()) {
+                    bulletPoints = shuffleArray(bulletPoints);
+                }
+
+                previousFirstVerb = bulletPoints[0].split(' ')[0];
+
+                bulletPoints.forEach(point => {
+                    bulletList.append(`<li>${point}</li>`);
+                });
             }
-
-            previousFirstVerb = bulletPoints[0].split(' ')[0];
-
-            bulletPoints.forEach(point => {
-                bulletList.append(`<li>${point}</li>`);
-            });
         }
     }
 }
 
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
-
-    // Use the provided keywords instead of hardcoded ones
+    
     const keywordGroups = fullTailoring ? 
-        [keywords.join(', ')] : 
+        Array(5).fill(keywords.join(', ')) : // Create multiple copies for different sections
         [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
 
-    await updateResumeSection($('.job-details'), keywordGroups, 'for a job experience');
-    
-    if (fullTailoring) {
-        await updateResumeSection($('.project-details'), keywordGroups, 'for a project');
-    }
+    await updateResumeSection($('.job-details'), keywordGroups, 'for a job experience', fullTailoring);
+    await updateResumeSection($('.project-details'), keywordGroups, 'for a project', fullTailoring);
+    await updateResumeSection($('.education-details'), keywordGroups, 'for education', fullTailoring);
 
     return $.html();
 }
