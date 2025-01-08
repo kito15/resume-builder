@@ -7,31 +7,16 @@ const cheerio = require('cheerio');
 const app = express();
 const port = 3000;
 
-const deepseekApiKey = process.env.api_key; // Replace with your actual DeepSeek API key
+const openaiApiKey = process.env.api_key; // Replace with your actual OpenAI API key
 
 app.use(bodyParser.text({ type: 'text/html' }));
 app.use(bodyParser.json({ limit: '50mb' }));
 
-function getAverageBulletPointWordCount($) {
-    let totalWords = 0;
-    let totalBullets = 0;
-    $('li').each((_, el) => {
-        const text = $(el).text().trim();
-        if (text) {
-            totalWords += text.split(/\s+/).length;
-            totalBullets++;
-        }
-    });
-    return totalBullets === 0 ? 15 : Math.floor(totalWords / totalBullets);
-}
-
-async function generateBulletPoints(keywords, context, wordLimit) {
-    const prompt = `As an expert resume writer, your task is to create bullet points ${context}, ` +
-        `with each bullet point limited to ${wordLimit} words or less. Create enough bullet points ` +
-        `to incorporate all provided keywords, with a maximum of five bullet points. It is crucial that ALL provided keywords are incorporated into the bullet points. Do not omit any keywords.
+async function generateBulletPoints(keywords, context) {
+    const prompt = `As an expert resume writer, your task is to create bullet points for a resume ${context}, with each bullet point limited to 15 words or less. Create enough bullet points to incorporate all provided keywords, with a maximum of five bullet points. It is crucial that ALL provided keywords are incorporated into the bullet points. Do not omit any keywords.
 
 Before we proceed, let's ensure we're on the same page:
-- What does it mean for a bullet point to be concise and not exceed ${wordLimit} words?
+- What does it mean for a bullet point to be concise and not exceed 15 words?
 - What are personal pronouns and why should they be avoided in this context?
 - Can you provide an example of a strong action verb?
 
@@ -41,7 +26,7 @@ For at least two of the bullet points, include numbers to quantify achievements.
 
 You are also asked to structure the resume based on the STAR method. Can you explain what the STAR method is and how it provides a clear and engaging narrative of accomplishments?
 
-Ensure that all keywords are incorporated in the bullet points and that they are relevant to the job role and industry. Prioritize the inclusion of all keywords over other considerations, while still maintaining coherence and relevance within the ${wordLimit}-word limit. Remember to apply the STAR method to your bullet points where possible.
+Ensure that all keywords are incorporated in the bullet points and that they are relevant to the job role and industry. Prioritize the inclusion of all keywords over other considerations, while still maintaining coherence and relevance within the 15-word limit. Remember to apply the STAR method to your bullet points where possible.
 
 After generating the bullet points, provide a checklist of all keywords and indicate which bullet point(s) each keyword appears in.
 
@@ -62,57 +47,66 @@ Keyword checklist:
 - Keyword2: Appears in bullet point 2`;
 
     try {
-        const response = await axios.post('https://api.deepseek.com/chat/completions', {
-            model: 'deepseek-chat',
+        const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+            model: 'gpt-4o-mini',
             messages: [
                 { role: 'system', content: 'You are a professional resume writer.' },
                 { role: 'user', content: prompt }
-            ],
-            stream: false
+            ]
         }, {
             headers: {
-                'Authorization': `Bearer ${deepseekApiKey}`,
+                'Authorization': `Bearer ${openaiApiKey}`,
                 'Content-Type': 'application/json'
             }
         });
 
         const content = response.data.choices[0].message.content.trim();
-        const matched = content.match(/^\>\>(.+)$/gm) || [];
-        return matched.map(bp => bp.replace(/^>>\s*/, ''));
+        const bulletPoints = content.match(/^\>\>(.+)$/gm).map(bp => bp.replace(/^>>\s*/, ''));
+        return bulletPoints;
     } catch (error) {
         console.error('Error generating bullet points:', error);
         throw error;
     }
 }
 
-async function generateTailoredBulletPoints(existingBullets, keywords, context, wordLimit) {
-    const prompt = `As an expert resume writer, enhance the following bullet points by incorporating these keywords: ${keywords} ` +
-        `while maintaining their original meaning. Each bullet point must: ` +
-        `- Be prefixed with '>>'. ` +
-        `- Contain no more than ${wordLimit} words. ` +
-        `- Preserve the core meaning with minimal changes. ` +
-        `- Incorporate keywords naturally. ` +
-        `- Follow the STAR method where applicable. ` +
-        `Do not exceed ${wordLimit} words per bullet.`;
+async function generateTailoredBulletPoints(existingBullets, keywords, context) {
+    const prompt = `As an expert resume writer, enhance the following bullet points by incorporating these keywords: ${keywords} while maintaining their original meaning. Ensure that modifications to each bullet point are minimal, only adjusting slightly to incorporate the keywords.
+    Each bullet point must:
+    - Be prefixed with '>>'.
+    - Contain no more than 13 words.
+    - Preserve the core meaning with minimal changes.
+    - Incorporate keywords naturally.
+    - Follow the STAR method where applicable.
+    
+    Existing bullet points:
+    ${existingBullets.join('\n')}
+    
+    Rules:
+    1. **Prefix each bullet with '>>'.** This is mandatory.
+    2. **Do not exceed 13 words per bullet.** Count words carefully.
+    3. **Maintain the original meaning** of each bullet point with minimal modifications.
+    4. **Incorporate keywords naturally** without forcing them.
+    5. **Use the STAR method** when applicable.
+    6. **Avoid significant changes** to the bullet points; only slight adjustments are allowed to include keywords.
+    
+    Please format your response strictly as bullet points prefixed with '>>', each having a maximum of 13 words. Do not include any additional text or explanations.`;
 
     try {
-        const response = await axios.post('https://api.deepseek.com/chat/completions', {
-            model: 'deepseek-chat',
+        const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+            model: 'gpt-4o-mini',
             messages: [
                 { role: 'system', content: 'You are a professional resume writer.' },
                 { role: 'user', content: prompt }
-            ],
-            stream: false
+            ]
         }, {
             headers: {
-                'Authorization': `Bearer ${deepseekApiKey}`,
+                'Authorization': `Bearer ${openaiApiKey}`,
                 'Content-Type': 'application/json'
             }
         });
 
         const content = response.data.choices[0].message.content.trim();
-        const matched = content.match(/^\>\>(.+)$/gm) || [];
-        return matched.map(bp => bp.replace(/^>>\s*/, ''));
+        return content.match(/^\>\>(.+)$/gm).map(bp => bp.replace(/^>>\s*/, ''));
     } catch (error) {
         console.error('Error generating tailored bullet points:', error);
         throw error;
@@ -127,7 +121,7 @@ function shuffleArray(array) {
     return array;
 }
 
-async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, usedBullets) {
+async function updateResumeSection($, sections, keywords, context, fullTailoring) {
     let previousFirstVerb = '';
 
     for (let i = 0; i < sections.length; i++) {
@@ -135,28 +129,25 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
         const bulletList = section.find('ul');
 
         if (bulletList.length > 0) {
-            // Initialize bulletPoints variable
-            let bulletPoints;
-            
             if (fullTailoring && bulletList.find('li').length > 0) {
                 // Extract existing bullets and tailor them
                 const existingBullets = bulletList.find('li')
                     .map((_, el) => $(el).text())
                     .get();
                     
-                bulletPoints = await generateTailoredBulletPoints(
+                const tailoredPoints = await generateTailoredBulletPoints(
                     existingBullets,
                     keywords[i % keywords.length],
-                    context,
-                    wordLimit
+                    context
                 );
-            } else {
-                // Generate new bullet points for empty sections
-                bulletPoints = await generateBulletPoints(
-                    keywords[i % keywords.length], 
-                    context, 
-                    wordLimit
-                );
+                
+                bulletList.empty();
+                tailoredPoints.forEach(point => {
+                    bulletList.append(`<li>${point}</li>`);
+                });
+            } else if (bulletList.find('li').length === 0) {
+                // Original behavior for empty sections
+                let bulletPoints = await generateBulletPoints(keywords[i % keywords.length], context);
                 
                 bulletPoints = shuffleArray(bulletPoints);
 
@@ -165,61 +156,27 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                 }
 
                 previousFirstVerb = bulletPoints[0].split(' ')[0];
+
+                bulletPoints.forEach(point => {
+                    bulletList.append(`<li>${point}</li>`);
+                });
             }
-
-            // Filter out duplicates
-            bulletPoints = bulletPoints.filter(bp => !usedBullets.has(bp));
-
-            // Shuffle, then ensure 4-5 total bullets
-            bulletPoints = shuffleArray(bulletPoints);
-            bulletPoints = await ensureBulletRange(bulletPoints, usedBullets, () =>
-                generateBulletPoints(keywords[i % keywords.length], context, wordLimit), 4, 5);
-
-            // Clear old items and insert final bulletPoints
-            bulletList.empty();
-            bulletPoints.forEach(point => {
-                usedBullets.add(point);
-                bulletList.append(`<li>${point}</li>`);
-            });
         }
     }
 }
 
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
-    const averageWordCount = getAverageBulletPointWordCount($);
     
-    // Track used bullet points across the entire resume
-    const usedBullets = new Set();
-
     const keywordGroups = fullTailoring ? 
         Array(5).fill(keywords.join(', ')) : // Create multiple copies for different sections
         [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
 
-    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, averageWordCount, usedBullets);
-    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, averageWordCount, usedBullets);
-    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, averageWordCount, usedBullets);
+    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring);
+    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring);
+    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring);
 
     return $.html();
-}
-
-async function ensureBulletRange(bulletPoints, usedBullets, generateFn, minCount, maxCount) {
-    // Keep trying to generate more if needed, up to a few attempts
-    let attempts = 0;
-    while (bulletPoints.length < minCount && attempts < 3) {
-        const newPoints = (await generateFn()).filter(bp => !usedBullets.has(bp));
-        bulletPoints = bulletPoints.concat(newPoints);
-        attempts++;
-    }
-    // Fill placeholders if still below minCount
-    while (bulletPoints.length < minCount) {
-        bulletPoints.push(`Placeholder bullet point ${bulletPoints.length + 1}`);
-    }
-    // Truncate if above maxCount
-    if (bulletPoints.length > maxCount) {
-        bulletPoints = bulletPoints.slice(0, maxCount);
-    }
-    return bulletPoints;
 }
 
 async function convertHtmlToPdf(htmlContent) {
