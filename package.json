@@ -10,7 +10,8 @@
     "body-parser": "",
     "puppeteer": "",
     "axios": "",
-    "cheerio": ""
+    "cheerio": "",
+    "openai": ""
   },
   "scripts": {
     "start": "node app.js"
