@@ -12,11 +12,26 @@ const openaiApiKey = process.env.api_key; // Replace with your actual OpenAI API
 app.use(bodyParser.text({ type: 'text/html' }));
 app.use(bodyParser.json({ limit: '50mb' }));
 
-async function generateBulletPoints(keywords, context) {
-    const prompt = `As an expert resume writer, your task is to create bullet points for a resume ${context}, with each bullet point limited to 15 words or less. Create enough bullet points to incorporate all provided keywords, with a maximum of five bullet points. It is crucial that ALL provided keywords are incorporated into the bullet points. Do not omit any keywords.
+function getAverageBulletPointWordCount($) {
+    let totalWords = 0;
+    let totalBullets = 0;
+    $('li').each((_, el) => {
+        const text = $(el).text().trim();
+        if (text) {
+            totalWords += text.split(/\s+/).length;
+            totalBullets++;
+        }
+    });
+    return totalBullets === 0 ? 15 : Math.floor(totalWords / totalBullets);
+}
+
+async function generateBulletPoints(keywords, context, wordLimit) {
+    const prompt = `As an expert resume writer, your task is to create bullet points ${context}, ` +
+        `with each bullet point limited to ${wordLimit} words or less. Create enough bullet points ` +
+        `to incorporate all provided keywords, with a maximum of five bullet points. It is crucial that ALL provided keywords are incorporated into the bullet points. Do not omit any keywords.
 
 Before we proceed, let's ensure we're on the same page:
-- What does it mean for a bullet point to be concise and not exceed 15 words?
+- What does it mean for a bullet point to be concise and not exceed ${wordLimit} words?
 - What are personal pronouns and why should they be avoided in this context?
 - Can you provide an example of a strong action verb?
 
@@ -26,7 +41,7 @@ For at least two of the bullet points, include numbers to quantify achievements.
 
 You are also asked to structure the resume based on the STAR method. Can you explain what the STAR method is and how it provides a clear and engaging narrative of accomplishments?
 
-Ensure that all keywords are incorporated in the bullet points and that they are relevant to the job role and industry. Prioritize the inclusion of all keywords over other considerations, while still maintaining coherence and relevance within the 15-word limit. Remember to apply the STAR method to your bullet points where possible.
+Ensure that all keywords are incorporated in the bullet points and that they are relevant to the job role and industry. Prioritize the inclusion of all keywords over other considerations, while still maintaining coherence and relevance within the ${wordLimit}-word limit. Remember to apply the STAR method to your bullet points where possible.
 
 After generating the bullet points, provide a checklist of all keywords and indicate which bullet point(s) each keyword appears in.
 
@@ -69,27 +84,15 @@ Keyword checklist:
     }
 }
 
-async function generateTailoredBulletPoints(existingBullets, keywords, context) {
-    const prompt = `As an expert resume writer, enhance the following bullet points by incorporating these keywords: ${keywords} while maintaining their original meaning. Ensure that modifications to each bullet point are minimal, only adjusting slightly to incorporate the keywords.
-    Each bullet point must:
-    - Be prefixed with '>>'.
-    - Contain no more than 13 words.
-    - Preserve the core meaning with minimal changes.
-    - Incorporate keywords naturally.
-    - Follow the STAR method where applicable.
-    
-    Existing bullet points:
-    ${existingBullets.join('\n')}
-    
-    Rules:
-    1. **Prefix each bullet with '>>'.** This is mandatory.
-    2. **Do not exceed 13 words per bullet.** Count words carefully.
-    3. **Maintain the original meaning** of each bullet point with minimal modifications.
-    4. **Incorporate keywords naturally** without forcing them.
-    5. **Use the STAR method** when applicable.
-    6. **Avoid significant changes** to the bullet points; only slight adjustments are allowed to include keywords.
-    
-    Please format your response strictly as bullet points prefixed with '>>', each having a maximum of 13 words. Do not include any additional text or explanations.`;
+async function generateTailoredBulletPoints(existingBullets, keywords, context, wordLimit) {
+    const prompt = `As an expert resume writer, enhance the following bullet points by incorporating these keywords: ${keywords} ` +
+        `while maintaining their original meaning. Each bullet point must: ` +
+        `- Be prefixed with '>>'. ` +
+        `- Contain no more than ${wordLimit} words. ` +
+        `- Preserve the core meaning with minimal changes. ` +
+        `- Incorporate keywords naturally. ` +
+        `- Follow the STAR method where applicable. ` +
+        `Do not exceed ${wordLimit} words per bullet.`;
 
     try {
         const response = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -121,7 +124,7 @@ function shuffleArray(array) {
     return array;
 }
 
-async function updateResumeSection($, sections, keywords, context, fullTailoring) {
+async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit) {
     let previousFirstVerb = '';
 
     for (let i = 0; i < sections.length; i++) {
@@ -138,7 +141,8 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                 const tailoredPoints = await generateTailoredBulletPoints(
                     existingBullets,
                     keywords[i % keywords.length],
-                    context
+                    context,
+                    wordLimit
                 );
                 
                 bulletList.empty();
@@ -147,7 +151,7 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                 });
             } else if (bulletList.find('li').length === 0) {
                 // Original behavior for empty sections
-                let bulletPoints = await generateBulletPoints(keywords[i % keywords.length], context);
+                let bulletPoints = await generateBulletPoints(keywords[i % keywords.length], context, wordLimit);
                 
                 bulletPoints = shuffleArray(bulletPoints);
 
@@ -167,14 +171,15 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
 
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
+    const averageWordCount = getAverageBulletPointWordCount($);
     
     const keywordGroups = fullTailoring ? 
         Array(5).fill(keywords.join(', ')) : // Create multiple copies for different sections
         [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
 
-    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring);
-    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring);
-    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring);
+    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, averageWordCount);
+    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, averageWordCount);
+    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, averageWordCount);
 
     return $.html();
 }
