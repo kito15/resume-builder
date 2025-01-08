@@ -127,7 +127,7 @@ function shuffleArray(array) {
     return array;
 }
 
-async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit) {
+async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, usedBullets) {
     let previousFirstVerb = '';
 
     for (let i = 0; i < sections.length; i++) {
@@ -168,6 +168,21 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                     bulletList.append(`<li>${point}</li>`);
                 });
             }
+
+            // Filter out duplicates
+            bulletPoints = bulletPoints.filter(bp => !usedBullets.has(bp));
+
+            // Shuffle, then ensure 4-5 total bullets
+            bulletPoints = shuffleArray(bulletPoints);
+            bulletPoints = await ensureBulletRange(bulletPoints, usedBullets, () =>
+                generateBulletPoints(keywords[i % keywords.length], context, wordLimit), 4, 5);
+
+            // Clear old items and insert final bulletPoints
+            bulletList.empty();
+            bulletPoints.forEach(point => {
+                usedBullets.add(point);
+                bulletList.append(`<li>${point}</li>`);
+            });
         }
     }
 }
@@ -176,15 +191,37 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const averageWordCount = getAverageBulletPointWordCount($);
     
+    // Track used bullet points across the entire resume
+    const usedBullets = new Set();
+
     const keywordGroups = fullTailoring ? 
         Array(5).fill(keywords.join(', ')) : // Create multiple copies for different sections
         [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
 
-    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, averageWordCount);
-    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, averageWordCount);
-    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, averageWordCount);
+    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, averageWordCount, usedBullets);
+    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, averageWordCount, usedBullets);
+    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, averageWordCount, usedBullets);
 
     return $.html();
+}
+
+async function ensureBulletRange(bulletPoints, usedBullets, generateFn, minCount, maxCount) {
+    // Keep trying to generate more if needed, up to a few attempts
+    let attempts = 0;
+    while (bulletPoints.length < minCount && attempts < 3) {
+        const newPoints = (await generateFn()).filter(bp => !usedBullets.has(bp));
+        bulletPoints = bulletPoints.concat(newPoints);
+        attempts++;
+    }
+    // Fill placeholders if still below minCount
+    while (bulletPoints.length < minCount) {
+        bulletPoints.push(`Placeholder bullet point ${bulletPoints.length + 1}`);
+    }
+    // Truncate if above maxCount
+    if (bulletPoints.length > maxCount) {
+        bulletPoints = bulletPoints.slice(0, maxCount);
+    }
+    return bulletPoints;
 }
 
 async function convertHtmlToPdf(htmlContent) {
