@@ -3,11 +3,20 @@ const bodyParser = require('body-parser');
 const puppeteer = require('puppeteer');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const { OpenAI } = require('openai');
 
 const app = express();
 const port = 3000;
 
-const openaiApiKey = process.env.api_key; // Replace with your actual OpenAI API key
+// OpenRouter configuration
+const openai = new OpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY,
+    defaultHeaders: {
+        "HTTP-Referer": process.env.SITE_URL || "http://localhost:3000",
+        "X-Title": process.env.SITE_NAME || "Resume Tailoring App"
+    }
+});
 
 app.use(bodyParser.text({ type: 'text/html' }));
 app.use(bodyParser.json({ limit: '50mb' }));
@@ -23,6 +32,35 @@ function getAverageBulletPointWordCount($) {
         }
     });
     return totalBullets === 0 ? 15 : Math.floor(totalWords / totalBullets);
+}
+
+async function generateGeminiCompletion(prompt) {
+    try {
+        const completion = await openai.chat.completions.create({
+            model: "google/gemini-2.0-flash-exp:free",
+            messages: [
+                {
+                    role: "system",
+                    content: "You are a professional resume writer."
+                },
+                {
+                    role: "user",
+                    content: [
+                        {
+                            type: "text",
+                            text: prompt
+                        }
+                    ]
+                }
+            ]
+        });
+        
+        console.log('Gemini response:', completion.choices[0].message);
+        return completion.choices[0].message.content;
+    } catch (error) {
+        console.error('Error with Gemini completion:', error);
+        throw error;
+    }
 }
 
 async function generateBulletPoints(keywords, context, wordLimit) {
@@ -62,20 +100,7 @@ Keyword checklist:
 - Keyword2: Appears in bullet point 2`;
 
     try {
-        const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-            model: 'gpt-4o-mini',
-            messages: [
-                { role: 'system', content: 'You are a professional resume writer.' },
-                { role: 'user', content: prompt }
-            ]
-        }, {
-            headers: {
-                'Authorization': `Bearer ${openaiApiKey}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        const content = response.data.choices[0].message.content.trim();
+        const content = await generateGeminiCompletion(prompt);
         const matched = content.match(/^\>\>(.+)$/gm) || [];
         return matched.map(bp => bp.replace(/^>>\s*/, ''));
     } catch (error) {
@@ -95,20 +120,7 @@ async function generateTailoredBulletPoints(existingBullets, keywords, context, 
         `Do not exceed ${wordLimit} words per bullet.`;
 
     try {
-        const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-            model: 'gpt-4o-mini',
-            messages: [
-                { role: 'system', content: 'You are a professional resume writer.' },
-                { role: 'user', content: prompt }
-            ]
-        }, {
-            headers: {
-                'Authorization': `Bearer ${openaiApiKey}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        const content = response.data.choices[0].message.content.trim();
+        const content = await generateGeminiCompletion(prompt);
         const matched = content.match(/^\>\>(.+)$/gm) || [];
         return matched.map(bp => bp.replace(/^>>\s*/, ''));
     } catch (error) {
@@ -139,13 +151,21 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                     .map((_, el) => $(el).text())
                     .get();
                     
-                const tailoredPoints = await generateTailoredBulletPoints(
+                let tailoredPoints = await generateTailoredBulletPoints(
                     existingBullets,
                     keywords[i % keywords.length],
                     context,
                     wordLimit
                 );
                 
+                // Ensure we have at least 1 and at most 5 bullet points
+                if (tailoredPoints.length === 0) {
+                    tailoredPoints = ["Ensured at least one bullet is present in the section."];
+                }
+                if (tailoredPoints.length > 5) {
+                    tailoredPoints = tailoredPoints.slice(0, 5);
+                }
+
                 bulletList.empty();
                 tailoredPoints.forEach(point => {
                     bulletList.append(`<li>${point}</li>`);
@@ -161,6 +181,14 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                 }
 
                 previousFirstVerb = bulletPoints[0].split(' ')[0];
+
+                // Enforce at least 1 and at most 5 bullets
+                if (bulletPoints.length === 0) {
+                    bulletPoints = ["Ensured at least one bullet is present in the section."];
+                }
+                if (bulletPoints.length > 5) {
+                    bulletPoints = bulletPoints.slice(0, 5);
+                }
 
                 bulletPoints.forEach(point => {
                     bulletList.append(`<li>${point}</li>`);
