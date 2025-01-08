@@ -25,13 +25,53 @@ function getAverageBulletPointWordCount($) {
     return totalBullets === 0 ? 15 : Math.floor(totalWords / totalBullets);
 }
 
-async function generateBulletPoints(keywords, context, wordLimit) {
+function normalizeText(text) {
+    return text.trim()
+        .replace(/\s+/g, ' ')  // normalize spaces
+        .replace(/[.,;:]/g, '') // remove punctuation
+        .trim();
+}
+
+function getWordCount(text) {
+    return normalizeText(text).split(' ').length;
+}
+
+function getSectionStatistics($, selector) {
+    const stats = {
+        minWords: Infinity,
+        maxWords: 0,
+        avgWords: 0,
+        totalWords: 0,
+        bulletCount: 0
+    };
+
+    $(selector).find('li').each((_, el) => {
+        const wordCount = getWordCount($(el).text());
+        stats.minWords = Math.min(stats.minWords, wordCount);
+        stats.maxWords = Math.max(stats.maxWords, wordCount);
+        stats.totalWords += wordCount;
+        stats.bulletCount++;
+    });
+
+    if (stats.bulletCount > 0) {
+        stats.avgWords = Math.round(stats.totalWords / stats.bulletCount);
+    } else {
+        // Default values if no bullets exist
+        stats.minWords = 15;
+        stats.maxWords = 30;
+        stats.avgWords = 20;
+    }
+
+    return stats;
+}
+
+async function generateBulletPoints(keywords, context, stats) {
     const prompt = `As an expert resume writer, your task is to create bullet points ${context}, ` +
-        `with each bullet point limited to ${wordLimit} words or less. Create enough bullet points ` +
+        `with each bullet point limited to ${stats.avgWords} words or less. Create enough bullet points ` +
         `to incorporate all provided keywords, with a maximum of five bullet points. It is crucial that ALL provided keywords are incorporated into the bullet points. Do not omit any keywords.
 
 Before we proceed, let's ensure we're on the same page:
-- What does it mean for a bullet point to be concise and not exceed ${wordLimit} words?
+- What does it mean for a bullet point to be concise and not exceed ${stats.avgWords} words?
 - What are personal pronouns and why should they be avoided in this context?
 - Can you provide an example of a strong action verb?
 
@@ -41,7 +81,7 @@ For at least two of the bullet points, include numbers to quantify achievements.
 
 You are also asked to structure the resume based on the STAR method. Can you explain what the STAR method is and how it provides a clear and engaging narrative of accomplishments?
 
-Ensure that all keywords are incorporated in the bullet points and that they are relevant to the job role and industry. Prioritize the inclusion of all keywords over other considerations, while still maintaining coherence and relevance within the ${wordLimit}-word limit. Remember to apply the STAR method to your bullet points where possible.
+Ensure that all keywords are incorporated in the bullet points and that they are relevant to the job role and industry. Prioritize the inclusion of all keywords over other considerations, while still maintaining coherence and relevance within the ${stats.avgWords}-word limit. Remember to apply the STAR method to your bullet points where possible.
 
 After generating the bullet points, provide a checklist of all keywords and indicate which bullet point(s) each keyword appears in.
 
@@ -127,7 +167,7 @@ function shuffleArray(array) {
     return array;
 }
 
-async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, usedBullets) {
+async function updateResumeSection($, sections, keywords, context, fullTailoring, stats, usedBullets) {
     let previousFirstVerb = '';
 
     for (let i = 0; i < sections.length; i++) {
@@ -148,14 +188,14 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                     existingBullets,
                     keywords[i % keywords.length],
                     context,
-                    wordLimit
+                    stats.avgWords
                 );
             } else {
                 // Generate new bullet points for empty sections
                 bulletPoints = await generateBulletPoints(
                     keywords[i % keywords.length], 
                     context, 
-                    wordLimit
+                    stats
                 );
                 
                 bulletPoints = shuffleArray(bulletPoints);
@@ -173,7 +213,18 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
             // Shuffle, then ensure 4-5 total bullets
             bulletPoints = shuffleArray(bulletPoints);
             bulletPoints = await ensureBulletRange(bulletPoints, usedBullets, () =>
-                generateBulletPoints(keywords[i % keywords.length], context, wordLimit), 4, 5);
+                generateBulletPoints(keywords[i % keywords.length], context, stats), 4, 5);
+
+            // Validate and possibly regenerate bullets that don't meet length requirements
+            bulletPoints = await Promise.all(bulletPoints.map(async (point) => {
+                let attempts = 0;
+                while (!await validateBulletLength(point, stats) && attempts < 3) {
+                    const newPoints = await generateBulletPoints(keywords[i % keywords.length], context, stats);
+                    point = newPoints[0];
+                    attempts++;
+                }
+                return point;
+            }));
 
             // Clear old items and insert final bulletPoints
             bulletList.empty();
@@ -187,18 +238,24 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
 
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
-    const averageWordCount = getAverageBulletPointWordCount($);
-    
-    // Track used bullet points across the entire resume
     const usedBullets = new Set();
+
+    // Get statistics for each section
+    const jobStats = getSectionStatistics($, '.job-details');
+    const projectStats = getSectionStatistics($, '.project-details');
+    const educationStats = getSectionStatistics($, '.education-details');
 
     const keywordGroups = fullTailoring ? 
         Array(5).fill(keywords.join(', ')) : // Create multiple copies for different sections
         [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
 
-    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, averageWordCount, usedBullets);
-    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, averageWordCount, usedBullets);
-    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, averageWordCount, usedBullets);
+    // Pass section-specific word counts
+    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', 
+        fullTailoring, jobStats, usedBullets);
+    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', 
+        fullTailoring, projectStats, usedBullets);
+    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', 
+        fullTailoring, educationStats, usedBullets);
 
     return $.html();
 }
@@ -220,6 +277,11 @@ async function ensureBulletRange(bulletPoints, usedBullets, generateFn, minCount
         bulletPoints = bulletPoints.slice(0, maxCount);
     }
     return bulletPoints;
+}
+
+async function validateBulletLength(bullet, stats) {
+    const wordCount = getWordCount(bullet);
+    return wordCount >= stats.minWords * 0.8 && wordCount <= stats.maxWords * 1.2;
 }
 
 async function convertHtmlToPdf(htmlContent) {
