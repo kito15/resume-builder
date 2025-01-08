@@ -135,26 +135,28 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
         const bulletList = section.find('ul');
 
         if (bulletList.length > 0) {
+            // Initialize bulletPoints variable
+            let bulletPoints;
+            
             if (fullTailoring && bulletList.find('li').length > 0) {
                 // Extract existing bullets and tailor them
                 const existingBullets = bulletList.find('li')
                     .map((_, el) => $(el).text())
                     .get();
                     
-                const tailoredPoints = await generateTailoredBulletPoints(
+                bulletPoints = await generateTailoredBulletPoints(
                     existingBullets,
                     keywords[i % keywords.length],
                     context,
                     wordLimit
                 );
-                
-                bulletList.empty();
-                tailoredPoints.forEach(point => {
-                    bulletList.append(`<li>${point}</li>`);
-                });
-            } else if (bulletList.find('li').length === 0) {
-                // Original behavior for empty sections
-                let bulletPoints = await generateBulletPoints(keywords[i % keywords.length], context, wordLimit);
+            } else {
+                // Generate new bullet points for empty sections
+                bulletPoints = await generateBulletPoints(
+                    keywords[i % keywords.length], 
+                    context, 
+                    wordLimit
+                );
                 
                 bulletPoints = shuffleArray(bulletPoints);
 
@@ -163,10 +165,6 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                 }
 
                 previousFirstVerb = bulletPoints[0].split(' ')[0];
-
-                bulletPoints.forEach(point => {
-                    bulletList.append(`<li>${point}</li>`);
-                });
             }
 
             // Filter out duplicates
