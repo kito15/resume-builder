@@ -76,8 +76,8 @@ Keyword checklist:
         });
 
         const content = response.data.choices[0].message.content.trim();
-        const bulletPoints = content.match(/^\>\>(.+)$/gm).map(bp => bp.replace(/^>>\s*/, ''));
-        return bulletPoints;
+        const matched = content.match(/^\>\>(.+)$/gm) || [];
+        return matched.map(bp => bp.replace(/^>>\s*/, ''));
     } catch (error) {
         console.error('Error generating bullet points:', error);
         throw error;
@@ -109,7 +109,8 @@ async function generateTailoredBulletPoints(existingBullets, keywords, context, 
         });
 
         const content = response.data.choices[0].message.content.trim();
-        return content.match(/^\>\>(.+)$/gm).map(bp => bp.replace(/^>>\s*/, ''));
+        const matched = content.match(/^\>\>(.+)$/gm) || [];
+        return matched.map(bp => bp.replace(/^>>\s*/, ''));
     } catch (error) {
         console.error('Error generating tailored bullet points:', error);
         throw error;
