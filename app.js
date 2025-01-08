@@ -25,60 +25,10 @@ function getAverageBulletPointWordCount($) {
     return totalBullets === 0 ? 15 : Math.floor(totalWords / totalBullets);
 }
 
-function countWordsInBullet(text) {
-    // Remove extra whitespace and special characters
-    const cleaned = text.trim()
-        .replace(/[""]/g, '') // Remove smart quotes
-        .replace(/[.,!?()]/g, '') // Remove punctuation
-        .replace(/\s+/g, ' '); // Normalize spaces
-    
-    // Count hyphenated words as one word
-    const words = cleaned.split(' ')
-        .filter(word => word.length > 0)
-        .map(word => word.replace(/-/g, '')); // Treat hyphenated words as single
-        
-    return words.length;
-}
-
-function getSectionWordCounts($) {
-    const counts = {
-        job: { total: 0, bullets: 0 },
-        project: { total: 0, bullets: 0 },
-        education: { total: 0, bullets: 0 }
-    };
-
-    // Count job section bullets
-    $('.job-details li').each((_, el) => {
-        const wordCount = countWordsInBullet($(el).text());
-        counts.job.total += wordCount;
-        counts.job.bullets++;
-    });
-
-    // Count project section bullets
-    $('.project-details li').each((_, el) => {
-        const wordCount = countWordsInBullet($(el).text());
-        counts.project.total += wordCount;
-        counts.project.bullets++;
-    });
-
-    // Count education section bullets
-    $('.education-details li').each((_, el) => {
-        const wordCount = countWordsInBullet($(el).text());
-        counts.education.total += wordCount;
-        counts.education.bullets++;
-    });
-
-    return {
-        job: counts.job.bullets > 0 ? Math.round(counts.job.total / counts.job.bullets) : 15,
-        project: counts.project.bullets > 0 ? Math.round(counts.project.total / counts.project.bullets) : 15,
-        education: counts.education.bullets > 0 ? Math.round(counts.education.total / counts.education.bullets) : 15
-    };
-}
-
 async function generateBulletPoints(keywords, context, wordLimit) {
     const prompt = `As an expert resume writer, your task is to create bullet points ${context}, ` +
-        `with each bullet point containing EXACTLY ${wordLimit} words (this is crucial). ` +
-        `Create enough bullet points to incorporate all provided keywords, with a maximum of five bullet points. It is crucial that ALL provided keywords are incorporated into the bullet points. Do not omit any keywords.
+        `with each bullet point limited to ${wordLimit} words or less. Create enough bullet points ` +
+        `to incorporate all provided keywords, with a maximum of five bullet points. It is crucial that ALL provided keywords are incorporated into the bullet points. Do not omit any keywords.
 
 Before we proceed, let's ensure we're on the same page:
 - What does it mean for a bullet point to be concise and not exceed ${wordLimit} words?
@@ -128,10 +78,7 @@ Keyword checklist:
 
         const content = response.data.choices[0].message.content.trim();
         const matched = content.match(/^\>\>(.+)$/gm) || [];
-        const bullets = matched.map(bp => bp.replace(/^>>\s*/, ''));
-        
-        // Verify word count matches target
-        return bullets.filter(bullet => countWordsInBullet(bullet) === wordLimit);
+        return matched.map(bp => bp.replace(/^>>\s*/, ''));
     } catch (error) {
         console.error('Error generating bullet points:', error);
         throw error;
@@ -240,7 +187,7 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
 
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
-    const sectionWordCounts = getSectionWordCounts($);
+    const averageWordCount = getAverageBulletPointWordCount($);
     
     // Track used bullet points across the entire resume
     const usedBullets = new Set();
@@ -249,10 +196,9 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         Array(5).fill(keywords.join(', ')) : // Create multiple copies for different sections
         [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
 
-    // Pass section-specific word counts
-    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, sectionWordCounts.job, usedBullets);
-    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, sectionWordCounts.project, usedBullets);
-    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, sectionWordCounts.education, usedBullets);
+    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, averageWordCount, usedBullets);
+    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, averageWordCount, usedBullets);
+    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, averageWordCount, usedBullets);
 
     return $.html();
 }
