@@ -1,20 +1,13 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const puppeteer = require('puppeteer');
+const axios = require('axios');
 const cheerio = require('cheerio');
-const OpenAI = require('openai').default;
 
 const app = express();
 const port = 3000;
 
-const openai = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.openRouterApiKey,
-  defaultHeaders: {
-    "HTTP-Referer": "https://nodejs-production-ee43.up.railway.app/",
-    "X-Title": "Resume Writer",
-  }
-});
+const deepseekApiKey = process.env.api_key; // Replace with your actual DeepSeek API key
 
 app.use(bodyParser.text({ type: 'text/html' }));
 app.use(bodyParser.json({ limit: '50mb' }));
@@ -119,15 +112,21 @@ Keyword checklist:
 - Keyword2: Appears in bullet point 2`;
 
     try {
-        const completion = await openai.chat.completions.create({
-            model: 'google/gemini-2.0-flash-exp:free',
+        const response = await axios.post('https://api.deepseek.com/chat/completions', {
+            model: 'deepseek-chat',
             messages: [
                 { role: 'system', content: 'You are a professional resume writer.' },
                 { role: 'user', content: prompt }
-            ]
+            ],
+            stream: false
+        }, {
+            headers: {
+                'Authorization': `Bearer ${deepseekApiKey}`,
+                'Content-Type': 'application/json'
+            }
         });
 
-        const content = completion.choices[0].message.content.trim();
+        const content = response.data.choices[0].message.content.trim();
         const matched = content.match(/^\>\>(.+)$/gm) || [];
         const bullets = matched.map(bp => 
             bp
@@ -154,15 +153,21 @@ async function generateTailoredBulletPoints(existingBullets, keywords, context, 
         `Do not exceed ${wordLimit} words per bullet.`;
 
     try {
-        const completion = await openai.chat.completions.create({
-            model: 'google/gemini-2.0-flash-exp:free',
+        const response = await axios.post('https://api.deepseek.com/chat/completions', {
+            model: 'deepseek-chat',
             messages: [
                 { role: 'system', content: 'You are a professional resume writer.' },
                 { role: 'user', content: prompt }
-            ]
+            ],
+            stream: false
+        }, {
+            headers: {
+                'Authorization': `Bearer ${deepseekApiKey}`,
+                'Content-Type': 'application/json'
+            }
         });
 
-        const content = completion.choices[0].message.content.trim();
+        const content = response.data.choices[0].message.content.trim();
         const matched = content.match(/^\>\>(.+)$/gm) || [];
         return matched.map(bp => 
             bp
@@ -238,20 +243,27 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
 }
 
 async function generateAllSectionBulletPoints(allContexts, keywordGroups, wordLimits) {
+    // Make one combined request for all sections
     const prompt = `Generate bullet points for these contexts: ${allContexts.join(', ')}
 Each context must have ${wordLimits.join(', ')} words per bullet.
 Include all keywords from each context: ${keywordGroups.join('; ')}`;
 
     try {
-        const completion = await openai.chat.completions.create({
-            model: 'google/gemini-2.0-flash-exp:free',
+        const response = await axios.post('https://api.deepseek.com/chat/completions', {
+            model: 'deepseek-chat',
             messages: [
                 { role: 'system', content: 'You are a professional resume writer.' },
                 { role: 'user', content: prompt }
-            ]
+            ],
+            stream: false
+        }, {
+            headers: {
+                'Authorization': `Bearer ${deepseekApiKey}`,
+                'Content-Type': 'application/json'
+            }
         });
 
-        const content = completion.choices[0].message.content.trim();
+        const content = response.data.choices[0].message.content.trim();
         
         // Split out bullet points for each context if possible
         // or simply return them as a single array, then distribute
