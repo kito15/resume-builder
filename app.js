@@ -188,7 +188,7 @@ function shuffleArray(array) {
     return array;
 }
 
-async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, usedBullets) {
+async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, usedBullets, allSectionBullets) {
     let previousFirstVerb = '';
 
     for (let i = 0; i < sections.length; i++) {
@@ -212,12 +212,8 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                     wordLimit
                 );
             } else {
-                // Generate new bullet points for empty sections
-                bulletPoints = await generateBulletPoints(
-                    keywords[i % keywords.length], 
-                    context, 
-                    wordLimit
-                );
+                // Use pre-fetched bullet points for empty sections
+                bulletPoints = allSectionBullets.splice(0, 5);
                 
                 bulletPoints = shuffleArray(bulletPoints);
 
@@ -246,6 +242,42 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
     }
 }
 
+async function generateAllSectionBulletPoints(allContexts, keywordGroups, wordLimits) {
+    // Make one combined request for all sections
+    const prompt = `Generate bullet points for these contexts: ${allContexts.join(', ')}
+Each context must have ${wordLimits.join(', ')} words per bullet.
+Include all keywords from each context: ${keywordGroups.join('; ')}`;
+
+    try {
+        const response = await axios.post('https://api.deepseek.com/chat/completions', {
+            model: 'deepseek-chat',
+            messages: [
+                { role: 'system', content: 'You are a professional resume writer.' },
+                { role: 'user', content: prompt }
+            ],
+            stream: false
+        }, {
+            headers: {
+                'Authorization': `Bearer ${deepseekApiKey}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const content = response.data.choices[0].message.content.trim();
+        
+        // Split out bullet points for each context if possible
+        // or simply return them as a single array, then distribute
+        const matched = content.match(/^\>\>(.+)$/gm) || [];
+        return matched.map(bp =>
+            bp.replace(/^>>\s*/, '')
+              .replace(/\*\*/g, '')
+        );
+    } catch (error) {
+        console.error('Error generating all section bullet points:', error);
+        throw error;
+    }
+}
+
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const sectionWordCounts = getSectionWordCounts($);
@@ -257,10 +289,18 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         Array(5).fill(keywords.join(', ')) : // Create multiple copies for different sections
         [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
 
-    // Pass section-specific word counts
-    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, sectionWordCounts.job, usedBullets);
-    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, sectionWordCounts.project, usedBullets);
-    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, sectionWordCounts.education, usedBullets);
+    // Single LLM call for all contexts (job, project, education)
+    const allContexts = ['job experience', 'project', 'education'];
+    const wordLimits = [sectionWordCounts.job, sectionWordCounts.project, sectionWordCounts.education];
+    const combinedKeywords = fullTailoring
+        ? Array(3).fill(keywords.join(', '))
+        : [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
+    const allSectionBullets = await generateAllSectionBulletPoints(allContexts, combinedKeywords, wordLimits);
+
+    // Then use 'allSectionBullets' in each 'updateResumeSection' instead of calling generateBulletPoints again.
+    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, sectionWordCounts.job, usedBullets, allSectionBullets);
+    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, sectionWordCounts.project, usedBullets, allSectionBullets);
+    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, sectionWordCounts.education, usedBullets, allSectionBullets);
 
     return $.html();
 }
