@@ -12,6 +12,9 @@ const deepseekApiKey = process.env.api_key; // Replace with your actual DeepSeek
 app.use(bodyParser.text({ type: 'text/html' }));
 app.use(bodyParser.json({ limit: '50mb' }));
 
+// Simple in-memory cache for LLM responses
+const lmCache = new Map();
+
 function getAverageBulletPointWordCount($) {
     let totalWords = 0;
     let totalBullets = 0;
@@ -243,6 +246,12 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
 }
 
 async function generateAllSectionBulletPoints(allContexts, keywordGroups, wordLimits) {
+    // Create a cache key
+    const cacheKey = JSON.stringify({ allContexts, keywordGroups, wordLimits });
+    if (lmCache.has(cacheKey)) {
+        return lmCache.get(cacheKey);
+    }
+
     // Make one combined request for all sections
     const prompt = `Generate bullet points for these contexts: ${allContexts.join(', ')}
 Each context must have ${wordLimits.join(', ')} words per bullet.
@@ -268,10 +277,14 @@ Include all keywords from each context: ${keywordGroups.join('; ')}`;
         // Split out bullet points for each context if possible
         // or simply return them as a single array, then distribute
         const matched = content.match(/^\>\>(.+)$/gm) || [];
-        return matched.map(bp =>
+        const finalBullets = matched.map(bp =>
             bp.replace(/^>>\s*/, '')
               .replace(/\*\*/g, '')
         );
+
+        // Store in cache before returning
+        lmCache.set(cacheKey, finalBullets);
+        return finalBullets;
     } catch (error) {
         console.error('Error generating all section bullet points:', error);
         throw error;
