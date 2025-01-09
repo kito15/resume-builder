@@ -128,7 +128,11 @@ Keyword checklist:
 
         const content = response.data.choices[0].message.content.trim();
         const matched = content.match(/^\>\>(.+)$/gm) || [];
-        const bullets = matched.map(bp => bp.replace(/^>>\s*/, ''));
+        const bullets = matched.map(bp => 
+            bp
+              .replace(/^>>\s*/, '')     // remove the leading ">>"
+              .replace(/\*\*/g, '')      // remove markdown asterisks
+        );
         
         // Verify word count matches target
         return bullets.filter(bullet => countWordsInBullet(bullet) === wordLimit);
@@ -165,7 +169,11 @@ async function generateTailoredBulletPoints(existingBullets, keywords, context, 
 
         const content = response.data.choices[0].message.content.trim();
         const matched = content.match(/^\>\>(.+)$/gm) || [];
-        return matched.map(bp => bp.replace(/^>>\s*/, ''));
+        return matched.map(bp => 
+            bp
+              .replace(/^>>\s*/, '')     // remove the leading ">>"
+              .replace(/\*\*/g, '')      // remove markdown asterisks
+        );
     } catch (error) {
         console.error('Error generating tailored bullet points:', error);
         throw error;
