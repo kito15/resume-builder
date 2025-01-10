@@ -82,54 +82,37 @@ function getSectionWordCounts($) {
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     let prompt;
-    const basePrompt = `Expert resume writer: Incorporate ALL keywords (${keywords}) while preserving original meaning exactly.
+    const basePrompt = `Expert resume writer: Your goal is to integrate ALL keywords into these bullet points WITHOUT altering their original text or meaning.
 
-CORE REQUIREMENTS:
-1. Must use ALL keywords
-2. Must preserve original meaning
-3. Must maintain ${wordLimit} words
+1) PRESERVE EXACT TEXT:
+   - Keep every word, number, metric, punctuation, or technical term untouched.
+   - Retain the original order and phrasing.
 
-KEYWORD INTEGRATION STRATEGIES:
-- Add as adjectives: "managed" → "managed development team"
-- Use as context: "cloud" → "in cloud environments"
-- Link with conjunctions: "and", "using", "through"
-- Append as tools/methods: "using [keyword]"
+2)INCORPORATE KEYWORDS:
+   - Add each keyword naturally, without removing or replacing original words.
+   - If a keyword truly does not fit, append it at the end so all are used.
+   - Absolutely no placeholders like "Placeholder bullet point 1".
 
-PRESERVATION RULES:
-- Keep ALL numbers unchanged
-- Keep ALL metrics exact
-- Keep ALL technical terms
-- Keep ALL project names
-- Keep ALL achievements
+3)FORMAT:
+   - Each bullet point must be prefixed with '>>'.
+   - Use exactly ${wordLimit} words, if possible without changing the original text.
 
 EXAMPLES:
-Original: "Led team of 5 developers"
-Keywords: ["managed", "agile"]
-GOOD: ">>Led and managed team of 5 developers using agile"
-WHY: Added both keywords, kept original meaning
+Original: "Managed database of 20,000 records"
+Keywords: "analytics, optimization"
+Possible: ">>Managed database of 20,000 records with analytics and optimization"
 
-Original: "Increased efficiency by 40%"
-Keywords: ["optimization", "automated"]
-GOOD: ">>Increased efficiency by 40% through automated optimization processes"
-WHY: Added both keywords, preserved metric
-
-VERIFICATION:
-1. Are ALL keywords used?
-2. Is original meaning intact?
-3. Are all metrics preserved?
-4. Is word count exact?
-
-Return ENHANCED bullets with ALL keywords naturally integrated. Never return generic placeholders.`;
+CRITICAL: If ANY doubt arises about meaning change, keep original text and just append keywords at the end.`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
 
-Transform these bullets (must include ALL keywords):
+Process these exact bullets:
 ${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `${basePrompt}
 
-Generate ${context} bullets (4-5 unique, metrics-focused, using ALL keywords)`;
+Generate ${context} bullets (4-5 total) while preserving any existing bullet text exactly.`;
     }
 
     try {
