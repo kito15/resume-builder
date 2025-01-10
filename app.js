@@ -82,47 +82,54 @@ function getSectionWordCounts($) {
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     let prompt;
-    const basePrompt = `Expert resume writer: Your task is to preserve bullet points exactly while incorporating keywords: ${keywords}
+    const basePrompt = `Expert resume writer: Incorporate ALL keywords (${keywords}) while preserving original meaning exactly.
 
-ABSOLUTE PRESERVATION RULES:
-1. NEVER change:
-   - Numbers (40% must stay 40%)
-   - Action verbs (keep original)
-   - Technical terms (keep exact)
-   - Project names (keep exact)
-   - Core achievements (keep exact)
+CORE REQUIREMENTS:
+1. Must use ALL keywords
+2. Must preserve original meaning
+3. Must maintain ${wordLimit} words
 
-2. Keywords integration:
-   - ONLY add if perfect synonym match
-   - ONLY add if meaning stays 100% same
-   - If keyword doesn't fit, return original
+KEYWORD INTEGRATION STRATEGIES:
+- Add as adjectives: "managed" → "managed development team"
+- Use as context: "cloud" → "in cloud environments"
+- Link with conjunctions: "and", "using", "through"
+- Append as tools/methods: "using [keyword]"
 
-FORMAT:
-- Start each with '>>'
-- Use ${wordLimit} words
-- Return original if ANY doubt
+PRESERVATION RULES:
+- Keep ALL numbers unchanged
+- Keep ALL metrics exact
+- Keep ALL technical terms
+- Keep ALL project names
+- Keep ALL achievements
 
 EXAMPLES:
-Original: "Developed API serving 1M requests"
-+ Keyword: "architecture"
-KEEP ORIGINAL (keyword doesn't fit naturally)
-
 Original: "Led team of 5 developers"
-+ Keyword: "managed"
-PASS: ">>Led and managed team of 5 developers"
-(only added without changing)
+Keywords: ["managed", "agile"]
+GOOD: ">>Led and managed team of 5 developers using agile"
+WHY: Added both keywords, kept original meaning
 
-CRITICAL: When in doubt, return original unchanged with '>>' prefix`;
+Original: "Increased efficiency by 40%"
+Keywords: ["optimization", "automated"]
+GOOD: ">>Increased efficiency by 40% through automated optimization processes"
+WHY: Added both keywords, preserved metric
+
+VERIFICATION:
+1. Are ALL keywords used?
+2. Is original meaning intact?
+3. Are all metrics preserved?
+4. Is word count exact?
+
+Return ENHANCED bullets with ALL keywords naturally integrated. Never return generic placeholders.`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
 
-Process these bullets (prefer keeping original):
+Transform these bullets (must include ALL keywords):
 ${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `${basePrompt}
 
-Generate ${context} bullets (4-5 unique, metrics-focused)`;
+Generate ${context} bullets (4-5 unique, metrics-focused, using ALL keywords)`;
     }
 
     try {
