@@ -122,14 +122,48 @@ ${(existingBullets || []).join('\n')}
 
 CRITICAL: If a keyword cannot be integrated while maintaining the EXACT meaning, return the original unchanged.`;
     } else {
-        prompt = `As an expert resume writer, your task is to create bullet points ${context},
-with each bullet point containing EXACTLY ${wordLimit} words. Create enough bullet points
-to incorporate all provided keywords, with a maximum of five bullet points. It is crucial
-that ALL keywords are included. Use numbers for at least two bullet points. Format each as:
->>First bullet
->>Second bullet
+        prompt = `As an expert resume writer, follow this EXACT process to create impactful bullet points ${context} using these keywords: ${keywords}
 
-Keywords: ${keywords}`;
+STEP 1: PLANNING
+- First, analyze all provided keywords
+- Identify key achievements and metrics to highlight
+- Plan how to incorporate keywords naturally
+- Ensure varied action verbs for each bullet
+
+STEP 2: COMPOSITION RULES (HIGHEST PRIORITY)
+- Each bullet point MUST:
+  a) Start with '>>' prefix
+  b) Contain EXACTLY ${wordLimit} words
+  c) Include strong action verbs
+  d) Follow STAR format (Situation, Task, Action, Result)
+  e) Include specific metrics where possible
+
+STEP 3: KEYWORD INTEGRATION RULES
+- Each bullet point should:
+  a) Naturally incorporate 1-2 keywords
+  b) Avoid forcing keywords where they don't fit
+  c) Maintain professional tone and clarity
+  d) Use keywords in their proper context
+
+STEP 4: VERIFICATION CHECKLIST
+Before returning each bullet point, verify:
+1. Does it start with '>>'?
+2. Is the word count exactly ${wordLimit}?
+3. Does it include specific metrics?
+4. Is it following STAR format?
+5. Are keywords naturally integrated?
+
+EXAMPLE:
+Keywords: "automation, testing"
+BAD: ">>Implemented automation testing for projects" (too vague, no metrics)
+GOOD: ">>Developed automated testing framework reducing QA time by 40 percent through efficient integration"
+
+REQUIREMENTS:
+- Generate 4-5 unique bullet points
+- Include metrics in at least 2 bullets
+- Use different action verbs for each bullet
+- Ensure ALL provided keywords are used
+- Each bullet must be exactly ${wordLimit} words`;
     }
 
     try {
