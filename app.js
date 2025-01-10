@@ -83,44 +83,37 @@ function getSectionWordCounts($) {
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     let prompt;
     if (mode === 'tailor') {
-        prompt = `As an expert resume writer, follow this EXACT process for each bullet point while incorporating keywords: ${keywords}
+        prompt = `You are an expert resume writer. Your task: Preserve these bullet points EXACTLY while incorporating keywords: ${keywords}
 
-STEP 1: ANALYSIS
-- First, read and understand the original bullet point completely
-- Identify the core achievement, metrics, and action verbs
-- Look for natural keyword integration opportunities WITHOUT changing meaning
+CRITICAL RULES:
+1. DO NOT:
+   - Change ANY numbers or metrics
+   - Modify original meaning
+   - Rephrase achievements
+   - Alter sentence structure
+   - Remove technical terms
 
-STEP 2: PRESERVATION RULES (HIGHEST PRIORITY)
-- The original bullet point's meaning MUST remain unchanged
-- Preserve ALL numerical values (e.g., "40%" must stay "40%")
-- Keep ALL original action verbs
-- Maintain ALL technical terms and project names
-- Keep the original STAR (Situation, Task, Action, Result) structure
+2. ONLY incorporate keywords if:
+   - They replace EXACT synonyms
+   - They fit perfectly in context
+   - Original meaning stays 100% intact
 
-STEP 3: KEYWORD INTEGRATION RULES
-- ONLY integrate keywords if they:
-  a) Replace an EXACT synonym already present
-  b) Can be added without removing ANY original words
-  c) Don't change the sentence structure
-  
-STEP 4: VERIFICATION CHECKLIST
-Before returning each bullet point, verify:
-1. Does it start with '>>'?
-2. Is the core meaning identical to original?
-3. Are all numbers/metrics unchanged?
-4. Is the word count exactly ${wordLimit}?
-5. Would the original author agree it's the same point?
+3. FORMAT:
+   - Start each with '>>'
+   - Keep EXACTLY ${wordLimit} words
+   - Return original if keywords don't fit naturally
 
-EXAMPLE:
-Original: "Led development team of 5 engineers in mobile app project"
-Keyword: "managed"
-BAD: ">>Managed mobile development project with engineering team" (meaning changed)
-GOOD: ">>Led and managed development team of 5 engineers in mobile app project" (meaning preserved)
+WARNING: Changing meaning or metrics = automatic failure
 
-Original bullets to process:
-${(existingBullets || []).join('\n')}
+EXAMPLES:
+Original: "Increased sales by 45% through market analysis"
+Keyword: "growth"
+FAIL: ">>Achieved 40% growth through market analysis" (changed number)
+FAIL: ">>Analyzed markets leading to sales growth" (lost specifics)
+PASS: ">>Increased sales growth by 45% through market analysis" (preserved all)
 
-CRITICAL: If a keyword cannot be integrated while maintaining the EXACT meaning, return the original unchanged.`;
+Process these bullets:
+${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `As an expert resume writer, follow this EXACT process to create impactful bullet points ${context} using these keywords: ${keywords}
 
