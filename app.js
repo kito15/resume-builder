@@ -82,37 +82,29 @@ function getSectionWordCounts($) {
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     let prompt;
-    const basePrompt = `Expert resume writer: Your goal is to integrate ALL keywords into these bullet points WITHOUT altering their original text or meaning.
+    const basePrompt = `Expert resume writer: You must preserve each bullet point exactly as it is, integrating ALL keywords without altering original text or meaning.
 
-1) PRESERVE EXACT TEXT:
-   - Keep every word, number, metric, punctuation, or technical term untouched.
-   - Retain the original order and phrasing.
+RULES:
+1) Do not remove or replace original words, numbers, or phrasing.
+2) Merge keywords naturally; if they don't fit, append them at the end.
+3) Use ">>" at the start of each bullet, matching original bullets if provided.
+4) No placeholders. No rewriting that changes meaning.
+5) Aim for exactly ${wordLimit} words only if possible without altering the original bullet.
 
-2)INCORPORATE KEYWORDS:
-   - Add each keyword naturally, without removing or replacing original words.
-   - If a keyword truly does not fit, append it at the end so all are used.
-   - Absolutely no placeholders like "Placeholder bullet point 1".
-
-3)FORMAT:
-   - Each bullet point must be prefixed with '>>'.
-   - Use exactly ${wordLimit} words, if possible without changing the original text.
-
-EXAMPLES:
-Original: "Managed database of 20,000 records"
-Keywords: "analytics, optimization"
-Possible: ">>Managed database of 20,000 records with analytics and optimization"
-
-CRITICAL: If ANY doubt arises about meaning change, keep original text and just append keywords at the end.`;
+EXAMPLE:
+Original: "Managed insights for a 40% increase in sales"
++ Keywords: "metrics, data"
+Result: ">>Managed insights for a 40% increase in sales using metrics and data"`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
 
-Process these exact bullets:
+Preserve these bullets exactly (append keywords if needed):
 ${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `${basePrompt}
 
-Generate ${context} bullets (4-5 total) while preserving any existing bullet text exactly.`;
+Generate 4-5 bullet points for ${context}, preserving any supplied text exactly.`;
     }
 
     try {
