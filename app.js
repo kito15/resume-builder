@@ -82,65 +82,47 @@ function getSectionWordCounts($) {
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     let prompt;
-    if (mode === 'tailor') {
-        prompt = `Expert resume writer: Preserve EXACT meaning while adding keywords: ${keywords}
+    const basePrompt = `Expert resume writer: Your task is to preserve bullet points exactly while incorporating keywords: ${keywords}
 
-ABSOLUTE RULES:
-1. Original text is sacred - preserve:
-   - Every number and metric
-   - Every action verb
-   - Every technical term
-   - Every achievement
+ABSOLUTE PRESERVATION RULES:
+1. NEVER change:
+   - Numbers (40% must stay 40%)
+   - Action verbs (keep original)
+   - Technical terms (keep exact)
+   - Project names (keep exact)
+   - Core achievements (keep exact)
 
-2. Keywords allowed ONLY if:
-   - Replacing exact synonyms
-   - Adding without changing meaning
-   - Fitting naturally
+2. Keywords integration:
+   - ONLY add if perfect synonym match
+   - ONLY add if meaning stays 100% same
+   - If keyword doesn't fit, return original
 
-FORMAT: Prefix with '>>', use ${wordLimit} words
+FORMAT:
+- Start each with '>>'
+- Use ${wordLimit} words
+- Return original if ANY doubt
 
-VALIDATION:
-Input: "Led team of 5 developers"
+EXAMPLES:
+Original: "Developed API serving 1M requests"
++ Keyword: "architecture"
+KEEP ORIGINAL (keyword doesn't fit naturally)
+
+Original: "Led team of 5 developers"
 + Keyword: "managed"
-FAIL: ">>Managed 5 developers" (changed verb)
-PASS: ">>Led and managed team of 5 developers" (preserved + added)
+PASS: ">>Led and managed team of 5 developers"
+(only added without changing)
 
-Input: "Increased efficiency by 40%"
-+ Keyword: "optimization"
-FAIL: ">>Optimization improved efficiency" (lost metric)
-PASS: ">>Increased efficiency by 40% through optimization" (preserved + added)
+CRITICAL: When in doubt, return original unchanged with '>>' prefix`;
 
-Process these (return unchanged if keywords don't fit naturally):
+    if (mode === 'tailor') {
+        prompt = `${basePrompt}
+
+Process these bullets (prefer keeping original):
 ${(existingBullets || []).join('\n')}`;
     } else {
-        prompt = `Expert resume writer: Preserve EXACT meaning while adding keywords: ${keywords}
+        prompt = `${basePrompt}
 
-ABSOLUTE RULES:
-1. Original text is sacred - preserve:
-   - Every number and metric
-   - Every action verb
-   - Every technical term
-   - Every achievement
-
-2. Keywords allowed ONLY if:
-   - Replacing exact synonyms
-   - Adding without changing meaning
-   - Fitting naturally
-
-FORMAT: Prefix with '>>', use ${wordLimit} words
-
-VALIDATION:
-Input: "Led team of 5 developers"
-+ Keyword: "managed"
-FAIL: ">>Managed 5 developers" (changed verb)
-PASS: ">>Led and managed team of 5 developers" (preserved + added)
-
-Input: "Increased efficiency by 40%"
-+ Keyword: "optimization"
-FAIL: ">>Optimization improved efficiency" (lost metric)
-PASS: ">>Increased efficiency by 40% through optimization" (preserved + added)
-
-Generate 4-5 strong bullets for ${context} (return unchanged if keywords don't fit naturally)`;
+Generate ${context} bullets (4-5 unique, metrics-focused)`;
     }
 
     try {
@@ -260,22 +242,22 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
 }
 
 async function ensureBulletRange(bulletPoints, usedBullets, generateFn, minCount, maxCount) {
-    // Keep trying to generate more if needed, up to a few attempts
     let attempts = 0;
+    const originalBullets = [...bulletPoints];
+
     while (bulletPoints.length < minCount && attempts < 3) {
         const newPoints = (await generateFn()).filter(bp => !usedBullets.has(bp));
         bulletPoints = bulletPoints.concat(newPoints);
         attempts++;
     }
-    // Fill placeholders if still below minCount
+
+    // If still below minCount, use originals instead of placeholders
     while (bulletPoints.length < minCount) {
-        bulletPoints.push(`Placeholder bullet point ${bulletPoints.length + 1}`);
+        const recycledBullet = originalBullets[bulletPoints.length % originalBullets.length];
+        bulletPoints.push(recycledBullet || bulletPoints[0]); // Fallback to first bullet if needed
     }
-    // Truncate if above maxCount
-    if (bulletPoints.length > maxCount) {
-        bulletPoints = bulletPoints.slice(0, maxCount);
-    }
-    return bulletPoints;
+
+    return bulletPoints.slice(0, maxCount);
 }
 
 function shuffleArray(array) {
