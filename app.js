@@ -83,24 +83,31 @@ function getSectionWordCounts($) {
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     let prompt;
     if (mode === 'tailor') {
-        prompt = `As an expert resume writer, your task is to preserve the core meaning and structure of the existing bullet points while naturally incorporating these keywords: ${keywords}
+        prompt = `As an expert resume writer, your primary task is to EXACTLY preserve each original bullet point while strategically incorporating these keywords ONLY where they perfectly match the existing content: ${keywords}
 
-Important guidelines:
-1. Each bullet point MUST:
-   - Start with '>>'
-   - Maintain its original meaning and quantifiable achievements
-   - Contain EXACTLY ${wordLimit} words
-   - Only incorporate keywords where they naturally fit
-2. Do NOT:
-   - Change the fundamental meaning or achievements
-   - Force keywords where they don't belong
-   - Alter numerical values or metrics
-   - Completely rewrite the bullet points
+CRITICAL REQUIREMENTS:
+1. DO NOT modify, rephrase, or rewrite the original bullets
+2. DO NOT change any:
+   - Numerical values or metrics
+   - Action verbs
+   - Technical terms
+   - Project names
+   - Achievement descriptions
+   
+3. ONLY incorporate keywords when:
+   - They are synonyms for existing words
+   - They naturally fit the existing context
+   - They don't alter the original meaning AT ALL
 
-Original bullet points to enhance:
+4. Format Requirements:
+   - Each bullet MUST start with '>>'
+   - Maintain EXACTLY ${wordLimit} words
+   - Keep original STAR format intact
+   
+Here are the original bullets that should remain nearly identical:
 ${(existingBullets || []).join('\n')}
 
-Please maintain the STAR (Situation, Task, Action, Result) format if present in the original bullets.`;
+IMPORTANT: If a keyword cannot be naturally incorporated without changing the meaning, DO NOT force it in. Return the original bullet point unchanged.`;
     } else {
         prompt = `As an expert resume writer, your task is to create bullet points ${context},
 with each bullet point containing EXACTLY ${wordLimit} words. Create enough bullet points
