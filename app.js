@@ -82,29 +82,30 @@ function getSectionWordCounts($) {
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     let prompt;
-    const basePrompt = `Expert resume writer: You must preserve each bullet point exactly as it is, integrating ALL keywords without altering original text or meaning.
+    const basePrompt = `Expert resume writer: Keep each bullet exactly as is, but ensure ALL keywords appear in it without altering original meaning.
 
 RULES:
-1) Do not remove or replace original words, numbers, or phrasing.
-2) Merge keywords naturally; if they don't fit, append them at the end.
-3) Use ">>" at the start of each bullet, matching original bullets if provided.
-4) No placeholders. No rewriting that changes meaning.
-5) Aim for exactly ${wordLimit} words only if possible without altering the original bullet.
+1) Original words, numbers, and order must never change.
+2) Incorporate EVERY keyword organically. If any truly doesn't fit, append it at the end.
+3) Each bullet starts with ">>".
+4) Aim for ${wordLimit} words only if it doesn't break the original structure.
+5) FAIL if any keyword is missing or if meaning is changed.
 
 EXAMPLE:
-Original: "Managed insights for a 40% increase in sales"
-+ Keywords: "metrics, data"
-Result: ">>Managed insights for a 40% increase in sales using metrics and data"`;
+Original: "Led a sales team of 5"
+Keywords: "Python, analytics"
+PASS: ">>Led a sales team of 5 using Python for advanced analytics"
+(keeps original text, includes all keywords)`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
 
-Preserve these bullets exactly (append keywords if needed):
+Preserve these bullets exactly (must include all keywords):
 ${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `${basePrompt}
 
-Generate 4-5 bullet points for ${context}, preserving any supplied text exactly.`;
+Generate 4-5 bullet points for ${context}, preserving any provided text exactly.`;
     }
 
     try {
