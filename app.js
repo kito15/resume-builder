@@ -83,80 +83,64 @@ function getSectionWordCounts($) {
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     let prompt;
     if (mode === 'tailor') {
-        prompt = `You are an expert resume writer. Your task: Preserve these bullet points EXACTLY while incorporating keywords: ${keywords}
+        prompt = `Expert resume writer: Preserve EXACT meaning while adding keywords: ${keywords}
 
-CRITICAL RULES:
-1. DO NOT:
-   - Change ANY numbers or metrics
-   - Modify original meaning
-   - Rephrase achievements
-   - Alter sentence structure
-   - Remove technical terms
+ABSOLUTE RULES:
+1. Original text is sacred - preserve:
+   - Every number and metric
+   - Every action verb
+   - Every technical term
+   - Every achievement
 
-2. ONLY incorporate keywords if:
-   - They replace EXACT synonyms
-   - They fit perfectly in context
-   - Original meaning stays 100% intact
+2. Keywords allowed ONLY if:
+   - Replacing exact synonyms
+   - Adding without changing meaning
+   - Fitting naturally
 
-3. FORMAT:
-   - Start each with '>>'
-   - Keep EXACTLY ${wordLimit} words
-   - Return original if keywords don't fit naturally
+FORMAT: Prefix with '>>', use ${wordLimit} words
 
-WARNING: Changing meaning or metrics = automatic failure
+VALIDATION:
+Input: "Led team of 5 developers"
++ Keyword: "managed"
+FAIL: ">>Managed 5 developers" (changed verb)
+PASS: ">>Led and managed team of 5 developers" (preserved + added)
 
-EXAMPLES:
-Original: "Increased sales by 45% through market analysis"
-Keyword: "growth"
-FAIL: ">>Achieved 40% growth through market analysis" (changed number)
-FAIL: ">>Analyzed markets leading to sales growth" (lost specifics)
-PASS: ">>Increased sales growth by 45% through market analysis" (preserved all)
+Input: "Increased efficiency by 40%"
++ Keyword: "optimization"
+FAIL: ">>Optimization improved efficiency" (lost metric)
+PASS: ">>Increased efficiency by 40% through optimization" (preserved + added)
 
-Process these bullets:
+Process these (return unchanged if keywords don't fit naturally):
 ${(existingBullets || []).join('\n')}`;
     } else {
-        prompt = `As an expert resume writer, follow this EXACT process to create impactful bullet points ${context} using these keywords: ${keywords}
+        prompt = `Expert resume writer: Preserve EXACT meaning while adding keywords: ${keywords}
 
-STEP 1: PLANNING
-- First, analyze all provided keywords
-- Identify key achievements and metrics to highlight
-- Plan how to incorporate keywords naturally
-- Ensure varied action verbs for each bullet
+ABSOLUTE RULES:
+1. Original text is sacred - preserve:
+   - Every number and metric
+   - Every action verb
+   - Every technical term
+   - Every achievement
 
-STEP 2: COMPOSITION RULES (HIGHEST PRIORITY)
-- Each bullet point MUST:
-  a) Start with '>>' prefix
-  b) Contain EXACTLY ${wordLimit} words
-  c) Include strong action verbs
-  d) Follow STAR format (Situation, Task, Action, Result)
-  e) Include specific metrics where possible
+2. Keywords allowed ONLY if:
+   - Replacing exact synonyms
+   - Adding without changing meaning
+   - Fitting naturally
 
-STEP 3: KEYWORD INTEGRATION RULES
-- Each bullet point should:
-  a) Naturally incorporate 1-2 keywords
-  b) Avoid forcing keywords where they don't fit
-  c) Maintain professional tone and clarity
-  d) Use keywords in their proper context
+FORMAT: Prefix with '>>', use ${wordLimit} words
 
-STEP 4: VERIFICATION CHECKLIST
-Before returning each bullet point, verify:
-1. Does it start with '>>'?
-2. Is the word count exactly ${wordLimit}?
-3. Does it include specific metrics?
-4. Is it following STAR format?
-5. Are keywords naturally integrated?
+VALIDATION:
+Input: "Led team of 5 developers"
++ Keyword: "managed"
+FAIL: ">>Managed 5 developers" (changed verb)
+PASS: ">>Led and managed team of 5 developers" (preserved + added)
 
-EXAMPLE:
-Keywords: "automation, testing"
-BAD: ">>Implemented automation testing for projects" (too vague, no metrics)
-GOOD: ">>Developed automated testing framework reducing QA time by 40 percent through efficient integration"
+Input: "Increased efficiency by 40%"
++ Keyword: "optimization"
+FAIL: ">>Optimization improved efficiency" (lost metric)
+PASS: ">>Increased efficiency by 40% through optimization" (preserved + added)
 
-REQUIREMENTS:
-- Generate 4-5 unique bullet points
-- Include metrics in at least 2 bullets
-- Use different action verbs for each bullet
-- Ensure ALL provided keywords are used
-- Each bullet must be exactly ${wordLimit} words`;
+Generate 4-5 strong bullets for ${context} (return unchanged if keywords don't fit naturally)`;
     }
 
     try {
