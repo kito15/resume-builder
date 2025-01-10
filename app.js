@@ -78,43 +78,35 @@ function getSectionWordCounts($) {
     };
 }
 
-async function generateBulletPoints(keywords, context, wordLimit) {
-    const prompt = `As an expert resume writer, your task is to create bullet points ${context}, ` +
-        `with each bullet point containing EXACTLY ${wordLimit} words (this is crucial). ` +
-        `Create enough bullet points to incorporate all provided keywords, with a maximum of five bullet points. It is crucial that ALL provided keywords are incorporated into the bullet points. Do not omit any keywords.
+// Remove the old functions: generateBulletPoints, generateTailoredBulletPoints, generateAllSectionBulletPoints
 
-Before we proceed, let's ensure we're on the same page:
-- What does it mean for a bullet point to be concise and not exceed ${wordLimit} words?
-- What are personal pronouns and why should they be avoided in this context?
-- Can you provide an example of a strong action verb?
+async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
+    // Construct the prompt based on mode
+    let prompt;
+    if (mode === 'tailor') {
+        prompt = `As an expert resume writer, enhance the following bullet points by incorporating these keywords: ${keywords}
+while maintaining their original meaning. Each bullet point must:
+- Be prefixed with '>>'.
+- Contain no more than ${wordLimit} words.
+- Preserve the core meaning with minimal changes.
+- Incorporate keywords naturally.
+- Follow the STAR method where applicable.
+Do not exceed ${wordLimit} words per bullet.
+Existing bullets:
+${(existingBullets || []).join('\n')}`;
+    } else {
+        prompt = `As an expert resume writer, your task is to create bullet points ${context},
+with each bullet point containing EXACTLY ${wordLimit} words. Create enough bullet points
+to incorporate all provided keywords, with a maximum of five bullet points. It is crucial
+that ALL keywords are included. Use numbers for at least two bullet points. Format each as:
+>>First bullet
+>>Second bullet
 
-The bullet points should be tailored to the following keywords: ${keywords}.
-
-For at least two of the bullet points, include numbers to quantify achievements. Despite limited experience, aim to make your bullet points impressive. Can you provide an example of how to do this?
-
-You are also asked to structure the resume based on the STAR method. Can you explain what the STAR method is and how it provides a clear and engaging narrative of accomplishments?
-
-Ensure that all keywords are incorporated in the bullet points and that they are relevant to the job role and industry. Prioritize the inclusion of all keywords over other considerations, while still maintaining coherence and relevance within the ${wordLimit}-word limit. Remember to apply the STAR method to your bullet points where possible.
-
-After generating the bullet points, provide a checklist of all keywords and indicate which bullet point(s) each keyword appears in.
-
-Please format your response as follows:
-1. Provide any explanations or additional information.
-2. List the bullet points, each on a new line, prefixed with '>>'.
-3. After the bullet points, provide a checklist of all keywords and indicate which bullet point(s) each keyword appears in.
-
-Example format:
-[Any explanations or additional information]
-
->>First bullet point here
->>Second bullet point here
->>Third bullet point here
-
-Keyword checklist:
-- Keyword1: Appears in bullet points 1, 3
-- Keyword2: Appears in bullet point 2`;
+Keywords: ${keywords}`;
+    }
 
     try {
+        // Post to DeepSeek using axios
         const response = await axios.post('https://api.deepseek.com/chat/completions', {
             model: 'deepseek-chat',
             messages: [
@@ -129,68 +121,20 @@ Keyword checklist:
             }
         });
 
+        // Extract bullet points
         const content = response.data.choices[0].message.content.trim();
         const matched = content.match(/^\>\>(.+)$/gm) || [];
-        const bullets = matched.map(bp => 
-            bp
-              .replace(/^>>\s*/, '')     // remove the leading ">>"
-              .replace(/\*\*/g, '')      // remove markdown asterisks
+        return matched.map(bp =>
+            bp.replace(/^>>\s*/, '')
+              .replace(/\*\*/g, '')
         );
-        
-        // Verify word count matches target
-        return bullets.filter(bullet => countWordsInBullet(bullet) === wordLimit);
     } catch (error) {
-        console.error('Error generating bullet points:', error);
+        console.error('Error generating bullets:', error);
         throw error;
     }
 }
 
-async function generateTailoredBulletPoints(existingBullets, keywords, context, wordLimit) {
-    const prompt = `As an expert resume writer, enhance the following bullet points by incorporating these keywords: ${keywords} ` +
-        `while maintaining their original meaning. Each bullet point must: ` +
-        `- Be prefixed with '>>'. ` +
-        `- Contain no more than ${wordLimit} words. ` +
-        `- Preserve the core meaning with minimal changes. ` +
-        `- Incorporate keywords naturally. ` +
-        `- Follow the STAR method where applicable. ` +
-        `Do not exceed ${wordLimit} words per bullet.`;
-
-    try {
-        const response = await axios.post('https://api.deepseek.com/chat/completions', {
-            model: 'deepseek-chat',
-            messages: [
-                { role: 'system', content: 'You are a professional resume writer.' },
-                { role: 'user', content: prompt }
-            ],
-            stream: false
-        }, {
-            headers: {
-                'Authorization': `Bearer ${deepseekApiKey}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        const content = response.data.choices[0].message.content.trim();
-        const matched = content.match(/^\>\>(.+)$/gm) || [];
-        return matched.map(bp => 
-            bp
-              .replace(/^>>\s*/, '')     // remove the leading ">>"
-              .replace(/\*\*/g, '')      // remove markdown asterisks
-        );
-    } catch (error) {
-        console.error('Error generating tailored bullet points:', error);
-        throw error;
-    }
-}
-
-function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
-}
-
+// Modify updateResumeSection to call generateBullets in place of old functions
 async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, usedBullets, allSectionBullets) {
     let previousFirstVerb = '';
 
@@ -208,11 +152,9 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                     .map((_, el) => $(el).text())
                     .get();
                     
-                bulletPoints = await generateTailoredBulletPoints(
-                    existingBullets,
-                    keywords[i % keywords.length],
-                    context,
-                    wordLimit
+                bulletPoints = await generateBullets(
+                    'tailor', existingBullets,
+                    keywords[i % keywords.length], context, wordLimit
                 );
             } else {
                 // Use pre-fetched bullet points for empty sections
@@ -233,7 +175,7 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
             // Shuffle, then ensure 4-5 total bullets
             bulletPoints = shuffleArray(bulletPoints);
             bulletPoints = await ensureBulletRange(bulletPoints, usedBullets, () =>
-                generateBulletPoints(keywords[i % keywords.length], context, wordLimit), 4, 5);
+                generateBullets('generate', null, keywords[i % keywords.length], context, wordLimit), 4, 5);
 
             // Clear old items and insert final bulletPoints
             bulletList.empty();
@@ -245,55 +187,7 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
     }
 }
 
-async function generateAllSectionBulletPoints(allContexts, keywordGroups, wordLimits) {
-    // Create a cache key
-    const cacheKey = JSON.stringify({ allContexts, keywordGroups, wordLimits });
-    if (lmCache.has(cacheKey)) {
-        return lmCache.get(cacheKey);
-    }
-
-    // Make one combined request for all sections
-    const prompt = `Generate bullet points for these contexts: ${allContexts.join(', ')}.
-For the "project" context, ensure each bullet point follows the STAR method (Situation, Task, Action, Result), highlighting measurable outcomes, practical impacts, and relevant technical details. Avoid vague or generic phrasing.
-
-Each context must have ${wordLimits.join(', ')} words per bullet.
-Include all keywords from each context: ${keywordGroups.join('; ')}.
-Maintain a clear and engaging tone throughout, ensuring bullet points reflect well-crafted, concise statements.`;
-
-    try {
-        const response = await axios.post('https://api.deepseek.com/chat/completions', {
-            model: 'deepseek-chat',
-            messages: [
-                { role: 'system', content: 'You are a professional resume writer.' },
-                { role: 'user', content: prompt }
-            ],
-            stream: false
-        }, {
-            headers: {
-                'Authorization': `Bearer ${deepseekApiKey}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        const content = response.data.choices[0].message.content.trim();
-        
-        // Split out bullet points for each context if possible
-        // or simply return them as a single array, then distribute
-        const matched = content.match(/^\>\>(.+)$/gm) || [];
-        const finalBullets = matched.map(bp =>
-            bp.replace(/^>>\s*/, '')
-              .replace(/\*\*/g, '')
-        );
-
-        // Store in cache before returning
-        lmCache.set(cacheKey, finalBullets);
-        return finalBullets;
-    } catch (error) {
-        console.error('Error generating all section bullet points:', error);
-        throw error;
-    }
-}
-
+// Remove references to generateAllSectionBulletPoints and simply fill "allSectionBullets" by calling generateBullets('generate', ...)
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const sectionWordCounts = getSectionWordCounts($);
@@ -311,9 +205,15 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     const combinedKeywords = fullTailoring
         ? Array(3).fill(keywords.join(', '))
         : [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
-    const allSectionBullets = await generateAllSectionBulletPoints(allContexts, combinedKeywords, wordLimits);
+    const allSectionBullets = await generateBullets(
+        'generate',
+        null,
+        fullTailoring ? keywords.join(', ') : keywords.slice(0, Math.min(5, keywords.length)).join(', '),
+        'for all sections',
+        15 // or use computed values if needed
+    );
 
-    // Then use 'allSectionBullets' in each 'updateResumeSection' instead of calling generateBulletPoints again.
+    // Then use 'allSectionBullets' in each 'updateResumeSection' instead of calling generateBullets again.
     await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, sectionWordCounts.job, usedBullets, allSectionBullets);
     await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, sectionWordCounts.project, usedBullets, allSectionBullets);
     await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, sectionWordCounts.education, usedBullets, allSectionBullets);
@@ -338,6 +238,14 @@ async function ensureBulletRange(bulletPoints, usedBullets, generateFn, minCount
         bulletPoints = bulletPoints.slice(0, maxCount);
     }
     return bulletPoints;
+}
+
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
 }
 
 async function convertHtmlToPdf(htmlContent) {
