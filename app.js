@@ -83,31 +83,44 @@ function getSectionWordCounts($) {
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     let prompt;
     if (mode === 'tailor') {
-        prompt = `As an expert resume writer, your primary task is to EXACTLY preserve each original bullet point while strategically incorporating these keywords ONLY where they perfectly match the existing content: ${keywords}
+        prompt = `As an expert resume writer, follow this EXACT process for each bullet point while incorporating keywords: ${keywords}
 
-CRITICAL REQUIREMENTS:
-1. DO NOT modify, rephrase, or rewrite the original bullets
-2. DO NOT change any:
-   - Numerical values or metrics
-   - Action verbs
-   - Technical terms
-   - Project names
-   - Achievement descriptions
-   
-3. ONLY incorporate keywords when:
-   - They are synonyms for existing words
-   - They naturally fit the existing context
-   - They don't alter the original meaning AT ALL
+STEP 1: ANALYSIS
+- First, read and understand the original bullet point completely
+- Identify the core achievement, metrics, and action verbs
+- Look for natural keyword integration opportunities WITHOUT changing meaning
 
-4. Format Requirements:
-   - Each bullet MUST start with '>>'
-   - Maintain EXACTLY ${wordLimit} words
-   - Keep original STAR format intact
-   
-Here are the original bullets that should remain nearly identical:
+STEP 2: PRESERVATION RULES (HIGHEST PRIORITY)
+- The original bullet point's meaning MUST remain unchanged
+- Preserve ALL numerical values (e.g., "40%" must stay "40%")
+- Keep ALL original action verbs
+- Maintain ALL technical terms and project names
+- Keep the original STAR (Situation, Task, Action, Result) structure
+
+STEP 3: KEYWORD INTEGRATION RULES
+- ONLY integrate keywords if they:
+  a) Replace an EXACT synonym already present
+  b) Can be added without removing ANY original words
+  c) Don't change the sentence structure
+  
+STEP 4: VERIFICATION CHECKLIST
+Before returning each bullet point, verify:
+1. Does it start with '>>'?
+2. Is the core meaning identical to original?
+3. Are all numbers/metrics unchanged?
+4. Is the word count exactly ${wordLimit}?
+5. Would the original author agree it's the same point?
+
+EXAMPLE:
+Original: "Led development team of 5 engineers in mobile app project"
+Keyword: "managed"
+BAD: ">>Managed mobile development project with engineering team" (meaning changed)
+GOOD: ">>Led and managed development team of 5 engineers in mobile app project" (meaning preserved)
+
+Original bullets to process:
 ${(existingBullets || []).join('\n')}
 
-IMPORTANT: If a keyword cannot be naturally incorporated without changing the meaning, DO NOT force it in. Return the original bullet point unchanged.`;
+CRITICAL: If a keyword cannot be integrated while maintaining the EXACT meaning, return the original unchanged.`;
     } else {
         prompt = `As an expert resume writer, your task is to create bullet points ${context},
 with each bullet point containing EXACTLY ${wordLimit} words. Create enough bullet points
