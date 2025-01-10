@@ -81,19 +81,26 @@ function getSectionWordCounts($) {
 // Remove the old functions: generateBulletPoints, generateTailoredBulletPoints, generateAllSectionBulletPoints
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    // Construct the prompt based on mode
     let prompt;
     if (mode === 'tailor') {
-        prompt = `As an expert resume writer, enhance the following bullet points by incorporating these keywords: ${keywords}
-while maintaining their original meaning. Each bullet point must:
-- Be prefixed with '>>'.
-- Contain no more than ${wordLimit} words.
-- Preserve the core meaning with minimal changes.
-- Incorporate keywords naturally.
-- Follow the STAR method where applicable.
-Do not exceed ${wordLimit} words per bullet.
-Existing bullets:
-${(existingBullets || []).join('\n')}`;
+        prompt = `As an expert resume writer, your task is to preserve the core meaning and structure of the existing bullet points while naturally incorporating these keywords: ${keywords}
+
+Important guidelines:
+1. Each bullet point MUST:
+   - Start with '>>'
+   - Maintain its original meaning and quantifiable achievements
+   - Contain EXACTLY ${wordLimit} words
+   - Only incorporate keywords where they naturally fit
+2. Do NOT:
+   - Change the fundamental meaning or achievements
+   - Force keywords where they don't belong
+   - Alter numerical values or metrics
+   - Completely rewrite the bullet points
+
+Original bullet points to enhance:
+${(existingBullets || []).join('\n')}
+
+Please maintain the STAR (Situation, Task, Action, Result) format if present in the original bullets.`;
     } else {
         prompt = `As an expert resume writer, your task is to create bullet points ${context},
 with each bullet point containing EXACTLY ${wordLimit} words. Create enough bullet points
