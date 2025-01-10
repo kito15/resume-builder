@@ -253,9 +253,12 @@ async function generateAllSectionBulletPoints(allContexts, keywordGroups, wordLi
     }
 
     // Make one combined request for all sections
-    const prompt = `Generate bullet points for these contexts: ${allContexts.join(', ')}
+    const prompt = `Generate bullet points for these contexts: ${allContexts.join(', ')}.
+For the "project" context, ensure each bullet point follows the STAR method (Situation, Task, Action, Result), highlighting measurable outcomes, practical impacts, and relevant technical details. Avoid vague or generic phrasing.
+
 Each context must have ${wordLimits.join(', ')} words per bullet.
-Include all keywords from each context: ${keywordGroups.join('; ')}`;
+Include all keywords from each context: ${keywordGroups.join('; ')}.
+Maintain a clear and engaging tone throughout, ensuring bullet points reflect well-crafted, concise statements.`;
 
     try {
         const response = await axios.post('https://api.deepseek.com/chat/completions', {
