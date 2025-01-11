@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const puppeteer = require('puppeteer');
 const axios = require('axios');
 const cheerio = require('cheerio');
+
 const app = express();
 const port = 3000;
 
@@ -81,20 +82,32 @@ function getSectionWordCounts($) {
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     let prompt;
-    const basePrompt = `Expert resume writer: Keep each bullet exactly as is, but ensure ALL keywords appear in it without altering original meaning.
+    const basePrompt = `Expert resume writer: Transform bullets to include ALL keywords while maintaining exact meaning.
 
-RULES:
-1) Original words, numbers, and order must never change.
-2) Incorporate EVERY keyword organically. If any truly doesn't fit, append it at the end.
-3) Each bullet starts with ">>".
-4) Aim for ${wordLimit} words only if it doesn't break the original structure.
-5) FAIL if any keyword is missing or if meaning is changed.
+MANDATORY REQUIREMENTS:
+1) EVERY keyword MUST be integrated naturally into each bullet
+2) Original achievements, metrics, and core actions cannot change
+3) Each bullet MUST start with ">>"
+4) Original meaning and impact MUST remain identical
+5) Word count target: ${wordLimit} (flexible if needed for meaning)
 
-EXAMPLE:
-Original: "Led a sales team of 5"
-Keywords: "Python, analytics"
-PASS: ">>Led a sales team of 5 using Python for advanced analytics"
-(keeps original text, includes all keywords)`;
+VALIDATION EXAMPLES:
+Original: "Increased revenue by 45% through market expansion"
+Keywords: "data analytics, Python"
+GOOD: ">>Increased revenue by 45% through data analytics and Python-driven market expansion"
+BAD: ">>Used Python and data analytics to boost sales" (WRONG: lost specific metric)
+BAD: ">>Increased revenue by 45% through market expansion (Python, data analytics)" (WRONG: artificial append)
+
+Original: "Managed team of 12 developers"
+Keywords: "agile, JavaScript"
+GOOD: ">>Managed team of 12 developers implementing agile practices for JavaScript projects"
+BAD: ">>Led agile JavaScript team" (WRONG: lost team size)
+
+VERIFICATION:
+- Check each bullet contains ALL keywords
+- Verify original metrics remain unchanged
+- Confirm natural keyword integration
+- Ensure ">>" prefix`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
