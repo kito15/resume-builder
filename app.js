@@ -158,15 +158,69 @@ Generate 4-5 achievement-focused bullets for ${context}`;
     }
 }
 
-// Update ensureAllSectionsHaveBullets to generate real content instead of placeholders
+// Add new function to extract and store original bullets
+function extractOriginalBullets($) {
+    const originalBullets = {
+        job: [],
+        project: [],
+        education: [],
+        unassigned: [] // For any bullets not clearly categorized
+    };
+
+    // Extract job bullets
+    $('.job-details').each((_, section) => {
+        $(section).find('li').each((_, bullet) => {
+            const text = $(bullet).text().trim();
+            if (text) {
+                originalBullets.job.push({
+                    text,
+                    section: 'job',
+                    used: false
+                });
+            }
+        });
+    });
+
+    // Extract project bullets
+    $('.project-details').each((_, section) => {
+        $(section).find('li').each((_, bullet) => {
+            const text = $(bullet).text().trim();
+            if (text) {
+                originalBullets.project.push({
+                    text,
+                    section: 'project',
+                    used: false
+                });
+            }
+        });
+    });
+
+    // Extract education bullets
+    $('.education-details').each((_, section) => {
+        $(section).find('li').each((_, bullet) => {
+            const text = $(bullet).text().trim();
+            if (text) {
+                originalBullets.education.push({
+                    text,
+                    section: 'education',
+                    used: false
+                });
+            }
+        });
+    });
+
+    return originalBullets;
+}
+
+// Update ensureAllSectionsHaveBullets to use original bullets
 async function ensureAllSectionsHaveBullets($, targetBulletCount, keywords, usedBullets, originalBullets) {
     const sectionSelectors = [
-        { selector: '.job-details', type: 'job', context: 'for a job experience' },
-        { selector: '.project-details', type: 'project', context: 'for a project' },
-        { selector: '.education-details', type: 'education', context: 'for education' }
+        { selector: '.job-details', type: 'job', context: 'for a job experience', bullets: originalBullets.job },
+        { selector: '.project-details', type: 'project', context: 'for a project', bullets: originalBullets.project },
+        { selector: '.education-details', type: 'education', context: 'for education', bullets: originalBullets.education }
     ];
 
-    for (const { selector, type, context } of sectionSelectors) {
+    for (const { selector, type, context, bullets } of sectionSelectors) {
         const sections = $(selector);
         
         for (let i = 0; i < sections.length; i++) {
@@ -179,32 +233,47 @@ async function ensureAllSectionsHaveBullets($, targetBulletCount, keywords, used
                 bulletList = section.find('ul');
             }
 
-            // Generate real bullets for empty sections
+            // Handle empty sections
             const currentBullets = bulletList.find('li').length;
             if (currentBullets === 0) {
-                const newBullets = await generateBullets(
-                    'generate',
-                    null,
-                    keywords,
-                    context,
-                    15
-                );
+                // First try to use original bullets from the same section type
+                const unusedOriginalBullets = bullets.filter(b => !b.used);
+                
+                if (unusedOriginalBullets.length > 0) {
+                    // Use original bullets first
+                    const bulletsToUse = unusedOriginalBullets
+                        .slice(0, targetBulletCount)
+                        .map(b => b.text);
 
-                // Filter and add unique bullets
-                const filteredBullets = newBullets
-                    .filter(bp => !usedBullets.has(bp))
-                    .slice(0, targetBulletCount);
+                    // Generate tailored versions of original bullets
+                    const tailoredBullets = await generateBullets(
+                        'tailor',
+                        bulletsToUse,
+                        keywords,
+                        context,
+                        15
+                    );
 
-                // Add bullets to the section
-                filteredBullets.forEach(bullet => {
-                    usedBullets.add(bullet);
-                    bulletList.append(`<li>${bullet}</li>`);
-                });
+                    // Mark used bullets
+                    unusedOriginalBullets
+                        .slice(0, targetBulletCount)
+                        .forEach(b => b.used = true);
 
-                // If we still need more bullets, generate additional ones
-                if (bulletList.find('li').length < targetBulletCount) {
-                    const remainingCount = targetBulletCount - bulletList.find('li').length;
-                    const additionalBullets = await generateBullets(
+                    // Add tailored bullets
+                    tailoredBullets
+                        .slice(0, targetBulletCount)
+                        .forEach(bullet => {
+                            if (!usedBullets.has(bullet)) {
+                                usedBullets.add(bullet);
+                                bulletList.append(`<li>${bullet}</li>`);
+                            }
+                        });
+                }
+
+                // If we still need more bullets, generate new ones
+                const remainingCount = targetBulletCount - bulletList.find('li').length;
+                if (remainingCount > 0) {
+                    const newBullets = await generateBullets(
                         'generate',
                         null,
                         keywords,
@@ -212,11 +281,11 @@ async function ensureAllSectionsHaveBullets($, targetBulletCount, keywords, used
                         15
                     );
 
-                    const moreBullets = additionalBullets
+                    const filteredNewBullets = newBullets
                         .filter(bp => !usedBullets.has(bp))
                         .slice(0, remainingCount);
 
-                    moreBullets.forEach(bullet => {
+                    filteredNewBullets.forEach(bullet => {
                         usedBullets.add(bullet);
                         bulletList.append(`<li>${bullet}</li>`);
                     });
@@ -226,125 +295,7 @@ async function ensureAllSectionsHaveBullets($, targetBulletCount, keywords, used
     }
 }
 
-// Add new function to extract and store original bullets by section
-function extractOriginalBullets($) {
-    const originalBullets = {
-        job: new Map(),
-        project: new Map(),
-        education: new Map()
-    };
-
-    // Extract job bullets
-    $('.job-details').each((index, section) => {
-        const bullets = $(section).find('li')
-            .map((_, el) => $(el).text().trim())
-            .get()
-            .filter(text => text.length > 0);
-        if (bullets.length > 0) {
-            originalBullets.job.set(index, bullets);
-        }
-    });
-
-    // Extract project bullets
-    $('.project-details').each((index, section) => {
-        const bullets = $(section).find('li')
-            .map((_, el) => $(el).text().trim())
-            .get()
-            .filter(text => text.length > 0);
-        if (bullets.length > 0) {
-            originalBullets.project.set(index, bullets);
-        }
-    });
-
-    // Extract education bullets
-    $('.education-details').each((index, section) => {
-        const bullets = $(section).find('li')
-            .map((_, el) => $(el).text().trim())
-            .get()
-            .filter(text => text.length > 0);
-        if (bullets.length > 0) {
-            originalBullets.education.set(index, bullets);
-        }
-    });
-
-    return originalBullets;
-}
-
-// Update updateResumeSection to use original bullets
-async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, usedBullets, allSectionBullets, targetBulletCount, originalBullets, sectionType) {
-    let previousFirstVerb = '';
-
-    for (let i = 0; i < sections.length; i++) {
-        const section = sections.eq(i);
-        let bulletList = section.find('ul');
-
-        // Create bullet list if it doesn't exist
-        if (bulletList.length === 0) {
-            section.append('<ul></ul>');
-            bulletList = section.find('ul');
-        }
-
-        let bulletPoints;
-        
-        // Check for original bullets first
-        const originalSectionBullets = originalBullets[sectionType].get(i) || [];
-        
-        if (originalSectionBullets.length > 0 && fullTailoring) {
-            // Use original bullets with tailoring
-            bulletPoints = await generateBullets(
-                'tailor',
-                originalSectionBullets,
-                keywords[i % keywords.length],
-                context,
-                wordLimit
-            );
-        } else if (originalSectionBullets.length > 0) {
-            // Use original bullets without tailoring
-            bulletPoints = originalSectionBullets;
-        } else {
-            // Generate new bullets if no originals exist
-            bulletPoints = allSectionBullets.splice(0, targetBulletCount);
-            bulletPoints = shuffleArray(bulletPoints);
-
-            while (bulletPoints[0]?.split(' ')[0].toLowerCase() === previousFirstVerb.toLowerCase()) {
-                bulletPoints = shuffleArray(bulletPoints);
-            }
-
-            previousFirstVerb = bulletPoints[0]?.split(' ')[0] || '';
-        }
-
-        // Filter duplicates and ensure exact bullet count
-        bulletPoints = bulletPoints
-            .filter(bp => !usedBullets.has(bp))
-            .slice(0, targetBulletCount);
-
-        // If we don't have enough bullets, generate more while preserving section context
-        while (bulletPoints.length < targetBulletCount) {
-            const newBullets = await generateBullets(
-                'generate',
-                null,
-                keywords[i % keywords.length],
-                context,
-                wordLimit
-            );
-            
-            const filteredNewBullets = newBullets
-                .filter(bp => !usedBullets.has(bp))
-                .slice(0, targetBulletCount - bulletPoints.length);
-                
-            bulletPoints = bulletPoints.concat(filteredNewBullets);
-        }
-
-        // Clear old items and insert final bulletPoints
-        bulletList.empty();
-        bulletPoints.forEach(point => {
-            usedBullets.add(point);
-            bulletList.append(`<li>${point}</li>`);
-        });
-    }
-}
-
-// Update updateResume to include original bullets handling
+// Update updateResume to use original bullets
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const sectionWordCounts = getSectionWordCounts($);
@@ -375,6 +326,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         15
     );
 
+    // Rest of the updateResume function remains the same...
     const sections = [
         $('.job-details'),
         $('.project-details'),
@@ -382,7 +334,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     ];
 
     const contexts = ['for a job experience', 'for a project', 'for education'];
-    const sectionTypes = ['job', 'project', 'education'];
     
     // Update all sections with initial bullet count
     for (let i = 0; i < sections.length; i++) {
@@ -390,13 +341,14 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
             $, sections[i], keywordGroups, contexts[i], 
             fullTailoring, sectionWordCounts[Object.keys(sectionWordCounts)[i]], 
             usedBullets, allSectionBullets,
-            INITIAL_BULLET_COUNT,
-            originalBullets,
-            sectionTypes[i]
+            INITIAL_BULLET_COUNT
         );
     }
 
-    // Rest of the function remains the same...
+    // Verify all sections have meaningful bullets after updates
+    await ensureAllSectionsHaveBullets($, INITIAL_BULLET_COUNT, keywordString, usedBullets, originalBullets);
+
+    // Check and adjust page length
     let currentBulletCount = INITIAL_BULLET_COUNT;
     let attempts = 0;
 
@@ -407,16 +359,83 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
             break;
         }
 
+        // Reduce bullets across all sections simultaneously
         currentBulletCount--;
         await balanceSectionBullets($, 
             ['.job-details', '.project-details', '.education-details'].map(s => $(s)), 
             currentBulletCount
         );
         
+        // Verify bullets after reduction
+        await ensureAllSectionsHaveBullets($, currentBulletCount, keywordString, usedBullets, originalBullets);
         attempts++;
     }
 
     return $.html();
+}
+
+// Update updateResumeSection to handle empty sections
+async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, usedBullets, allSectionBullets, targetBulletCount) {
+    let previousFirstVerb = '';
+
+    for (let i = 0; i < sections.length; i++) {
+        const section = sections.eq(i);
+        let bulletList = section.find('ul');
+
+        // Create bullet list if it doesn't exist
+        if (bulletList.length === 0) {
+            section.append('<ul></ul>');
+            bulletList = section.find('ul');
+        }
+
+        let bulletPoints;
+        
+        if (fullTailoring && bulletList.find('li').length > 0) {
+            const existingBullets = bulletList.find('li')
+                .map((_, el) => $(el).text())
+                .get();
+                
+            bulletPoints = await generateBullets(
+                'tailor', existingBullets,
+                keywords[i % keywords.length], context, wordLimit
+            );
+        } else {
+            bulletPoints = allSectionBullets.splice(0, targetBulletCount);
+            bulletPoints = shuffleArray(bulletPoints);
+
+            while (bulletPoints[0]?.split(' ')[0].toLowerCase() === previousFirstVerb.toLowerCase()) {
+                bulletPoints = shuffleArray(bulletPoints);
+            }
+
+            previousFirstVerb = bulletPoints[0]?.split(' ')[0] || '';
+        }
+
+        // Filter duplicates and ensure exact bullet count
+        bulletPoints = bulletPoints
+            .filter(bp => !usedBullets.has(bp))
+            .slice(0, targetBulletCount);
+
+        // If we don't have enough bullets, generate more
+        while (bulletPoints.length < targetBulletCount) {
+            const newBullets = await generateBullets(
+                'generate', null,
+                keywords[i % keywords.length], context, wordLimit
+            );
+            
+            const filteredNewBullets = newBullets
+                .filter(bp => !usedBullets.has(bp))
+                .slice(0, targetBulletCount - bulletPoints.length);
+                
+            bulletPoints = bulletPoints.concat(filteredNewBullets);
+        }
+
+        // Clear old items and insert final bulletPoints
+        bulletList.empty();
+        bulletPoints.forEach(point => {
+            usedBullets.add(point);
+            bulletList.append(`<li>${point}</li>`);
+        });
+    }
 }
 
 // Add new function to balance bullets across sections
