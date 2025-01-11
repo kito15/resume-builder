@@ -254,11 +254,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         attempts++;
     }
 
-    await standardizeSectionBulletCounts($, ['.job-details', '.project-details', '.education-details']);
-    // Optional final page check if needed:
-    // const { pdfBuffer: finalPdf, exceedsOnePage: finalTooLong } = await convertHtmlToPdf($.html());
-    // if (finalTooLong) { /* further adjustments if necessary */ }
-
     return $.html();
 }
 
@@ -342,8 +337,10 @@ async function convertHtmlToPdf(htmlContent) {
             justify-content: center;
             gap: 4px;
             align-items: center;
+            color: #000;
         }
         
+        /* Keep only the separator in gray */
         .contact-info > *:not(:last-child)::after {
             content: "|";
             margin-left: 4px;
@@ -361,19 +358,6 @@ async function convertHtmlToPdf(htmlContent) {
             font-weight: bold;
             letter-spacing: 0;
             color: #000;
-        }
-        
-        /* Ensure all section headers are black */
-        .skills h2,
-        .experience h2,
-        .projects h2,
-        .education h2 {
-            color: #000;
-        }
-        
-        /* Override any potential inherited colors */
-        section > h2 {
-            color: #000 !important;
         }
         
         /* Experience Section */
@@ -508,17 +492,6 @@ async function adjustBulletPoints($, sections, currentBulletCount) {
         }
     });
     return currentBulletCount - 1;
-}
-
-async function standardizeSectionBulletCounts($, selectors) {
-    const bulletCounts = selectors.map(sel => $(sel).find('li').length);
-    const minCount = Math.min(...bulletCounts);
-    selectors.forEach(sel => {
-        const bullets = $(sel).find('li');
-        while (bullets.length > minCount) {
-            bullets.last().remove();
-        }
-    });
 }
 
 app.post('/customize-resume', async (req, res) => {
