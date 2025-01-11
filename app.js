@@ -260,49 +260,121 @@ async function normalizeSectionBullets($, sections, keywords, context, fullTailo
     return targetCount;
 }
 
+// Add new function to find optimal bullet count
+async function findOptimalBulletCount($, sections, keywords, context, fullTailoring, usedBullets) {
+    // Start with 4 bullets as default
+    let optimalCount = 4;
+    let minBullets = 2;
+    let maxBullets = 5;
+    let attempts = 0;
+    
+    while (attempts < 5) {
+        // Apply current bullet count to all sections
+        await Promise.all(sections.map(async (section) => {
+            const bulletList = $(section).find('ul');
+            bulletList.empty();
+            
+            const bullets = await generateBullets(
+                'generate',
+                null,
+                keywords[0],
+                context,
+                15
+            );
+            
+            const selectedBullets = bullets
+                .filter(bp => !usedBullets.has(bp))
+                .slice(0, optimalCount);
+                
+            selectedBullets.forEach(bullet => {
+                usedBullets.add(bullet);
+                bulletList.append(`<li>${bullet}</li>`);
+            });
+        }));
+
+        // Check if it fits on one page
+        const { exceedsOnePage } = await convertHtmlToPdf($.html());
+        
+        if (exceedsOnePage && optimalCount > minBullets) {
+            maxBullets = optimalCount;
+            optimalCount = Math.max(minBullets, optimalCount - 1);
+        } else if (!exceedsOnePage && optimalCount < maxBullets) {
+            // Try one more bullet if it fits
+            const prevCount = optimalCount;
+            optimalCount = Math.min(maxBullets, optimalCount + 1);
+            if (prevCount === optimalCount) break; // No more room to increase
+        } else {
+            break; // Found optimal count or can't adjust further
+        }
+        
+        attempts++;
+    }
+    
+    return optimalCount;
+}
+
 // Update updateResume function
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
-    const sectionWordCounts = getSectionWordCounts($);
     const usedBullets = new Set();
-
-    const keywordGroups = fullTailoring ? 
-        Array(5).fill(keywords.join(', ')) : 
-        [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
-
-    const allSectionBullets = await generateBullets(
-        'generate',
-        null,
-        fullTailoring ? keywords.join(', ') : keywords.slice(0, Math.min(5, keywords.length)).join(', '),
-        'for all sections',
-        15
-    );
-
-    // Initial update with maximum bullets
-    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, sectionWordCounts.job, usedBullets, allSectionBullets);
-    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, sectionWordCounts.project, usedBullets, allSectionBullets);
-    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, sectionWordCounts.education, usedBullets, allSectionBullets);
-
-    // Normalize bullet counts across sections
+    
     const sections = ['.job-details', '.project-details', '.education-details'].map(s => $(s));
-    let currentBulletCount = await normalizeSectionBullets($, sections, keywordGroups, 'for all sections', fullTailoring, 15, usedBullets, allSectionBullets);
-
-    // Check and adjust page length while maintaining consistency
-    let attempts = 0;
-    const MIN_BULLETS = 2;
-
-    while (attempts < 3 && currentBulletCount > MIN_BULLETS) {
-        const { exceedsOnePage } = await convertHtmlToPdf($.html());
+    
+    // Find optimal bullet count first
+    const optimalCount = await findOptimalBulletCount($, sections, keywords, 'all sections', fullTailoring, usedBullets);
+    
+    console.log(`Using ${optimalCount} bullets per section`);
+    
+    // Clear all sections and apply optimal count
+    usedBullets.clear(); // Reset used bullets
+    
+    for (const section of sections) {
+        const bulletList = section.find('ul');
+        bulletList.empty();
         
-        if (!exceedsOnePage) {
-            break;
+        const bullets = await generateBullets(
+            'generate',
+            null,
+            keywords[0],
+            'for section',
+            15
+        );
+        
+        const selectedBullets = bullets
+            .filter(bp => !usedBullets.has(bp))
+            .slice(0, optimalCount);
+            
+        // Ensure we have exactly optimalCount bullets
+        while (selectedBullets.length < optimalCount) {
+            const newBullet = await generateBullets('generate', null, keywords[0], 'additional bullet', 15);
+            const filtered = newBullet.filter(bp => !usedBullets.has(bp));
+            if (filtered.length > 0) {
+                selectedBullets.push(filtered[0]);
+            }
         }
-
-        // Reduce bullets and try again
-        currentBulletCount = await adjustBulletPoints($, sections, currentBulletCount);
-        attempts++;
+        
+        // Apply bullets to section
+        selectedBullets.forEach(bullet => {
+            usedBullets.add(bullet);
+            bulletList.append(`<li>${bullet}</li>`);
+        });
+        
+        // Verify section bullet count
+        const finalCount = bulletList.find('li').length;
+        if (finalCount !== optimalCount) {
+            console.error(`Section bullet count mismatch: expected ${optimalCount}, got ${finalCount}`);
+        }
     }
-
+    
+    // Final verification
+    const allCounts = sections.map(section => $(section).find('li').length);
+    const isConsistent = allCounts.every(count => count === optimalCount);
+    
+    if (!isConsistent) {
+        console.error('Final bullet count verification failed:', allCounts);
+        throw new Error('Failed to maintain consistent bullet counts across sections');
+    }
+    
     return $.html();
 }
 
@@ -540,30 +612,6 @@ async function convertHtmlToPdf(htmlContent) {
     return { pdfBuffer, exceedsOnePage: height > MAX_HEIGHT };
 }
 
-// Update adjustBulletPoints to maintain consistency
-async function adjustBulletPoints($, sections, currentBulletCount) {
-    const newBulletCount = currentBulletCount - 1;
-    
-    // Remove one bullet from each section
-    sections.forEach(section => {
-        const bulletList = $(section).find('ul');
-        const bullets = bulletList.find('li');
-        if (bullets.length > newBulletCount) {
-            bullets.last().remove();
-        }
-    });
-
-    // Verify consistency
-    const counts = sections.map(section => $(section).find('li').length);
-    const isConsistent = counts.every(count => count === newBulletCount);
-    
-    if (!isConsistent) {
-        console.warn('Warning: Bullet point counts are inconsistent after reduction');
-    }
-
-    return newBulletCount;
-}
-
 app.post('/customize-resume', async (req, res) => {
     try {
         const { htmlContent, keywords, fullTailoring } = req.body;
@@ -582,7 +630,8 @@ app.post('/customize-resume', async (req, res) => {
         const { pdfBuffer, exceedsOnePage } = await convertHtmlToPdf(updatedHtmlContent);
 
         if (exceedsOnePage) {
-            console.warn('Warning: Resume still exceeds one page after adjustments');
+            console.error('Error: Resume exceeds one page after optimization');
+            return res.status(400).send('Unable to fit resume on one page while maintaining consistency');
         }
 
         res.contentType('application/pdf');
