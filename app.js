@@ -82,31 +82,37 @@ function getSectionWordCounts($) {
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     let prompt;
-    const basePrompt = `Expert resume optimizer: Enhance bullets by incorporating ALL keywords using these templates:
+    const basePrompt = `Expert resume writer: Transform bullets using STAR method while preserving EXACT original content.
 
-TEMPLATES:
-1. [Action Verb] [Achievement] using [Keyword1] and [Keyword2]
-2. [Action Verb] [Keyword1]-based [Achievement] leveraging [Keyword2]
-3. Utilized [Keyword1] and [Keyword2] to [Achievement]
+STAR FORMAT REQUIREMENTS:
+• Situation/Task: Keep original context intact
+• Action: Preserve original action verbs
+• Result: Maintain exact metrics/outcomes
+• Keywords: Integrate ALL naturally: ${keywords}
 
-CRITICAL RULES:
-1) MUST include ALL keywords from this list: ${keywords}
-2) Keep ALL numbers, metrics, and achievements exactly as written
-3) Format: Each bullet MUST start with ">>" followed by strong action verb
-4) Length: Stay within ${wordLimit} words unless preserving metrics requires more
+PRESERVATION RULES:
+1) NEVER change numbers, metrics, or achievements
+2) Keep original action verbs and their tense
+3) Maintain exact project names and technical details
+4) Each bullet MUST start with ">>"
 
-EXAMPLES:
-Original: "Led development of inventory system"
+KEYWORD INTEGRATION PATTERNS:
+1. Original Action + "using [keyword]" + Original Result
+2. Original Action + Original Task + "leveraging [keyword]"
+3. Original Action + "[keyword]-based" + Original Implementation
+
+EXAMPLES WITH METRICS:
+Original: "Reduced processing time by 50% through database optimization"
 Keywords: "Python, SQL"
-✓ CORRECT: ">>Led development of inventory system using Python and SQL"
-✗ WRONG: ">>Used Python to develop system" (lost detail)
-✗ WRONG: ">>Led development (Python, SQL)" (unnatural integration)
+✓ CORRECT: ">>Reduced processing time by 50% through Python-based database optimization using SQL"
+✗ WRONG: ">>Used Python to improve database speed" (lost specific metric)
 
-VERIFICATION STEPS:
-1. Confirm EVERY keyword appears naturally
-2. Verify ALL metrics remain unchanged
-3. Check action verb strength
-4. Validate ">>" prefix exists`;
+VERIFICATION CHECKLIST:
+1. Contains exact original metrics? [REQUIRED]
+2. Preserves original action verb? [REQUIRED]
+3. Includes ALL keywords naturally? [REQUIRED]
+4. Maintains original context? [REQUIRED]
+5. Has ">>" prefix? [REQUIRED]`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
