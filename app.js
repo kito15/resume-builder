@@ -456,10 +456,10 @@ async function convertHtmlToPdf(htmlContent) {
         printBackground: true,
         preferCSSPageSize: true,
         margin: {
-            top: '0.35in',
-            right: '0.35in',
-            bottom: '0.35in',
-            left: '0.35in'
+            top: '0.3in',
+            right: '0.3in',
+            bottom: '0.3in',
+            left: '0.3in'
         }
     });
 
