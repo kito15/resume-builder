@@ -82,81 +82,61 @@ function getSectionWordCounts($) {
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     let prompt;
-    const basePrompt = `Expert Resume Writer: Transform bullets using STAR method while incorporating ALL keywords.
+    const basePrompt = `Expert resume writer: Transform bullets into compelling achievements while naturally incorporating ALL keywords.
 
-STAR FRAMEWORK:
-S: Situation - Context of the achievement
-T: Task - Specific challenge or responsibility
-A: Action - Steps taken (incorporate keywords here naturally)
-R: Result - Quantifiable outcome (preserve exact metrics)
+CRITICAL REQUIREMENTS:
+1) Preserve EXACT numbers, metrics, and achievements (e.g., "increased efficiency by 45%" must stay exactly as "45%")
+2) Integrate ALL keywords (${keywords}) naturally into the flow
+3) Maintain original actions and responsibilities
+4) Each bullet starts with ">>" and uses strong action verbs
+5) Keep within ${wordLimit} words unless preserving details requires more
 
-TRANSFORMATION RULES:
-1) PRESERVE EXACTLY:
-   - All numerical metrics (e.g., "increased by 45%", "team of 12")
-   - Achievement descriptions
-   - Project names and technical terms
-   - Time periods and dates
-
-2) KEYWORD INTEGRATION:
-   - Must include ALL keywords: ${keywords}
-   - Insert keywords where they logically explain HOW the result was achieved
-   - Never append keywords artificially at end
-
-3) FORMAT REQUIREMENTS:
-   - Start each bullet with ">>"
-   - Follow STAR method
-   - Maintain ${wordLimit} word limit unless needed for clarity
+STRUCTURE (implicit, not explicit):
+- Begin with impactful action
+- Weave in context naturally
+- Integrate keywords smoothly
+- End with quantifiable results
 
 EXAMPLES:
-Original: "Led team of 5 developers on inventory project"
-Keywords: "agile, Python"
-✓ CORRECT: ">>Led agile team of 5 developers implementing Python-based inventory project"
-✗ WRONG: ">>Used Python with 5 developers" (lost leadership aspect)
+Original: "Managed database optimization project"
+Keywords: "Python, AWS"
+✓ CORRECT: ">>Spearheaded database optimization project using Python scripts and AWS infrastructure, improving query speed by 60%"
+✗ WRONG: ">>Used Python and AWS to manage databases" (lost original responsibility)
+✗ WRONG: ">>Managed database project (Python, AWS)" (artificial keyword placement)
 
-VALIDATION CHECKLIST:
-□ All original metrics intact
-□ All keywords naturally integrated
-□ Original achievement preserved
-□ ">>" prefix present
-□ STAR method followed
+Original: "Led team of 5 developers, increased productivity 30%"
+Keywords: "agile, JavaScript"
+✓ CORRECT: ">>Led 5-person agile development team delivering JavaScript applications, driving 30% productivity increase"
+✗ WRONG: ">>Used agile and JavaScript to increase productivity" (lost team size)
 
-Failure if ANY of:
-- Original metrics changed
-- Keywords missing
-- Core achievement altered
-- Format incorrect`;
+VALIDATION:
+1. Verify ALL keywords appear naturally
+2. Confirm ALL metrics remain unchanged
+3. Ensure original achievements stay intact
+4. Check for ">>" prefix`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
 
-Transform these bullets (preserve exact details, add keywords naturally):
+INPUT BULLETS TO ENHANCE (integrate ALL keywords naturally):
 ${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `${basePrompt}
 
-Generate 4-5 STAR-format bullets for ${context} incorporating all keywords.`;
+Generate 4-5 achievement-focused bullets for ${context}`;
     }
-
-    // Update system message for stronger context
-    const systemMessage = {
-        role: 'system',
-        content: `You are an expert resume optimization AI specializing in the STAR method. 
-Your primary objectives:
-1. Preserve ALL original achievements and metrics exactly
-2. Integrate ALL keywords naturally
-3. Maintain STAR format
-4. Ensure each bullet starts with ">>"
-Never sacrifice accuracy for keyword inclusion.`
-    };
 
     try {
         const response = await axios.post('https://api.deepseek.com/chat/completions', {
             model: 'deepseek-chat',
             messages: [
-                systemMessage,
+                { 
+                    role: 'system', 
+                    content: 'You are a specialized resume optimization AI focused on seamlessly integrating keywords while preserving achievement metrics. Your primary goal is ensuring ALL keywords appear naturally in each bullet point.'
+                },
                 { role: 'user', content: prompt }
             ],
-            temperature: 0.5, // Lower temperature for more consistent outputs
+            temperature: 0.7, // Add some creativity while maintaining consistency
             stream: false
         }, {
             headers: {
