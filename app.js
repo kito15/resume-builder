@@ -211,7 +211,56 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
     }
 }
 
-// Remove references to generateAllSectionBulletPoints and simply fill "allSectionBullets" by calling generateBullets('generate', ...)
+// Add new function to count and normalize bullets across sections
+async function normalizeSectionBullets($, sections, keywords, context, fullTailoring, wordLimit, usedBullets, allSectionBullets) {
+    const sectionBulletCounts = sections.map(section => {
+        const bulletList = $(section).find('ul');
+        return bulletList.find('li').length;
+    });
+
+    // Find the most common bullet count (excluding 0)
+    const nonZeroCounts = sectionBulletCounts.filter(count => count > 0);
+    const targetCount = nonZeroCounts.length > 0 ? 
+        Math.max(...nonZeroCounts) : 
+        4; // Default to 4 bullets if no sections have bullets
+
+    // Normalize each section
+    for (let i = 0; i < sections.length; i++) {
+        const section = $(sections[i]);
+        const bulletList = section.find('ul');
+        const currentCount = sectionBulletCounts[i];
+
+        if (currentCount === targetCount) continue;
+
+        if (currentCount < targetCount) {
+            // Generate more bullets
+            const additionalBullets = await generateBullets(
+                'generate',
+                null,
+                keywords[i % keywords.length],
+                context,
+                wordLimit
+            );
+
+            const newBullets = additionalBullets
+                .filter(bp => !usedBullets.has(bp))
+                .slice(0, targetCount - currentCount);
+
+            newBullets.forEach(bullet => {
+                usedBullets.add(bullet);
+                bulletList.append(`<li>${bullet}</li>`);
+            });
+        } else {
+            // Remove excess bullets
+            const bullets = bulletList.find('li');
+            bullets.slice(targetCount).remove();
+        }
+    }
+
+    return targetCount;
+}
+
+// Update updateResume function
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const sectionWordCounts = getSectionWordCounts($);
@@ -230,25 +279,17 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     );
 
     // Initial update with maximum bullets
-    const sections = ['.job-details', '.project-details', '.education-details'];
     await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, sectionWordCounts.job, usedBullets, allSectionBullets);
     await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, sectionWordCounts.project, usedBullets, allSectionBullets);
     await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, sectionWordCounts.education, usedBullets, allSectionBullets);
 
     // Normalize bullet counts across sections
-    let currentBulletCount = await normalizeSectionBullets(
-        $, 
-        sections.map(s => $(s)), 
-        keywordGroups,
-        'for all sections',
-        fullTailoring,
-        15,
-        usedBullets,
-        allSectionBullets
-    );
+    const sections = ['.job-details', '.project-details', '.education-details'].map(s => $(s));
+    let currentBulletCount = await normalizeSectionBullets($, sections, keywordGroups, 'for all sections', fullTailoring, 15, usedBullets, allSectionBullets);
 
-    // Check and adjust page length
+    // Check and adjust page length while maintaining consistency
     let attempts = 0;
+    const MIN_BULLETS = 2;
 
     while (attempts < 3 && currentBulletCount > MIN_BULLETS) {
         const { exceedsOnePage } = await convertHtmlToPdf($.html());
@@ -258,10 +299,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         }
 
         // Reduce bullets and try again
-        currentBulletCount = await adjustBulletPoints($, 
-            sections.map(s => $(s)), 
-            currentBulletCount
-        );
+        currentBulletCount = await adjustBulletPoints($, sections, currentBulletCount);
         attempts++;
     }
 
@@ -502,78 +540,28 @@ async function convertHtmlToPdf(htmlContent) {
     return { pdfBuffer, exceedsOnePage: height > MAX_HEIGHT };
 }
 
-// Add new function to manage bullet points
+// Update adjustBulletPoints to maintain consistency
 async function adjustBulletPoints($, sections, currentBulletCount) {
-    if (currentBulletCount <= MIN_BULLETS) {
-        return currentBulletCount;
-    }
-
-    // Reduce bullets in all sections equally
+    const newBulletCount = currentBulletCount - 1;
+    
+    // Remove one bullet from each section
     sections.forEach(section => {
         const bulletList = $(section).find('ul');
         const bullets = bulletList.find('li');
-        if (bullets.length > currentBulletCount - 1) {
+        if (bullets.length > newBulletCount) {
             bullets.last().remove();
         }
     });
 
-    return currentBulletCount - 1;
-}
-
-// Add new function to count bullets in a section
-function countBullets($, section) {
-    return $(section).find('ul li').length;
-}
-
-// Add new function to normalize bullet counts across sections
-async function normalizeSectionBullets($, sections, keywords, context, fullTailoring, wordLimit, usedBullets, allSectionBullets) {
-    // Count bullets in each section
-    const bulletCounts = sections.map(section => countBullets($, section));
+    // Verify consistency
+    const counts = sections.map(section => $(section).find('li').length);
+    const isConsistent = counts.every(count => count === newBulletCount);
     
-    // Find the most common bullet count (target count)
-    const targetCount = Math.max(...bulletCounts);
-    
-    // Ensure target count is within reasonable bounds (3-5 bullets)
-    const normalizedTarget = Math.min(Math.max(targetCount, 3), 5);
-
-    for (let i = 0; i < sections.length; i++) {
-        const section = $(sections[i]);
-        const currentCount = bulletCounts[i];
-        
-        if (currentCount === normalizedTarget) continue;
-
-        const bulletList = section.find('ul');
-        
-        if (currentCount < normalizedTarget) {
-            // Generate additional bullets
-            const additionalBullets = await generateBullets(
-                'generate',
-                null,
-                keywords[i % keywords.length],
-                context,
-                wordLimit
-            );
-
-            // Filter out duplicates and get needed number of bullets
-            const newBullets = additionalBullets
-                .filter(bp => !usedBullets.has(bp))
-                .slice(0, normalizedTarget - currentCount);
-
-            // Add new bullets
-            newBullets.forEach(bullet => {
-                usedBullets.add(bullet);
-                bulletList.append(`<li>${bullet}</li>`);
-            });
-        } else {
-            // Remove excess bullets
-            const bullets = bulletList.find('li');
-            for (let j = currentCount - 1; j >= normalizedTarget; j--) {
-                bullets.eq(j).remove();
-            }
-        }
+    if (!isConsistent) {
+        console.warn('Warning: Bullet point counts are inconsistent after reduction');
     }
 
-    return normalizedTarget;
+    return newBulletCount;
 }
 
 app.post('/customize-resume', async (req, res) => {
