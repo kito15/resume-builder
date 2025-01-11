@@ -159,7 +159,7 @@ Generate 4-5 achievement-focused bullets for ${context}`;
 }
 
 // Modify updateResumeSection to call generateBullets in place of old functions
-async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, usedBullets, allSectionBullets) {
+async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, usedBullets, allSectionBullets, bulletPointsPerSection) {
     let previousFirstVerb = '';
 
     for (let i = 0; i < sections.length; i++) {
@@ -199,7 +199,7 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
             // Shuffle, then ensure 4-5 total bullets
             bulletPoints = shuffleArray(bulletPoints);
             bulletPoints = await ensureBulletRange(bulletPoints, usedBullets, () =>
-                generateBullets('generate', null, keywords[i % keywords.length], context, wordLimit), 4, 5);
+                generateBullets('generate', null, keywords[i % keywords.length], context, wordLimit), bulletPointsPerSection, bulletPointsPerSection);
 
             // Clear old items and insert final bulletPoints
             bulletList.empty();
@@ -237,12 +237,26 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         15 // or use computed values if needed
     );
 
-    // Then use 'allSectionBullets' in each 'updateResumeSection' instead of calling generateBullets again.
-    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, sectionWordCounts.job, usedBullets, allSectionBullets);
-    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, sectionWordCounts.project, usedBullets, allSectionBullets);
-    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, sectionWordCounts.education, usedBullets, allSectionBullets);
+    // Determine how many bullet points we can allocate per section
+    // (Adjust logic as needed; here we use a fixed distribution for simplicity)
+    const bulletPointsPerSection = 4;
 
-    return $.html();
+    // Then use 'allSectionBullets' in each 'updateResumeSection' instead of calling generateBullets again.
+    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, sectionWordCounts.job, usedBullets, allSectionBullets, bulletPointsPerSection);
+    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, sectionWordCounts.project, usedBullets, allSectionBullets, bulletPointsPerSection);
+    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, sectionWordCounts.education, usedBullets, allSectionBullets, bulletPointsPerSection);
+
+    // After updates, check length; if it exceeds MAX_WORDS_PER_PAGE, remove extra bullets
+    let finalHtml = $.html();
+    let lengthEstimate = estimateResumeLength(finalHtml);
+    while (lengthEstimate > MAX_WORDS_PER_PAGE && bulletPointsPerSection > 0) {
+        // Reduce bullet points further in each section if needed
+        reduceBullets($); // A helper to remove one bullet from each section
+        finalHtml = $.html();
+        lengthEstimate = estimateResumeLength(finalHtml);
+    }
+
+    return finalHtml;
 }
 
 async function ensureBulletRange(bulletPoints, usedBullets, generateFn, minCount, maxCount) {
@@ -270,6 +284,26 @@ function shuffleArray(array) {
         [array[i], array[j]] = [array[j], array[i]];
     }
     return array;
+}
+
+function estimateResumeLength(htmlContent) {
+    // Simple approximation by counting words
+    const text = htmlContent.replace(/<[^>]+>/g, '').trim();
+    const wordCount = text.split(/\s+/).length;
+    return wordCount;
+}
+
+// Add a guideline for the total word count that fits on one page (adjust as necessary)
+const MAX_WORDS_PER_PAGE = 450;
+
+function reduceBullets($) {
+    const sections = ['.job-details', '.project-details', '.education-details'];
+    sections.forEach(sel => {
+        const liElements = $(sel).find('li');
+        if (liElements.length > 0) {
+            liElements.last().remove();
+        }
+    });
 }
 
 async function convertHtmlToPdf(htmlContent) {
