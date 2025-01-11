@@ -326,6 +326,7 @@ async function convertHtmlToPdf(htmlContent) {
             font-size: 24px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            color: #000;
         }
         
         .contact-info {
@@ -354,6 +355,20 @@ async function convertHtmlToPdf(htmlContent) {
             font-size: 14px;
             font-weight: bold;
             letter-spacing: 0;
+            color: #000;
+        }
+        
+        /* Ensure all section headers are black */
+        .skills h2,
+        .experience h2,
+        .projects h2,
+        .education h2 {
+            color: #000;
+        }
+        
+        /* Override any potential inherited colors */
+        section > h2 {
+            color: #000 !important;
         }
         
         /* Experience Section */
