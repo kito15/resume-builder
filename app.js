@@ -82,52 +82,54 @@ function getSectionWordCounts($) {
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     let prompt;
-    const basePrompt = `Expert resume writer: Transform bullets to include ALL keywords while maintaining exact meaning.
+    const basePrompt = `Expert resume optimizer: Enhance bullets by incorporating ALL keywords using these templates:
 
-MANDATORY REQUIREMENTS:
-1) EVERY keyword MUST be integrated naturally into each bullet
-2) Original achievements, metrics, and core actions cannot change
-3) Each bullet MUST start with ">>"
-4) Original meaning and impact MUST remain identical
-5) Word count target: ${wordLimit} (flexible if needed for meaning)
+TEMPLATES:
+1. [Action Verb] [Achievement] using [Keyword1] and [Keyword2]
+2. [Action Verb] [Keyword1]-based [Achievement] leveraging [Keyword2]
+3. Utilized [Keyword1] and [Keyword2] to [Achievement]
 
-VALIDATION EXAMPLES:
-Original: "Increased revenue by 45% through market expansion"
-Keywords: "data analytics, Python"
-GOOD: ">>Increased revenue by 45% through data analytics and Python-driven market expansion"
-BAD: ">>Used Python and data analytics to boost sales" (WRONG: lost specific metric)
-BAD: ">>Increased revenue by 45% through market expansion (Python, data analytics)" (WRONG: artificial append)
+CRITICAL RULES:
+1) MUST include ALL keywords from this list: ${keywords}
+2) Keep ALL numbers, metrics, and achievements exactly as written
+3) Format: Each bullet MUST start with ">>" followed by strong action verb
+4) Length: Stay within ${wordLimit} words unless preserving metrics requires more
 
-Original: "Managed team of 12 developers"
-Keywords: "agile, JavaScript"
-GOOD: ">>Managed team of 12 developers implementing agile practices for JavaScript projects"
-BAD: ">>Led agile JavaScript team" (WRONG: lost team size)
+EXAMPLES:
+Original: "Led development of inventory system"
+Keywords: "Python, SQL"
+✓ CORRECT: ">>Led development of inventory system using Python and SQL"
+✗ WRONG: ">>Used Python to develop system" (lost detail)
+✗ WRONG: ">>Led development (Python, SQL)" (unnatural integration)
 
-VERIFICATION:
-- Check each bullet contains ALL keywords
-- Verify original metrics remain unchanged
-- Confirm natural keyword integration
-- Ensure ">>" prefix`;
+VERIFICATION STEPS:
+1. Confirm EVERY keyword appears naturally
+2. Verify ALL metrics remain unchanged
+3. Check action verb strength
+4. Validate ">>" prefix exists`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
 
-Preserve these bullets exactly (must include all keywords):
+INPUT BULLETS TO ENHANCE (integrate ALL keywords naturally):
 ${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `${basePrompt}
 
-Generate 4-5 bullet points for ${context}, preserving any provided text exactly.`;
+Generate 4-5 achievement-focused bullets for ${context}`;
     }
 
     try {
-        // Post to DeepSeek using axios
         const response = await axios.post('https://api.deepseek.com/chat/completions', {
             model: 'deepseek-chat',
             messages: [
-                { role: 'system', content: 'You are a professional resume writer.' },
+                { 
+                    role: 'system', 
+                    content: 'You are a specialized resume optimization AI focused on seamlessly integrating keywords while preserving achievement metrics. Your primary goal is ensuring ALL keywords appear naturally in each bullet point.'
+                },
                 { role: 'user', content: prompt }
             ],
+            temperature: 0.7, // Add some creativity while maintaining consistency
             stream: false
         }, {
             headers: {
