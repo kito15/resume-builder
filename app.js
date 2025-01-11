@@ -3,7 +3,6 @@ const bodyParser = require('body-parser');
 const puppeteer = require('puppeteer');
 const axios = require('axios');
 const cheerio = require('cheerio');
-
 const app = express();
 const port = 3000;
 
