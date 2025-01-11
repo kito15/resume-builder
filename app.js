@@ -158,46 +158,8 @@ Generate 4-5 achievement-focused bullets for ${context}`;
     }
 }
 
-// Add new function to estimate content length
-function estimateContentLength($) {
-    let totalLength = 0;
-    $('li').each((_, el) => {
-        totalLength += $(el).text().length;
-    });
-    return totalLength;
-}
-
-// Add new function to determine optimal bullet count
-function determineOptimalBulletCount($) {
-    const TARGET_LENGTH = 2800; // Approximate character count that fits on one page
-    const MIN_BULLETS = 3;
-    const MAX_BULLETS = 5;
-    const sections = ['.job-details', '.project-details', '.education-details'];
-    
-    // Count existing sections that have content
-    const activeSections = sections.filter(s => $(s).length > 0).length;
-    
-    // Calculate current content length
-    const currentLength = estimateContentLength($);
-    
-    // Calculate optimal bullets per section
-    let optimalCount = MAX_BULLETS;
-    const avgCharPerBullet = currentLength / ($('li').length || 1);
-    
-    // Estimate total chars with different bullet counts
-    for (let count = MAX_BULLETS; count >= MIN_BULLETS; count--) {
-        const estimatedChars = count * activeSections * avgCharPerBullet;
-        if (estimatedChars <= TARGET_LENGTH) {
-            optimalCount = count;
-            break;
-        }
-    }
-    
-    return optimalCount;
-}
-
-// Update updateResumeSection to handle consistent bullet counts
-async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, usedBullets, allSectionBullets, bulletCount) {
+// Modify updateResumeSection to call generateBullets in place of old functions
+async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, usedBullets, allSectionBullets, targetBulletCount) {
     let previousFirstVerb = '';
 
     for (let i = 0; i < sections.length; i++) {
@@ -217,7 +179,7 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                     keywords[i % keywords.length], context, wordLimit
                 );
             } else {
-                bulletPoints = allSectionBullets.splice(0, bulletCount);
+                bulletPoints = allSectionBullets.splice(0, targetBulletCount);
                 bulletPoints = shuffleArray(bulletPoints);
 
                 while (bulletPoints[0]?.split(' ')[0].toLowerCase() === previousFirstVerb.toLowerCase()) {
@@ -230,17 +192,9 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
             // Filter duplicates and ensure exact bullet count
             bulletPoints = bulletPoints
                 .filter(bp => !usedBullets.has(bp))
-                .slice(0, bulletCount);
+                .slice(0, targetBulletCount);
 
-            // Ensure we have exactly bulletCount bullets
-            while (bulletPoints.length < bulletCount) {
-                const recycledBullet = allSectionBullets[0] || bulletPoints[0];
-                if (!usedBullets.has(recycledBullet)) {
-                    bulletPoints.push(recycledBullet);
-                }
-            }
-
-            // Update the section
+            // Clear old items and insert final bulletPoints
             bulletList.empty();
             bulletPoints.forEach(point => {
                 usedBullets.add(point);
@@ -250,21 +204,44 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
     }
 }
 
+// Add new function to balance bullets across sections
+async function balanceSectionBullets($, sections, targetBulletCount) {
+    sections.forEach(section => {
+        const bulletList = $(section).find('ul');
+        const bullets = bulletList.find('li');
+        const currentCount = bullets.length;
+
+        if (currentCount > targetBulletCount) {
+            // Remove excess bullets from the end
+            bullets.slice(targetBulletCount).remove();
+        } else if (currentCount < targetBulletCount) {
+            // If we need more bullets, duplicate the shortest ones
+            const existingBullets = bullets.map((_, el) => $(el).text()).get();
+            const shortestBullets = [...existingBullets]
+                .sort((a, b) => a.length - b.length)
+                .slice(0, targetBulletCount - currentCount);
+                
+            shortestBullets.forEach(bullet => {
+                bulletList.append(`<li>${bullet}</li>`);
+            });
+        }
+    });
+}
+
 // Update updateResume function
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const sectionWordCounts = getSectionWordCounts($);
     const usedBullets = new Set();
-
-    // Determine optimal bullet count before generating content
-    const optimalBulletCount = determineOptimalBulletCount($);
-
+    
+    // Start with 4 bullets (based on example resume)
+    const INITIAL_BULLET_COUNT = 4;
+    const MIN_BULLETS = 3;
+    
     const keywordGroups = fullTailoring ? 
         Array(5).fill(keywords.join(', ')) : 
         [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
 
-    // Generate bullets for all sections at once
-    const totalBulletsNeeded = optimalBulletCount * 3; // 3 sections
     const allSectionBullets = await generateBullets(
         'generate',
         null,
@@ -273,42 +250,44 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         15
     );
 
-    // Update all sections with consistent bullet count
-    await updateResumeSection(
-        $, 
-        $('.job-details'), 
-        keywordGroups, 
-        'for a job experience', 
-        fullTailoring, 
-        sectionWordCounts.job, 
-        usedBullets, 
-        allSectionBullets,
-        optimalBulletCount
-    );
+    // Initial update with consistent bullet count
+    const sections = [
+        $('.job-details'),
+        $('.project-details'),
+        $('.education-details')
+    ];
 
-    await updateResumeSection(
-        $, 
-        $('.project-details'), 
-        keywordGroups, 
-        'for a project', 
-        fullTailoring, 
-        sectionWordCounts.project, 
-        usedBullets, 
-        allSectionBullets,
-        optimalBulletCount
-    );
+    const contexts = ['for a job experience', 'for a project', 'for education'];
+    
+    // Update all sections with initial bullet count
+    for (let i = 0; i < sections.length; i++) {
+        await updateResumeSection(
+            $, sections[i], keywordGroups, contexts[i], 
+            fullTailoring, sectionWordCounts[Object.keys(sectionWordCounts)[i]], 
+            usedBullets, allSectionBullets,
+            INITIAL_BULLET_COUNT // Pass target bullet count
+        );
+    }
 
-    await updateResumeSection(
-        $, 
-        $('.education-details'), 
-        keywordGroups, 
-        'for education', 
-        fullTailoring, 
-        sectionWordCounts.education, 
-        usedBullets, 
-        allSectionBullets,
-        optimalBulletCount
-    );
+    // Check and adjust page length
+    let currentBulletCount = INITIAL_BULLET_COUNT;
+    let attempts = 0;
+
+    while (attempts < 3 && currentBulletCount >= MIN_BULLETS) {
+        const { exceedsOnePage } = await convertHtmlToPdf($.html());
+        
+        if (!exceedsOnePage) {
+            break;
+        }
+
+        // Reduce bullets across all sections simultaneously
+        currentBulletCount--;
+        await balanceSectionBullets($, 
+            ['.job-details', '.project-details', '.education-details'].map(s => $(s)), 
+            currentBulletCount
+        );
+        attempts++;
+    }
 
     return $.html();
 }
