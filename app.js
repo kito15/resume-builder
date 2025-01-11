@@ -158,65 +158,103 @@ Generate 4-5 achievement-focused bullets for ${context}`;
     }
 }
 
-// Add new function to ensure all sections have bullet points
-async function ensureAllSectionsHaveBullets($, targetBulletCount) {
-    // Define all sections that should have bullets
+// Update ensureAllSectionsHaveBullets to generate real content instead of placeholders
+async function ensureAllSectionsHaveBullets($, targetBulletCount, keywords, usedBullets) {
     const sectionSelectors = [
-        { selector: '.job-details', type: 'job' },
-        { selector: '.project-details', type: 'project' },
-        { selector: '.education-details', type: 'education' }
+        { selector: '.job-details', type: 'job', context: 'for a job experience' },
+        { selector: '.project-details', type: 'project', context: 'for a project' },
+        { selector: '.education-details', type: 'education', context: 'for education' }
     ];
 
-    sectionSelectors.forEach(({ selector, type }) => {
-        $(selector).each((_, section) => {
-            const $section = $(section);
-            let bulletList = $section.find('ul');
+    for (const { selector, type, context } of sectionSelectors) {
+        const sections = $(selector);
+        
+        for (let i = 0; i < sections.length; i++) {
+            const section = $(sections[i]);
+            let bulletList = section.find('ul');
 
             // Create bullet list if it doesn't exist
             if (bulletList.length === 0) {
-                $section.append('<ul></ul>');
-                bulletList = $section.find('ul');
+                section.append('<ul></ul>');
+                bulletList = section.find('ul');
             }
 
-            // Ensure the section has the target number of bullets
+            // Generate real bullets for empty sections
             const currentBullets = bulletList.find('li').length;
-            
             if (currentBullets === 0) {
-                // Add placeholder bullets if section is empty
-                for (let i = 0; i < targetBulletCount; i++) {
-                    bulletList.append(`<li>Generated ${type} achievement ${i + 1}</li>`);
+                const newBullets = await generateBullets(
+                    'generate',
+                    null,
+                    keywords,
+                    context,
+                    15
+                );
+
+                // Filter and add unique bullets
+                const filteredBullets = newBullets
+                    .filter(bp => !usedBullets.has(bp))
+                    .slice(0, targetBulletCount);
+
+                // Add bullets to the section
+                filteredBullets.forEach(bullet => {
+                    usedBullets.add(bullet);
+                    bulletList.append(`<li>${bullet}</li>`);
+                });
+
+                // If we still need more bullets, generate additional ones
+                if (bulletList.find('li').length < targetBulletCount) {
+                    const remainingCount = targetBulletCount - bulletList.find('li').length;
+                    const additionalBullets = await generateBullets(
+                        'generate',
+                        null,
+                        keywords,
+                        context,
+                        15
+                    );
+
+                    const moreBullets = additionalBullets
+                        .filter(bp => !usedBullets.has(bp))
+                        .slice(0, remainingCount);
+
+                    moreBullets.forEach(bullet => {
+                        usedBullets.add(bullet);
+                        bulletList.append(`<li>${bullet}</li>`);
+                    });
                 }
             }
-        });
-    });
+        }
+    }
 }
 
-// Update updateResume function
+// Update updateResume to pass keywords to ensureAllSectionsHaveBullets
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const sectionWordCounts = getSectionWordCounts($);
     const usedBullets = new Set();
     
-    // Start with 3 bullets (based on example resume)
     const INITIAL_BULLET_COUNT = 4;
     const MIN_BULLETS = 2;
     
-    // Ensure all sections have bullet points before proceeding
-    await ensureAllSectionsHaveBullets($, INITIAL_BULLET_COUNT);
+    const keywordString = fullTailoring ? 
+        keywords.join(', ') : 
+        keywords.slice(0, Math.min(5, keywords.length)).join(', ');
+    
+    // Ensure all sections have meaningful bullet points before proceeding
+    await ensureAllSectionsHaveBullets($, INITIAL_BULLET_COUNT, keywordString, usedBullets);
     
     const keywordGroups = fullTailoring ? 
-        Array(5).fill(keywords.join(', ')) : 
-        [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
+        Array(5).fill(keywordString) : 
+        [keywordString];
 
     const allSectionBullets = await generateBullets(
         'generate',
         null,
-        fullTailoring ? keywords.join(', ') : keywords.slice(0, Math.min(5, keywords.length)).join(', '),
+        keywordString,
         'for all sections',
         15
     );
 
-    // Initial update with consistent bullet count
+    // Rest of the updateResume function remains the same...
     const sections = [
         $('.job-details'),
         $('.project-details'),
@@ -235,8 +273,8 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         );
     }
 
-    // Verify all sections have bullets after updates
-    await ensureAllSectionsHaveBullets($, INITIAL_BULLET_COUNT);
+    // Verify all sections have meaningful bullets after updates
+    await ensureAllSectionsHaveBullets($, INITIAL_BULLET_COUNT, keywordString, usedBullets);
 
     // Check and adjust page length
     let currentBulletCount = INITIAL_BULLET_COUNT;
@@ -257,7 +295,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         );
         
         // Verify bullets after reduction
-        await ensureAllSectionsHaveBullets($, currentBulletCount);
+        await ensureAllSectionsHaveBullets($, currentBulletCount, keywordString, usedBullets);
         attempts++;
     }
 
