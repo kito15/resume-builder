@@ -307,7 +307,7 @@ async function convertHtmlToPdf(htmlContent) {
     const customCSS = `
         @page {
             size: Letter;
-            margin: 0.4in;
+            margin: 0.35in;
         }
         body {
             font-family: 'Calibri', 'Arial', sans-serif;
@@ -315,62 +315,84 @@ async function convertHtmlToPdf(htmlContent) {
             line-height: 1.2;
             margin: 0;
             padding: 0;
-            color: #333;
+            color: #000;
             max-width: 100%;
         }
         
         /* Header Styling */
         h1 {
             text-align: center;
-            margin-bottom: 8px;
+            margin: 0 0 4px 0;
             font-size: 24px;
             text-transform: uppercase;
+            letter-spacing: 1px;
         }
         
         .contact-info {
             text-align: center;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .contact-info > *:not(:last-child)::after {
+            content: "|";
+            margin-left: 8px;
         }
         
         /* Section Styling */
         h2 {
             text-transform: uppercase;
             border-bottom: 1px solid #000;
-            margin-bottom: 8px;
-            padding-bottom: 2px;
+            margin: 0 0 6px 0;
+            padding: 0 0 1px 0;
             font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
         }
         
         /* Experience Section */
         .job-details, .project-details, .education-details {
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
         
         .position-header {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 4px;
+            align-items: baseline;
+            margin-bottom: 2px;
+            flex-wrap: nowrap;
+        }
+        
+        .position-left {
+            display: flex;
+            gap: 8px;
+            align-items: baseline;
         }
         
         .company-name {
             font-weight: bold;
+            font-style: italic;
         }
         
         .location {
-            font-style: italic;
+            font-style: normal;
         }
         
         /* Bullet Points */
         ul {
             margin: 0;
-            padding-left: 18px;
-            margin-bottom: 8px;
+            padding-left: 15px;
+            margin-bottom: 6px;
         }
         
         li {
-            margin-bottom: 2px;
-            padding-left: 4px;
+            margin-bottom: 1px;
+            padding-left: 2px;
+            line-height: 1.3;
         }
         
         /* Links */
@@ -382,26 +404,39 @@ async function convertHtmlToPdf(htmlContent) {
         /* Date Styling */
         .date {
             font-style: italic;
+            white-space: nowrap;
         }
         
         /* Skills Section */
+        .skills-section {
+            margin-bottom: 8px;
+        }
+        
         .skills-section p {
-            margin: 4px 0;
+            margin: 2px 0;
+            line-height: 1.3;
         }
         
         /* Adjust spacing between sections */
         section {
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
         
         /* Project Section */
         .project-title {
             font-weight: bold;
+            font-style: italic;
         }
         
         /* Education Section */
         .degree {
             font-style: italic;
+        }
+        
+        /* Position Title */
+        .position-title {
+            font-style: italic;
+            font-weight: normal;
         }
     `;
 
@@ -421,10 +456,10 @@ async function convertHtmlToPdf(htmlContent) {
         printBackground: true,
         preferCSSPageSize: true,
         margin: {
-            top: '0.4in',
-            right: '0.4in',
-            bottom: '0.4in',
-            left: '0.4in'
+            top: '0.35in',
+            right: '0.35in',
+            bottom: '0.35in',
+            left: '0.35in'
         }
     });
 
