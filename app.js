@@ -307,7 +307,7 @@ async function convertHtmlToPdf(htmlContent) {
     const customCSS = `
         @page {
             size: Letter;
-            margin: 0.5in;
+            margin: 0.4in;
         }
         body {
             font-family: 'Calibri', 'Arial', sans-serif;
@@ -316,6 +316,92 @@ async function convertHtmlToPdf(htmlContent) {
             margin: 0;
             padding: 0;
             color: #333;
+            max-width: 100%;
+        }
+        
+        /* Header Styling */
+        h1 {
+            text-align: center;
+            margin-bottom: 8px;
+            font-size: 24px;
+            text-transform: uppercase;
+        }
+        
+        .contact-info {
+            text-align: center;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+        
+        /* Section Styling */
+        h2 {
+            text-transform: uppercase;
+            border-bottom: 1px solid #000;
+            margin-bottom: 8px;
+            padding-bottom: 2px;
+            font-size: 14px;
+        }
+        
+        /* Experience Section */
+        .job-details, .project-details, .education-details {
+            margin-bottom: 12px;
+        }
+        
+        .position-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        
+        .company-name {
+            font-weight: bold;
+        }
+        
+        .location {
+            font-style: italic;
+        }
+        
+        /* Bullet Points */
+        ul {
+            margin: 0;
+            padding-left: 18px;
+            margin-bottom: 8px;
+        }
+        
+        li {
+            margin-bottom: 2px;
+            padding-left: 4px;
+        }
+        
+        /* Links */
+        a {
+            color: #000;
+            text-decoration: none;
+        }
+        
+        /* Date Styling */
+        .date {
+            font-style: italic;
+        }
+        
+        /* Skills Section */
+        .skills-section p {
+            margin: 4px 0;
+        }
+        
+        /* Adjust spacing between sections */
+        section {
+            margin-bottom: 15px;
+        }
+        
+        /* Project Section */
+        .project-title {
+            font-weight: bold;
+        }
+        
+        /* Education Section */
+        .degree {
+            font-style: italic;
         }
     `;
 
@@ -333,7 +419,13 @@ async function convertHtmlToPdf(htmlContent) {
     const pdfBuffer = await page.pdf({
         format: 'Letter',
         printBackground: true,
-        preferCSSPageSize: true
+        preferCSSPageSize: true,
+        margin: {
+            top: '0.4in',
+            right: '0.4in',
+            bottom: '0.4in',
+            left: '0.4in'
+        }
     });
 
     await browser.close();
