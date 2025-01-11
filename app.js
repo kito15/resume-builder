@@ -197,9 +197,9 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     const sectionWordCounts = getSectionWordCounts($);
     const usedBullets = new Set();
     
-    // Start with 3 bullets (based on example resume)
-    const INITIAL_BULLET_COUNT = 3;
-    const MIN_BULLETS = 2;
+    // Increase initial bullet count to 5
+    const INITIAL_BULLET_COUNT = 5;
+    const MIN_BULLETS = 3;
     
     // Ensure all sections have bullet points before proceeding
     await ensureAllSectionsHaveBullets($, INITIAL_BULLET_COUNT);
@@ -336,17 +336,32 @@ async function balanceSectionBullets($, sections, targetBulletCount) {
         const currentCount = bullets.length;
 
         if (currentCount > targetBulletCount) {
-            // Remove excess bullets from the end
-            bullets.slice(targetBulletCount).remove();
+            // Remove excess bullets, starting with the longest ones
+            const bulletTexts = bullets.map((_, el) => ({
+                text: $(el).text(),
+                length: $(el).text().length,
+                index: _
+            })).get();
+            
+            bulletTexts.sort((a, b) => b.length - a.length);
+            
+            // Remove bullets until we reach target count
+            for (let i = 0; i < currentCount - targetBulletCount; i++) {
+                bullets.eq(bulletTexts[i].index).remove();
+            }
         } else if (currentCount < targetBulletCount) {
             // If we need more bullets, duplicate the shortest ones
-            const existingBullets = bullets.map((_, el) => $(el).text()).get();
+            const existingBullets = bullets.map((_, el) => ({
+                text: $(el).text(),
+                length: $(el).text().length
+            })).get();
+            
             const shortestBullets = [...existingBullets]
                 .sort((a, b) => a.length - b.length)
                 .slice(0, targetBulletCount - currentCount);
                 
             shortestBullets.forEach(bullet => {
-                bulletList.append(`<li>${bullet}</li>`);
+                bulletList.append(`<li>${bullet.text}</li>`);
             });
         }
     });
@@ -407,7 +422,7 @@ async function convertHtmlToPdf(htmlContent) {
         body {
             font-family: 'Calibri', 'Arial', sans-serif;
             font-size: 12px;
-            line-height: 1.2;
+            line-height: 1.15; /* Slightly reduced for better spacing */
             margin: 0;
             padding: 0;
             color: #000;
@@ -424,30 +439,11 @@ async function convertHtmlToPdf(htmlContent) {
             color: #000;
         }
         
-        .contact-info {
-            text-align: center;
-            margin-bottom: 8px;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            gap: 4px;
-            align-items: center;
-            color: #000;
-        }
-        
-        /* Keep only the separator in gray */
-        .contact-info > *:not(:last-child)::after {
-            content: "|";
-            margin-left: 4px;
-            font-size: 11px;
-            color: #333;
-        }
-        
         /* Section Styling */
         h2 {
             text-transform: uppercase;
             border-bottom: 1px solid #000;
-            margin: 0 0 4px 0;
+            margin: 0 0 3px 0; /* Reduced margin */
             padding: 0;
             font-size: 14px;
             font-weight: bold;
@@ -457,7 +453,7 @@ async function convertHtmlToPdf(htmlContent) {
         
         /* Experience Section */
         .job-details, .project-details, .education-details {
-            margin-bottom: 6px;
+            margin-bottom: 4px; /* Reduced margin */
         }
         
         .position-header {
@@ -469,82 +465,33 @@ async function convertHtmlToPdf(htmlContent) {
             width: 100%;
         }
         
-        .position-left {
-            display: flex;
-            gap: 4px;
-            align-items: baseline;
-            flex: 1;
-        }
-        
-        .company-name {
-            font-weight: bold;
-            font-style: italic;
-            margin-right: 4px;
-        }
-        
-        .location {
-            font-style: normal;
-            margin-left: auto;
-            padding-right: 4px;
-        }
-        
         /* Bullet Points */
         ul {
             margin: 0;
             padding-left: 12px;
-            margin-bottom: 4px;
+            margin-bottom: 3px; /* Reduced margin */
         }
         
         li {
             margin-bottom: 0;
             padding-left: 0;
-            line-height: 1.25;
+            line-height: 1.2; /* Optimized line height */
             text-align: justify;
-        }
-        
-        /* Links */
-        a {
-            color: #000;
-            text-decoration: none;
-        }
-        
-        /* Date Styling */
-        .date {
-            font-style: italic;
-            white-space: nowrap;
-            min-width: fit-content;
-        }
-        
-        /* Skills Section */
-        .skills-section {
-            margin-bottom: 6px;
-        }
-        
-        .skills-section p {
-            margin: 1px 0;
-            line-height: 1.25;
         }
         
         /* Adjust spacing between sections */
         section {
-            margin-bottom: 8px;
+            margin-bottom: 6px; /* Reduced margin */
         }
         
-        /* Project Section */
-        .project-title {
-            font-weight: bold;
-            font-style: italic;
+        /* Skills Section */
+        .skills-section {
+            margin-bottom: 4px; /* Reduced margin */
         }
         
-        /* Education Section */
-        .degree {
-            font-style: italic;
-        }
-        
-        /* Position Title */
-        .position-title {
-            font-style: italic;
-            font-weight: normal;
+        .skills-section p {
+            margin: 1px 0;
+            line-height: 1.2;
         }
     `;
 
