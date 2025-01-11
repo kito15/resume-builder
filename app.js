@@ -158,8 +158,46 @@ Generate 4-5 achievement-focused bullets for ${context}`;
     }
 }
 
-// Update ensureAllSectionsHaveBullets to preserve existing bullets
-async function ensureAllSectionsHaveBullets($, targetBulletCount, keywords, usedBullets) {
+// Add new function to extract and store original bullets
+function extractOriginalBullets($) {
+    const originalBullets = {
+        job: [],
+        project: [],
+        education: []
+    };
+
+    // Extract job bullets
+    $('.job-details').each((_, section) => {
+        const bullets = $(section).find('li')
+            .map((_, el) => $(el).text().trim())
+            .get()
+            .filter(text => text.length > 0);
+        originalBullets.job.push(...bullets);
+    });
+
+    // Extract project bullets
+    $('.project-details').each((_, section) => {
+        const bullets = $(section).find('li')
+            .map((_, el) => $(el).text().trim())
+            .get()
+            .filter(text => text.length > 0);
+        originalBullets.project.push(...bullets);
+    });
+
+    // Extract education bullets
+    $('.education-details').each((_, section) => {
+        const bullets = $(section).find('li')
+            .map((_, el) => $(el).text().trim())
+            .get()
+            .filter(text => text.length > 0);
+        originalBullets.education.push(...bullets);
+    });
+
+    return originalBullets;
+}
+
+// Update ensureAllSectionsHaveBullets to use original bullets
+async function ensureAllSectionsHaveBullets($, targetBulletCount, keywords, usedBullets, originalBullets) {
     const sectionSelectors = [
         { selector: '.job-details', type: 'job', context: 'for a job experience' },
         { selector: '.project-details', type: 'project', context: 'for a project' },
@@ -179,58 +217,108 @@ async function ensureAllSectionsHaveBullets($, targetBulletCount, keywords, used
                 bulletList = section.find('ul');
             }
 
-            // Check for existing bullets
-            const existingBullets = bulletList.find('li')
-                .map((_, el) => $(el).text())
-                .get();
+            // Generate or reuse bullets for empty sections
+            const currentBullets = bulletList.find('li').length;
+            if (currentBullets === 0) {
+                let newBullets = [];
+                
+                // First try to use original bullets from the same section type
+                const availableOriginals = originalBullets[type]
+                    .filter(bullet => !usedBullets.has(bullet))
+                    .slice(0, targetBulletCount);
 
-            let bulletPoints = [];
-            
-            if (existingBullets.length > 0) {
-                // Use existing bullets and tailor them with keywords
-                bulletPoints = await generateBullets(
-                    'tailor',
-                    existingBullets,
-                    keywords,
-                    context,
-                    15
-                );
-            }
-
-            // Only generate new bullets if we don't have enough
-            if (bulletPoints.length < targetBulletCount) {
-                const remainingCount = targetBulletCount - bulletPoints.length;
-                const newBullets = await generateBullets(
-                    'generate',
-                    null,
-                    keywords,
-                    context,
-                    15
-                );
+                if (availableOriginals.length > 0) {
+                    // Tailor original bullets with keywords
+                    newBullets = await generateBullets(
+                        'tailor',
+                        availableOriginals,
+                        keywords,
+                        context,
+                        15
+                    );
+                } else {
+                    // Generate new bullets if no originals available
+                    newBullets = await generateBullets(
+                        'generate',
+                        null,
+                        keywords,
+                        context,
+                        15
+                    );
+                }
 
                 // Filter and add unique bullets
-                const filteredNewBullets = newBullets
+                const filteredBullets = newBullets
                     .filter(bp => !usedBullets.has(bp))
-                    .slice(0, remainingCount);
+                    .slice(0, targetBulletCount);
 
-                bulletPoints = bulletPoints.concat(filteredNewBullets);
+                // Add bullets to the section
+                filteredBullets.forEach(bullet => {
+                    usedBullets.add(bullet);
+                    bulletList.append(`<li>${bullet}</li>`);
+                });
+
+                // If we still need more bullets, generate additional ones
+                if (bulletList.find('li').length < targetBulletCount) {
+                    const remainingCount = targetBulletCount - bulletList.find('li').length;
+                    
+                    // Try remaining original bullets first
+                    const remainingOriginals = originalBullets[type]
+                        .filter(bullet => !usedBullets.has(bullet))
+                        .slice(0, remainingCount);
+
+                    if (remainingOriginals.length > 0) {
+                        const tailoredRemaining = await generateBullets(
+                            'tailor',
+                            remainingOriginals,
+                            keywords,
+                            context,
+                            15
+                        );
+                        
+                        const moreBullets = tailoredRemaining
+                            .filter(bp => !usedBullets.has(bp))
+                            .slice(0, remainingCount);
+
+                        moreBullets.forEach(bullet => {
+                            usedBullets.add(bullet);
+                            bulletList.append(`<li>${bullet}</li>`);
+                        });
+                    }
+
+                    // Generate new ones if still needed
+                    if (bulletList.find('li').length < targetBulletCount) {
+                        const additionalBullets = await generateBullets(
+                            'generate',
+                            null,
+                            keywords,
+                            context,
+                            15
+                        );
+
+                        const finalBullets = additionalBullets
+                            .filter(bp => !usedBullets.has(bp))
+                            .slice(0, targetBulletCount - bulletList.find('li').length);
+
+                        finalBullets.forEach(bullet => {
+                            usedBullets.add(bullet);
+                            bulletList.append(`<li>${bullet}</li>`);
+                        });
+                    }
+                }
             }
-
-            // Clear existing bullets and add the new/tailored ones
-            bulletList.empty();
-            bulletPoints.slice(0, targetBulletCount).forEach(bullet => {
-                usedBullets.add(bullet);
-                bulletList.append(`<li>${bullet}</li>`);
-            });
         }
     }
 }
 
-// Update updateResume to pass keywords to ensureAllSectionsHaveBullets
+// Update updateResume to include original bullets extraction
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const sectionWordCounts = getSectionWordCounts($);
     const usedBullets = new Set();
+    
+    // Extract original bullets before any modifications
+    const originalBullets = extractOriginalBullets($);
     
     const INITIAL_BULLET_COUNT = 4;
     const MIN_BULLETS = 2;
@@ -239,8 +327,8 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         keywords.join(', ') : 
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
     
-    // Ensure all sections have meaningful bullet points before proceeding
-    await ensureAllSectionsHaveBullets($, INITIAL_BULLET_COUNT, keywordString, usedBullets);
+    // Pass original bullets to ensureAllSectionsHaveBullets
+    await ensureAllSectionsHaveBullets($, INITIAL_BULLET_COUNT, keywordString, usedBullets, originalBullets);
     
     const keywordGroups = fullTailoring ? 
         Array(5).fill(keywordString) : 
@@ -274,7 +362,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     }
 
     // Verify all sections have meaningful bullets after updates
-    await ensureAllSectionsHaveBullets($, INITIAL_BULLET_COUNT, keywordString, usedBullets);
+    await ensureAllSectionsHaveBullets($, INITIAL_BULLET_COUNT, keywordString, usedBullets, originalBullets);
 
     // Check and adjust page length
     let currentBulletCount = INITIAL_BULLET_COUNT;
@@ -295,14 +383,14 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         );
         
         // Verify bullets after reduction
-        await ensureAllSectionsHaveBullets($, currentBulletCount, keywordString, usedBullets);
+        await ensureAllSectionsHaveBullets($, currentBulletCount, keywordString, usedBullets, originalBullets);
         attempts++;
     }
 
     return $.html();
 }
 
-// Update updateResumeSection to better handle existing bullets
+// Update updateResumeSection to handle empty sections
 async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, usedBullets, allSectionBullets, targetBulletCount) {
     let previousFirstVerb = '';
 
@@ -316,24 +404,18 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
             bulletList = section.find('ul');
         }
 
-        // Get existing bullets
-        const existingBullets = bulletList.find('li')
-            .map((_, el) => $(el).text())
-            .get();
-
         let bulletPoints;
         
-        if (existingBullets.length > 0) {
-            // Always use tailor mode when we have existing bullets
+        if (fullTailoring && bulletList.find('li').length > 0) {
+            const existingBullets = bulletList.find('li')
+                .map((_, el) => $(el).text())
+                .get();
+                
             bulletPoints = await generateBullets(
-                'tailor',
-                existingBullets,
-                keywords[i % keywords.length],
-                context,
-                wordLimit
+                'tailor', existingBullets,
+                keywords[i % keywords.length], context, wordLimit
             );
         } else {
-            // Only use generated bullets for empty sections
             bulletPoints = allSectionBullets.splice(0, targetBulletCount);
             bulletPoints = shuffleArray(bulletPoints);
 
@@ -352,11 +434,8 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
         // If we don't have enough bullets, generate more
         while (bulletPoints.length < targetBulletCount) {
             const newBullets = await generateBullets(
-                'generate',
-                null,
-                keywords[i % keywords.length],
-                context,
-                wordLimit
+                'generate', null,
+                keywords[i % keywords.length], context, wordLimit
             );
             
             const filteredNewBullets = newBullets
