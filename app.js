@@ -311,24 +311,6 @@ async function convertHtmlToPdf(htmlContent) {
     return pdfBuffer;
 }
 
-function removeOneBulletFromEachSection($) {
-    const sections = [$('.job-details ul'), $('.project-details ul'), $('.education-details ul')];
-    sections.forEach(section => {
-        const bullets = section.find('li');
-        if (bullets.length > 0) {
-            bullets.last().remove();
-        }
-    });
-    return $.html();
-}
-
-// Simple approximation to check if PDF exceeds one page
-function pdfExceedsOnePage(pdfBuffer) {
-    // Adjust threshold as needed
-    const sizeThresholdInBytes = 80000;
-    return pdfBuffer.length > sizeThresholdInBytes;
-}
-
 app.post('/customize-resume', async (req, res) => {
     try {
         const { htmlContent, keywords, fullTailoring } = req.body;
@@ -344,17 +326,9 @@ app.post('/customize-resume', async (req, res) => {
         const updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
         
         // Convert to PDF
-        let finalHtmlContent = updatedHtmlContent;
-        let pdfBuffer = await convertHtmlToPdf(finalHtmlContent);
+        const pdfBuffer = await convertHtmlToPdf(updatedHtmlContent);
 
-        // Repeat until PDF is at or below one page
-        while (pdfExceedsOnePage(pdfBuffer)) {
-            const $ = cheerio.load(finalHtmlContent);
-            finalHtmlContent = removeOneBulletFromEachSection($);
-            pdfBuffer = await convertHtmlToPdf(finalHtmlContent);
-        }
-
-        // Send the final PDF
+        // Send response
         res.contentType('application/pdf');
         res.set('Content-Disposition', 'attachment; filename=customized_resume.pdf');
         res.send(Buffer.from(pdfBuffer));
