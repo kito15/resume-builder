@@ -307,7 +307,7 @@ async function convertHtmlToPdf(htmlContent) {
     const customCSS = `
         @page {
             size: Letter;
-            margin: 0.35in;
+            margin: 0.3in;
         }
         body {
             font-family: 'Calibri', 'Arial', sans-serif;
@@ -322,77 +322,85 @@ async function convertHtmlToPdf(htmlContent) {
         /* Header Styling */
         h1 {
             text-align: center;
-            margin: 0 0 4px 0;
+            margin: 0 0 2px 0;
             font-size: 24px;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
         }
         
         .contact-info {
             text-align: center;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             width: 100%;
             display: flex;
             justify-content: center;
-            gap: 8px;
+            gap: 4px;
             align-items: center;
         }
         
         .contact-info > *:not(:last-child)::after {
             content: "|";
-            margin-left: 8px;
+            margin-left: 4px;
+            font-size: 11px;
+            color: #333;
         }
         
         /* Section Styling */
         h2 {
             text-transform: uppercase;
             border-bottom: 1px solid #000;
-            margin: 0 0 6px 0;
-            padding: 0 0 1px 0;
+            margin: 0 0 4px 0;
+            padding: 0;
             font-size: 14px;
             font-weight: bold;
-            letter-spacing: 0.5px;
+            letter-spacing: 0;
         }
         
         /* Experience Section */
         .job-details, .project-details, .education-details {
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
         
         .position-header {
             display: flex;
             justify-content: space-between;
             align-items: baseline;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
             flex-wrap: nowrap;
+            width: 100%;
         }
         
         .position-left {
             display: flex;
-            gap: 8px;
+            gap: 4px;
             align-items: baseline;
+            flex: 1;
         }
         
         .company-name {
             font-weight: bold;
             font-style: italic;
+            margin-right: 4px;
         }
         
         .location {
             font-style: normal;
+            margin-left: auto;
+            padding-right: 4px;
         }
         
         /* Bullet Points */
         ul {
             margin: 0;
-            padding-left: 15px;
-            margin-bottom: 6px;
+            padding-left: 12px;
+            margin-bottom: 4px;
         }
         
         li {
-            margin-bottom: 1px;
-            padding-left: 2px;
-            line-height: 1.3;
+            margin-bottom: 0;
+            padding-left: 0;
+            line-height: 1.25;
+            text-align: justify;
         }
         
         /* Links */
@@ -405,21 +413,22 @@ async function convertHtmlToPdf(htmlContent) {
         .date {
             font-style: italic;
             white-space: nowrap;
+            min-width: fit-content;
         }
         
         /* Skills Section */
         .skills-section {
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
         
         .skills-section p {
-            margin: 2px 0;
-            line-height: 1.3;
+            margin: 1px 0;
+            line-height: 1.25;
         }
         
         /* Adjust spacing between sections */
         section {
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         
         /* Project Section */
