@@ -211,74 +211,46 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
     }
 }
 
-// Add new function to normalize bullet points across sections
-async function normalizeSectionBullets($, sections) {
-    // Get bullet counts for each section
-    const sectionCounts = sections.map(section => {
-        const bulletList = $(section).find('ul');
-        return bulletList.find('li').length;
-    });
-
-    // Find minimum number of bullets (but not less than 2)
-    const minBullets = Math.max(2, Math.min(...sectionCounts.filter(count => count > 0)));
-
-    // Normalize all sections to have the same number of bullets
-    sections.forEach(section => {
-        const bulletList = $(section).find('ul');
-        const bullets = bulletList.find('li');
-        
-        // Sort bullets by length (shorter ones first)
-        const sortedBullets = Array.from(bullets).sort((a, b) => 
-            $(a).text().length - $(b).text().length
-        );
-
-        // Keep only the shortest minBullets
-        bulletList.empty();
-        sortedBullets.slice(0, minBullets).forEach(bullet => {
-            bulletList.append(bullet);
-        });
-    });
-
-    return minBullets;
-}
-
-// Update adjustBulletPoints to be more efficient
-async function adjustBulletPoints($, sections, targetCount) {
-    let modified = false;
-
-    sections.forEach(section => {
-        const bulletList = $(section).find('ul');
-        const bullets = bulletList.find('li');
-        
-        if (bullets.length > targetCount) {
-            // Sort bullets by length and keep the shortest ones
-            const sortedBullets = Array.from(bullets).sort((a, b) => 
-                $(a).text().length - $(b).text().length
-            );
-            
-            bulletList.empty();
-            sortedBullets.slice(0, targetCount).forEach(bullet => {
-                bulletList.append(bullet);
-            });
-            
-            modified = true;
-        }
-    });
-
-    return modified ? targetCount : null;
+// Add new function to calculate optimal bullet count
+async function calculateOptimalBulletCount($) {
+    const AVERAGE_LINE_HEIGHT = 20; // pixels
+    const PAGE_HEIGHT = 1056; // 11 inches * 96 DPI
+    const MARGIN = 0.3 * 96; // 0.3 inches to pixels
+    const AVAILABLE_HEIGHT = PAGE_HEIGHT - (2 * MARGIN);
+    
+    // Calculate space taken by fixed elements (headers, contact info, etc)
+    const fixedContentHeight = 
+        $('h1').outerHeight() + 
+        $('.contact-info').outerHeight() +
+        $('h2').length * 30 + // Section headers
+        $('.position-header').length * 25; // Job titles and dates
+    
+    // Calculate available space for bullets
+    const availableForBullets = AVAILABLE_HEIGHT - fixedContentHeight;
+    
+    // Count number of sections that need bullets
+    const sections = $('.job-details, .project-details, .education-details').length;
+    
+    // Calculate optimal bullet count (starting point)
+    const optimalCount = Math.floor(availableForBullets / (AVERAGE_LINE_HEIGHT * sections));
+    
+    // Return a reasonable range between 3-5 bullets
+    return Math.min(Math.max(optimalCount, 3), 5);
 }
 
 // Update updateResume function
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
-    const sectionWordCounts = getSectionWordCounts($);
     const usedBullets = new Set();
-    let pdfCache = new Map();
-
+    
+    // Pre-calculate optimal bullet count
+    const targetBulletCount = await calculateOptimalBulletCount($);
+    
     const keywordGroups = fullTailoring ? 
         Array(5).fill(keywords.join(', ')) : 
         [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
 
+    // Generate bullets for all sections at once
     const allSectionBullets = await generateBullets(
         'generate',
         null,
@@ -287,55 +259,33 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         15
     );
 
-    // Initial update with optimal number of bullets (4)
-    const sections = ['.job-details', '.project-details', '.education-details'];
-    const sectionElements = sections.map(s => $(s));
+    // Process all sections with consistent bullet count
+    const sections = [
+        { selector: $('.job-details'), context: 'job experience' },
+        { selector: $('.project-details'), context: 'project' },
+        { selector: $('.education-details'), context: 'education' }
+    ];
 
-    for (let i = 0; i < sectionElements.length; i++) {
-        await updateResumeSection(
-            $, 
-            sectionElements[i], 
-            keywordGroups, 
-            `for ${sections[i].replace('.', '').replace('-', ' ')}`,
-            fullTailoring,
-            sectionWordCounts[sections[i].replace('.', '').split('-')[0]],
-            usedBullets,
-            allSectionBullets
-        );
-    }
-
-    // Normalize bullet points across sections
-    let currentBulletCount = await normalizeSectionBullets($, sectionElements);
-
-    // Binary search for optimal bullet count
-    let minBullets = 2;
-    let maxBullets = currentBulletCount;
-    let attempts = 0;
-    const MAX_ATTEMPTS = 3;
-
-    while (attempts < MAX_ATTEMPTS && minBullets <= maxBullets) {
-        const html = $.html();
+    // Process sections in parallel
+    await Promise.all(sections.map(async ({ selector, context }) => {
+        const sectionBullets = allSectionBullets.splice(0, targetBulletCount);
         
-        // Check cache first
-        if (!pdfCache.has(currentBulletCount)) {
-            const { exceedsOnePage } = await convertHtmlToPdf(html);
-            pdfCache.set(currentBulletCount, exceedsOnePage);
-        }
+        selector.each((_, section) => {
+            const bulletList = $(section).find('ul');
+            if (bulletList.length > 0) {
+                bulletList.empty();
+                sectionBullets.forEach(point => {
+                    usedBullets.add(point);
+                    bulletList.append(`<li>${point}</li>`);
+                });
+            }
+        });
+    }));
 
-        const exceedsOnePage = pdfCache.get(currentBulletCount);
-        
-        if (!exceedsOnePage) {
-            break;
-        }
-
-        maxBullets = currentBulletCount - 1;
-        currentBulletCount = Math.max(minBullets, Math.floor((minBullets + maxBullets) / 2));
-        
-        // Adjust all sections to new bullet count
-        const adjusted = await adjustBulletPoints($, sectionElements, currentBulletCount);
-        if (!adjusted) break;
-        
-        attempts++;
+    // Verify consistency
+    const { exceedsOnePage } = await convertHtmlToPdf($.html());
+    if (exceedsOnePage) {
+        console.warn('Warning: Content may exceed one page - consider reducing bullet count');
     }
 
     return $.html();
@@ -562,6 +512,25 @@ async function convertHtmlToPdf(htmlContent) {
 
     await browser.close();
     return { pdfBuffer, exceedsOnePage: height > MAX_HEIGHT };
+}
+
+// Update adjustBulletPoints to maintain consistency
+async function adjustBulletPoints($, sections, targetCount) {
+    sections.forEach(section => {
+        const bulletList = $(section).find('ul');
+        const bullets = bulletList.find('li');
+        
+        // Remove excess bullets
+        while (bullets.length > targetCount) {
+            bullets.last().remove();
+        }
+        
+        // Add placeholder bullets if needed
+        while (bullets.length < targetCount) {
+            bulletList.append('<li>[Additional achievement to be added]</li>');
+        }
+    });
+    return targetCount;
 }
 
 app.post('/customize-resume', async (req, res) => {
