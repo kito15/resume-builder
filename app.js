@@ -211,11 +211,69 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
     }
 }
 
-// Remove references to generateAllSectionBulletPoints and simply fill "allSectionBullets" by calling generateBullets('generate', ...)
+// Add new function to normalize bullet points across sections
+async function normalizeSectionBullets($, sections) {
+    // Get bullet counts for each section
+    const sectionCounts = sections.map(section => {
+        const bulletList = $(section).find('ul');
+        return bulletList.find('li').length;
+    });
+
+    // Find minimum number of bullets (but not less than 2)
+    const minBullets = Math.max(2, Math.min(...sectionCounts.filter(count => count > 0)));
+
+    // Normalize all sections to have the same number of bullets
+    sections.forEach(section => {
+        const bulletList = $(section).find('ul');
+        const bullets = bulletList.find('li');
+        
+        // Sort bullets by length (shorter ones first)
+        const sortedBullets = Array.from(bullets).sort((a, b) => 
+            $(a).text().length - $(b).text().length
+        );
+
+        // Keep only the shortest minBullets
+        bulletList.empty();
+        sortedBullets.slice(0, minBullets).forEach(bullet => {
+            bulletList.append(bullet);
+        });
+    });
+
+    return minBullets;
+}
+
+// Update adjustBulletPoints to be more efficient
+async function adjustBulletPoints($, sections, targetCount) {
+    let modified = false;
+
+    sections.forEach(section => {
+        const bulletList = $(section).find('ul');
+        const bullets = bulletList.find('li');
+        
+        if (bullets.length > targetCount) {
+            // Sort bullets by length and keep the shortest ones
+            const sortedBullets = Array.from(bullets).sort((a, b) => 
+                $(a).text().length - $(b).text().length
+            );
+            
+            bulletList.empty();
+            sortedBullets.slice(0, targetCount).forEach(bullet => {
+                bulletList.append(bullet);
+            });
+            
+            modified = true;
+        }
+    });
+
+    return modified ? targetCount : null;
+}
+
+// Update updateResume function
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const sectionWordCounts = getSectionWordCounts($);
     const usedBullets = new Set();
+    let pdfCache = new Map();
 
     const keywordGroups = fullTailoring ? 
         Array(5).fill(keywords.join(', ')) : 
@@ -229,28 +287,54 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         15
     );
 
-    // Initial update with maximum bullets
-    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, sectionWordCounts.job, usedBullets, allSectionBullets);
-    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, sectionWordCounts.project, usedBullets, allSectionBullets);
-    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, sectionWordCounts.education, usedBullets, allSectionBullets);
+    // Initial update with optimal number of bullets (4)
+    const sections = ['.job-details', '.project-details', '.education-details'];
+    const sectionElements = sections.map(s => $(s));
 
-    // Check and adjust page length
-    let currentBulletCount = 5; // Start with maximum
+    for (let i = 0; i < sectionElements.length; i++) {
+        await updateResumeSection(
+            $, 
+            sectionElements[i], 
+            keywordGroups, 
+            `for ${sections[i].replace('.', '').replace('-', ' ')}`,
+            fullTailoring,
+            sectionWordCounts[sections[i].replace('.', '').split('-')[0]],
+            usedBullets,
+            allSectionBullets
+        );
+    }
+
+    // Normalize bullet points across sections
+    let currentBulletCount = await normalizeSectionBullets($, sectionElements);
+
+    // Binary search for optimal bullet count
+    let minBullets = 2;
+    let maxBullets = currentBulletCount;
     let attempts = 0;
-    const MIN_BULLETS = 2;
+    const MAX_ATTEMPTS = 3;
 
-    while (attempts < 3 && currentBulletCount > MIN_BULLETS) {
-        const { exceedsOnePage } = await convertHtmlToPdf($.html());
+    while (attempts < MAX_ATTEMPTS && minBullets <= maxBullets) {
+        const html = $.html();
+        
+        // Check cache first
+        if (!pdfCache.has(currentBulletCount)) {
+            const { exceedsOnePage } = await convertHtmlToPdf(html);
+            pdfCache.set(currentBulletCount, exceedsOnePage);
+        }
+
+        const exceedsOnePage = pdfCache.get(currentBulletCount);
         
         if (!exceedsOnePage) {
             break;
         }
 
-        // Reduce bullets and try again
-        currentBulletCount = await adjustBulletPoints($, 
-            ['.job-details', '.project-details', '.education-details'].map(s => $(s)), 
-            currentBulletCount
-        );
+        maxBullets = currentBulletCount - 1;
+        currentBulletCount = Math.max(minBullets, Math.floor((minBullets + maxBullets) / 2));
+        
+        // Adjust all sections to new bullet count
+        const adjusted = await adjustBulletPoints($, sectionElements, currentBulletCount);
+        if (!adjusted) break;
+        
         attempts++;
     }
 
@@ -478,20 +562,6 @@ async function convertHtmlToPdf(htmlContent) {
 
     await browser.close();
     return { pdfBuffer, exceedsOnePage: height > MAX_HEIGHT };
-}
-
-// Add new function to manage bullet points
-async function adjustBulletPoints($, sections, currentBulletCount) {
-    // Reduce bullets in all sections equally
-    sections.forEach(section => {
-        const bulletList = $(section).find('ul');
-        const bullets = bulletList.find('li');
-        if (bullets.length > currentBulletCount) {
-            // Remove the last bullet
-            bullets.last().remove();
-        }
-    });
-    return currentBulletCount - 1;
 }
 
 app.post('/customize-resume', async (req, res) => {
