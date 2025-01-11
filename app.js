@@ -159,7 +159,7 @@ Generate 4-5 achievement-focused bullets for ${context}`;
 }
 
 // Modify updateResumeSection to call generateBullets in place of old functions
-async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, usedBullets, allSectionBullets, bulletPointsPerSection) {
+async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, usedBullets, allSectionBullets) {
     let previousFirstVerb = '';
 
     for (let i = 0; i < sections.length; i++) {
@@ -199,7 +199,7 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
             // Shuffle, then ensure 4-5 total bullets
             bulletPoints = shuffleArray(bulletPoints);
             bulletPoints = await ensureBulletRange(bulletPoints, usedBullets, () =>
-                generateBullets('generate', null, keywords[i % keywords.length], context, wordLimit), bulletPointsPerSection, bulletPointsPerSection);
+                generateBullets('generate', null, keywords[i % keywords.length], context, wordLimit), 4, 5);
 
             // Clear old items and insert final bulletPoints
             bulletList.empty();
@@ -237,26 +237,12 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         15 // or use computed values if needed
     );
 
-    // Determine how many bullet points we can allocate per section
-    // (Adjust logic as needed; here we use a fixed distribution for simplicity)
-    const bulletPointsPerSection = 4;
-
     // Then use 'allSectionBullets' in each 'updateResumeSection' instead of calling generateBullets again.
-    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, sectionWordCounts.job, usedBullets, allSectionBullets, bulletPointsPerSection);
-    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, sectionWordCounts.project, usedBullets, allSectionBullets, bulletPointsPerSection);
-    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, sectionWordCounts.education, usedBullets, allSectionBullets, bulletPointsPerSection);
+    await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, sectionWordCounts.job, usedBullets, allSectionBullets);
+    await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, sectionWordCounts.project, usedBullets, allSectionBullets);
+    await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, sectionWordCounts.education, usedBullets, allSectionBullets);
 
-    // After updates, check length; if it exceeds MAX_WORDS_PER_PAGE, remove extra bullets
-    let finalHtml = $.html();
-    let lengthEstimate = estimateResumeLength(finalHtml);
-    while (lengthEstimate > MAX_WORDS_PER_PAGE && bulletPointsPerSection > 0) {
-        // Reduce bullet points further in each section if needed
-        reduceBullets($); // A helper to remove one bullet from each section
-        finalHtml = $.html();
-        lengthEstimate = estimateResumeLength(finalHtml);
-    }
-
-    return finalHtml;
+    return $.html();
 }
 
 async function ensureBulletRange(bulletPoints, usedBullets, generateFn, minCount, maxCount) {
@@ -284,26 +270,6 @@ function shuffleArray(array) {
         [array[i], array[j]] = [array[j], array[i]];
     }
     return array;
-}
-
-function estimateResumeLength(htmlContent) {
-    // Simple approximation by counting words
-    const text = htmlContent.replace(/<[^>]+>/g, '').trim();
-    const wordCount = text.split(/\s+/).length;
-    return wordCount;
-}
-
-// Add a guideline for the total word count that fits on one page (adjust as necessary)
-const MAX_WORDS_PER_PAGE = 450;
-
-function reduceBullets($) {
-    const sections = ['.job-details', '.project-details', '.education-details'];
-    sections.forEach(sel => {
-        const liElements = $(sel).find('li');
-        if (liElements.length > 0) {
-            liElements.last().remove();
-        }
-    });
 }
 
 async function convertHtmlToPdf(htmlContent) {
@@ -345,6 +311,24 @@ async function convertHtmlToPdf(htmlContent) {
     return pdfBuffer;
 }
 
+function removeOneBulletFromEachSection($) {
+    const sections = [$('.job-details ul'), $('.project-details ul'), $('.education-details ul')];
+    sections.forEach(section => {
+        const bullets = section.find('li');
+        if (bullets.length > 0) {
+            bullets.last().remove();
+        }
+    });
+    return $.html();
+}
+
+// Simple approximation to check if PDF exceeds one page
+function pdfExceedsOnePage(pdfBuffer) {
+    // Adjust threshold as needed
+    const sizeThresholdInBytes = 80000;
+    return pdfBuffer.length > sizeThresholdInBytes;
+}
+
 app.post('/customize-resume', async (req, res) => {
     try {
         const { htmlContent, keywords, fullTailoring } = req.body;
@@ -360,9 +344,17 @@ app.post('/customize-resume', async (req, res) => {
         const updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
         
         // Convert to PDF
-        const pdfBuffer = await convertHtmlToPdf(updatedHtmlContent);
+        let finalHtmlContent = updatedHtmlContent;
+        let pdfBuffer = await convertHtmlToPdf(finalHtmlContent);
 
-        // Send response
+        // Repeat until PDF is at or below one page
+        while (pdfExceedsOnePage(pdfBuffer)) {
+            const $ = cheerio.load(finalHtmlContent);
+            finalHtmlContent = removeOneBulletFromEachSection($);
+            pdfBuffer = await convertHtmlToPdf(finalHtmlContent);
+        }
+
+        // Send the final PDF
         res.contentType('application/pdf');
         res.set('Content-Disposition', 'attachment; filename=customized_resume.pdf');
         res.send(Buffer.from(pdfBuffer));
