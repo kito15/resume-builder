@@ -215,32 +215,44 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const sectionWordCounts = getSectionWordCounts($);
-    
-    // Track used bullet points across the entire resume
     const usedBullets = new Set();
 
     const keywordGroups = fullTailoring ? 
-        Array(5).fill(keywords.join(', ')) : // Create multiple copies for different sections
+        Array(5).fill(keywords.join(', ')) : 
         [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
 
-    // Single LLM call for all contexts (job, project, education)
-    const allContexts = ['job experience', 'project', 'education'];
-    const wordLimits = [sectionWordCounts.job, sectionWordCounts.project, sectionWordCounts.education];
-    const combinedKeywords = fullTailoring
-        ? Array(3).fill(keywords.join(', '))
-        : [keywords.slice(0, Math.min(5, keywords.length)).join(', ')];
     const allSectionBullets = await generateBullets(
         'generate',
         null,
         fullTailoring ? keywords.join(', ') : keywords.slice(0, Math.min(5, keywords.length)).join(', '),
         'for all sections',
-        15 // or use computed values if needed
+        15
     );
 
-    // Then use 'allSectionBullets' in each 'updateResumeSection' instead of calling generateBullets again.
+    // Initial update with maximum bullets
     await updateResumeSection($, $('.job-details'), keywordGroups, 'for a job experience', fullTailoring, sectionWordCounts.job, usedBullets, allSectionBullets);
     await updateResumeSection($, $('.project-details'), keywordGroups, 'for a project', fullTailoring, sectionWordCounts.project, usedBullets, allSectionBullets);
     await updateResumeSection($, $('.education-details'), keywordGroups, 'for education', fullTailoring, sectionWordCounts.education, usedBullets, allSectionBullets);
+
+    // Check and adjust page length
+    let currentBulletCount = 5; // Start with maximum
+    let attempts = 0;
+    const MIN_BULLETS = 2;
+
+    while (attempts < 3 && currentBulletCount > MIN_BULLETS) {
+        const { exceedsOnePage } = await convertHtmlToPdf($.html());
+        
+        if (!exceedsOnePage) {
+            break;
+        }
+
+        // Reduce bullets and try again
+        currentBulletCount = await adjustBulletPoints($, 
+            ['.job-details', '.project-details', '.education-details'].map(s => $(s)), 
+            currentBulletCount
+        );
+        attempts++;
+    }
 
     return $.html();
 }
@@ -272,13 +284,26 @@ function shuffleArray(array) {
     return array;
 }
 
+async function checkPageHeight(page) {
+    return await page.evaluate(() => {
+        const body = document.body;
+        const html = document.documentElement;
+        return Math.max(
+            body.scrollHeight,
+            body.offsetHeight,
+            html.clientHeight,
+            html.scrollHeight,
+            html.offsetHeight
+        );
+    });
+}
+
 async function convertHtmlToPdf(htmlContent) {
     const browser = await puppeteer.launch({
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     const page = await browser.newPage();
 
-    // Inject custom CSS to control page layout and preserve original styles
     const customCSS = `
         @page {
             size: Letter;
@@ -301,6 +326,10 @@ async function convertHtmlToPdf(htmlContent) {
         document.head.appendChild(style);
     }, customCSS);
 
+    // Check page height
+    const height = await checkPageHeight(page);
+    const MAX_HEIGHT = 1056; // 11 inches * 96 DPI
+    
     const pdfBuffer = await page.pdf({
         format: 'Letter',
         printBackground: true,
@@ -308,7 +337,21 @@ async function convertHtmlToPdf(htmlContent) {
     });
 
     await browser.close();
-    return pdfBuffer;
+    return { pdfBuffer, exceedsOnePage: height > MAX_HEIGHT };
+}
+
+// Add new function to manage bullet points
+async function adjustBulletPoints($, sections, currentBulletCount) {
+    // Reduce bullets in all sections equally
+    sections.forEach(section => {
+        const bulletList = $(section).find('ul');
+        const bullets = bulletList.find('li');
+        if (bullets.length > currentBulletCount) {
+            // Remove the last bullet
+            bullets.last().remove();
+        }
+    });
+    return currentBulletCount - 1;
 }
 
 app.post('/customize-resume', async (req, res) => {
@@ -326,9 +369,12 @@ app.post('/customize-resume', async (req, res) => {
         const updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
         
         // Convert to PDF
-        const pdfBuffer = await convertHtmlToPdf(updatedHtmlContent);
+        const { pdfBuffer, exceedsOnePage } = await convertHtmlToPdf(updatedHtmlContent);
 
-        // Send response
+        if (exceedsOnePage) {
+            console.warn('Warning: Resume still exceeds one page after adjustments');
+        }
+
         res.contentType('application/pdf');
         res.set('Content-Disposition', 'attachment; filename=customized_resume.pdf');
         res.send(Buffer.from(pdfBuffer));
