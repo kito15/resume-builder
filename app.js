@@ -278,7 +278,54 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     return $.html();
 }
 
-// Update updateResumeSection to use the bullet tracker
+// Add helper function to extract the first verb
+function getFirstVerb(bulletPoint) {
+    const words = bulletPoint.trim().split(/\s+/);
+    return words[0].toLowerCase();
+}
+
+// Add smart shuffling function
+function smartShuffleBullets(bullets) {
+    if (bullets.length <= 1) return bullets;
+    
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (attempts < maxAttempts) {
+        // Regular shuffle first
+        let shuffled = shuffleArray([...bullets]);
+        
+        // Check for consecutive same verbs
+        let hasConsecutiveVerbs = false;
+        for (let i = 1; i < shuffled.length; i++) {
+            const prevVerb = getFirstVerb(shuffled[i - 1]);
+            const currentVerb = getFirstVerb(shuffled[i]);
+            
+            if (prevVerb === currentVerb) {
+                hasConsecutiveVerbs = true;
+                break;
+            }
+        }
+        
+        if (!hasConsecutiveVerbs) {
+            return shuffled;
+        }
+        
+        attempts++;
+    }
+    
+    // If we couldn't find a perfect arrangement, ensure at least the first two are different
+    const result = [...bullets];
+    for (let i = 1; i < result.length; i++) {
+        if (getFirstVerb(result[0]) === getFirstVerb(result[i])) {
+            [result[1], result[i]] = [result[i], result[1]];
+            break;
+        }
+    }
+    return result;
+}
+
+// Update updateResumeSection to use smart shuffling
 async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount) {
     for (let i = 0; i < sections.length; i++) {
         const section = sections.eq(i);
@@ -301,7 +348,6 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                 keywords, context, wordLimit
             );
         } else {
-            // Generate new bullets specific to this section
             bulletPoints = await generateBullets(
                 'generate', originalBullets,
                 keywords, context, wordLimit
@@ -328,6 +374,9 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
             bulletPoints = bulletPoints.concat(filteredNewBullets);
         }
 
+        // Smart shuffle the bullets to avoid repetitive starting verbs
+        bulletPoints = smartShuffleBullets(bulletPoints);
+
         // Update bullet list
         bulletList.empty();
         bulletPoints.forEach(point => {
@@ -337,7 +386,7 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
     }
 }
 
-// Add new function to adjust bullets while maintaining section separation
+// Update adjustSectionBullets to use smart shuffling
 async function adjustSectionBullets($, selector, targetCount, sectionType, bulletTracker, keywords, context) {
     const sections = $(selector);
     sections.each((_, section) => {
@@ -346,8 +395,15 @@ async function adjustSectionBullets($, selector, targetCount, sectionType, bulle
         const currentCount = bullets.length;
 
         if (currentCount > targetCount) {
-            // Remove excess bullets from the end
-            bullets.slice(targetCount).remove();
+            // Get all bullets and smart shuffle before removing excess
+            const allBullets = bullets.map((_, el) => $(el).text()).get();
+            const shuffledBullets = smartShuffleBullets(allBullets).slice(0, targetCount);
+            
+            // Clear and re-add bullets
+            bulletList.empty();
+            shuffledBullets.forEach(bullet => {
+                bulletList.append(`<li>${bullet}</li>`);
+            });
         } else if (currentCount < targetCount) {
             // Generate new section-specific bullets
             generateBullets('generate', null, keywords, context, 15)
@@ -356,7 +412,13 @@ async function adjustSectionBullets($, selector, targetCount, sectionType, bulle
                         .filter(bp => !bulletTracker.isUsed(bp))
                         .slice(0, targetCount - currentCount);
 
-                    validBullets.forEach(bullet => {
+                    // Combine existing and new bullets, then smart shuffle
+                    const existingBullets = bullets.map((_, el) => $(el).text()).get();
+                    const allBullets = smartShuffleBullets([...existingBullets, ...validBullets]);
+
+                    // Clear and re-add all bullets
+                    bulletList.empty();
+                    allBullets.forEach(bullet => {
                         bulletTracker.addBullet(bullet, sectionType);
                         bulletList.append(`<li>${bullet}</li>`);
                     });
