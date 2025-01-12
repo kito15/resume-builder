@@ -224,11 +224,87 @@ class SectionBulletTracker {
     }
 }
 
+// Add new class to track action verbs
+class ActionVerbTracker {
+    constructor() {
+        this.usedVerbs = new Map(); // Maps section type to Set of used verbs
+        this.globalVerbs = new Set(); // Tracks verbs used across all sections
+    }
+
+    addVerb(verb, sectionType) {
+        verb = verb.toLowerCase();
+        if (!this.usedVerbs.has(sectionType)) {
+            this.usedVerbs.set(sectionType, new Set());
+        }
+        this.usedVerbs.get(sectionType).add(verb);
+        this.globalVerbs.add(verb);
+    }
+
+    isVerbUsedInSection(verb, sectionType) {
+        verb = verb.toLowerCase();
+        return this.usedVerbs.get(sectionType)?.has(verb) || false;
+    }
+
+    isVerbUsedGlobally(verb) {
+        return this.globalVerbs.has(verb.toLowerCase());
+    }
+
+    clearSection(sectionType) {
+        this.usedVerbs.set(sectionType, new Set());
+    }
+}
+
+// Add function to get first verb from bullet point
+function getFirstVerb(bulletText) {
+    return bulletText.trim().split(/\s+/)[0].toLowerCase();
+}
+
+// Add function to shuffle bullets with verb checking
+function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (attempts < maxAttempts) {
+        // Shuffle the array
+        bullets = shuffleArray([...bullets]);
+        
+        // Check if the arrangement is valid
+        let isValid = true;
+        let previousVerb = '';
+        
+        for (let i = 0; i < bullets.length; i++) {
+            const currentVerb = getFirstVerb(bullets[i]);
+            
+            // Check if verb is same as previous bullet or already used as first verb in another section
+            if (currentVerb === previousVerb || 
+                (i === 0 && verbTracker.isVerbUsedGlobally(currentVerb))) {
+                isValid = false;
+                break;
+            }
+            
+            previousVerb = currentVerb;
+        }
+        
+        if (isValid) {
+            // Add first verb to tracker
+            if (bullets.length > 0) {
+                verbTracker.addVerb(getFirstVerb(bullets[0]), sectionType);
+            }
+            return bullets;
+        }
+        
+        attempts++;
+    }
+    
+    return bullets; // Return last shuffle if we couldn't find perfect arrangement
+}
+
 // Update updateResume to use the new tracker
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const sectionWordCounts = getSectionWordCounts($);
     const bulletTracker = new SectionBulletTracker();
+    const verbTracker = new ActionVerbTracker();
     
     // Extract original bullets before any modifications
     const originalBullets = extractOriginalBullets($);
@@ -252,7 +328,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
             $, section.selector, keywordString, section.context,
             fullTailoring, sectionWordCounts[section.type],
             bulletTracker, section.type, section.bullets,
-            INITIAL_BULLET_COUNT
+            INITIAL_BULLET_COUNT, verbTracker
         );
     }
 
@@ -278,50 +354,8 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     return $.html();
 }
 
-// Add new function to extract first verb from bullet point
-function getFirstVerb(bulletText) {
-    // Remove any leading whitespace and '>>' markers
-    const cleanText = bulletText.replace(/^>>\s*/, '').trim();
-    // Get first word (assumed to be the action verb)
-    return cleanText.split(/\s+/)[0].toLowerCase();
-}
-
-// Add smart bullet point shuffling function
-function smartShuffleBullets(bullets) {
-    if (bullets.length <= 1) return bullets;
-    
-    const result = [];
-    const remainingBullets = [...bullets];
-    let lastUsedVerb = '';
-
-    while (remainingBullets.length > 0) {
-        // Find a bullet that doesn't start with the last used verb
-        let bestIndex = -1;
-        
-        for (let i = 0; i < remainingBullets.length; i++) {
-            const currentVerb = getFirstVerb(remainingBullets[i]);
-            
-            if (currentVerb !== lastUsedVerb) {
-                bestIndex = i;
-                break;
-            }
-        }
-
-        // If no different verb found, just take the next available bullet
-        if (bestIndex === -1) {
-            bestIndex = 0;
-        }
-
-        const selectedBullet = remainingBullets.splice(bestIndex, 1)[0];
-        lastUsedVerb = getFirstVerb(selectedBullet);
-        result.push(selectedBullet);
-    }
-
-    return result;
-}
-
-// Update updateResumeSection to use smart shuffling
-async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount) {
+// Update updateResumeSection to use the bullet tracker
+async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount, verbTracker) {
     for (let i = 0; i < sections.length; i++) {
         const section = sections.eq(i);
         let bulletList = section.find('ul');
@@ -349,7 +383,7 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
             );
         }
 
-        // Filter bullets that are appropriate for this section
+        // Filter and shuffle bullets
         bulletPoints = bulletPoints
             .filter(bp => !bulletTracker.isUsed(bp) || 
                          bulletTracker.canUseBulletInSection(bp, sectionType))
@@ -369,8 +403,8 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
             bulletPoints = bulletPoints.concat(filteredNewBullets);
         }
 
-        // Smart shuffle bullets to avoid repetitive verbs
-        bulletPoints = smartShuffleBullets(bulletPoints);
+        // Shuffle bullets with verb checking
+        bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, sectionType, verbTracker);
 
         // Update bullet list
         bulletList.empty();
@@ -381,7 +415,7 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
     }
 }
 
-// Update adjustSectionBullets to use smart shuffling
+// Add new function to adjust bullets while maintaining section separation
 async function adjustSectionBullets($, selector, targetCount, sectionType, bulletTracker, keywords, context) {
     const sections = $(selector);
     sections.each((_, section) => {
@@ -390,15 +424,8 @@ async function adjustSectionBullets($, selector, targetCount, sectionType, bulle
         const currentCount = bullets.length;
 
         if (currentCount > targetCount) {
-            // Get all bullets, smart shuffle them, then take the first targetCount
-            const allBullets = bullets.map((_, el) => $(el).text()).get();
-            const shuffledBullets = smartShuffleBullets(allBullets).slice(0, targetCount);
-            
-            // Clear and repopulate the list
-            bulletList.empty();
-            shuffledBullets.forEach(bullet => {
-                bulletList.append(`<li>${bullet}</li>`);
-            });
+            // Remove excess bullets from the end
+            bullets.slice(targetCount).remove();
         } else if (currentCount < targetCount) {
             // Generate new section-specific bullets
             generateBullets('generate', null, keywords, context, 15)
@@ -407,13 +434,7 @@ async function adjustSectionBullets($, selector, targetCount, sectionType, bulle
                         .filter(bp => !bulletTracker.isUsed(bp))
                         .slice(0, targetCount - currentCount);
 
-                    // Combine existing and new bullets, then smart shuffle
-                    const existingBullets = bullets.map((_, el) => $(el).text()).get();
-                    const allBullets = smartShuffleBullets([...existingBullets, ...validBullets]);
-
-                    // Clear and repopulate the list
-                    bulletList.empty();
-                    allBullets.forEach(bullet => {
+                    validBullets.forEach(bullet => {
                         bulletTracker.addBullet(bullet, sectionType);
                         bulletList.append(`<li>${bullet}</li>`);
                     });
