@@ -278,50 +278,45 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     return $.html();
 }
 
-// Add helper function to extract the first verb
-function getFirstVerb(bulletPoint) {
-    const words = bulletPoint.trim().split(/\s+/);
-    return words[0].toLowerCase();
+// Add new function to extract first verb from bullet point
+function getFirstVerb(bulletText) {
+    // Remove any leading whitespace and '>>' markers
+    const cleanText = bulletText.replace(/^>>\s*/, '').trim();
+    // Get first word (assumed to be the action verb)
+    return cleanText.split(/\s+/)[0].toLowerCase();
 }
 
-// Add smart shuffling function
+// Add smart bullet point shuffling function
 function smartShuffleBullets(bullets) {
     if (bullets.length <= 1) return bullets;
     
-    let attempts = 0;
-    const maxAttempts = 10;
-    
-    while (attempts < maxAttempts) {
-        // Regular shuffle first
-        let shuffled = shuffleArray([...bullets]);
+    const result = [];
+    const remainingBullets = [...bullets];
+    let lastUsedVerb = '';
+
+    while (remainingBullets.length > 0) {
+        // Find a bullet that doesn't start with the last used verb
+        let bestIndex = -1;
         
-        // Check for consecutive same verbs
-        let hasConsecutiveVerbs = false;
-        for (let i = 1; i < shuffled.length; i++) {
-            const prevVerb = getFirstVerb(shuffled[i - 1]);
-            const currentVerb = getFirstVerb(shuffled[i]);
+        for (let i = 0; i < remainingBullets.length; i++) {
+            const currentVerb = getFirstVerb(remainingBullets[i]);
             
-            if (prevVerb === currentVerb) {
-                hasConsecutiveVerbs = true;
+            if (currentVerb !== lastUsedVerb) {
+                bestIndex = i;
                 break;
             }
         }
-        
-        if (!hasConsecutiveVerbs) {
-            return shuffled;
+
+        // If no different verb found, just take the next available bullet
+        if (bestIndex === -1) {
+            bestIndex = 0;
         }
-        
-        attempts++;
+
+        const selectedBullet = remainingBullets.splice(bestIndex, 1)[0];
+        lastUsedVerb = getFirstVerb(selectedBullet);
+        result.push(selectedBullet);
     }
-    
-    // If we couldn't find a perfect arrangement, ensure at least the first two are different
-    const result = [...bullets];
-    for (let i = 1; i < result.length; i++) {
-        if (getFirstVerb(result[0]) === getFirstVerb(result[i])) {
-            [result[1], result[i]] = [result[i], result[1]];
-            break;
-        }
-    }
+
     return result;
 }
 
@@ -374,7 +369,7 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
             bulletPoints = bulletPoints.concat(filteredNewBullets);
         }
 
-        // Smart shuffle the bullets to avoid repetitive starting verbs
+        // Smart shuffle bullets to avoid repetitive verbs
         bulletPoints = smartShuffleBullets(bulletPoints);
 
         // Update bullet list
@@ -395,11 +390,11 @@ async function adjustSectionBullets($, selector, targetCount, sectionType, bulle
         const currentCount = bullets.length;
 
         if (currentCount > targetCount) {
-            // Get all bullets and smart shuffle before removing excess
+            // Get all bullets, smart shuffle them, then take the first targetCount
             const allBullets = bullets.map((_, el) => $(el).text()).get();
             const shuffledBullets = smartShuffleBullets(allBullets).slice(0, targetCount);
             
-            // Clear and re-add bullets
+            // Clear and repopulate the list
             bulletList.empty();
             shuffledBullets.forEach(bullet => {
                 bulletList.append(`<li>${bullet}</li>`);
@@ -416,7 +411,7 @@ async function adjustSectionBullets($, selector, targetCount, sectionType, bulle
                     const existingBullets = bullets.map((_, el) => $(el).text()).get();
                     const allBullets = smartShuffleBullets([...existingBullets, ...validBullets]);
 
-                    // Clear and re-add all bullets
+                    // Clear and repopulate the list
                     bulletList.empty();
                     allBullets.forEach(bullet => {
                         bulletTracker.addBullet(bullet, sectionType);
