@@ -306,11 +306,12 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     const bulletTracker = new SectionBulletTracker();
     const verbTracker = new ActionVerbTracker();
     
-    // Extract original bullets before any modifications
     const originalBullets = extractOriginalBullets($);
     
-    const INITIAL_BULLET_COUNT = 4;
-    const MIN_BULLETS = 2;
+    // Adjusted constants for bullet management
+    const INITIAL_BULLET_COUNT = 5; // Start with more bullets
+    const MIN_BULLETS = 3; // Minimum bullets per section
+    const MAX_BULLETS = 6; // Maximum bullets per section
     
     const keywordString = fullTailoring ? 
         keywords.join(', ') : 
@@ -322,7 +323,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         { selector: $('.education-details'), type: 'education', context: 'for education', bullets: originalBullets.education }
     ];
 
-    // Update each section with its specific context
+    // First pass: Generate initial content
     for (const section of sections) {
         await updateResumeSection(
             $, section.selector, keywordString, section.context,
@@ -335,12 +336,33 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     // Check and adjust page length
     let currentBulletCount = INITIAL_BULLET_COUNT;
     let attempts = 0;
+    let lastValidHtml = $.html();
 
-    while (attempts < 3 && currentBulletCount >= MIN_BULLETS) {
+    while (attempts < 3) {
         const { exceedsOnePage } = await convertHtmlToPdf($.html());
-        if (!exceedsOnePage) break;
+        
+        if (!exceedsOnePage) {
+            // Check if content is too sparse
+            const totalBullets = countTotalBullets($);
+            if (totalBullets < MIN_BULLETS * sections.length) {
+                // Generate additional bullets
+                for (const section of sections) {
+                    await addMoreBullets($, section, keywordString, 
+                        bulletTracker, MIN_BULLETS, MAX_BULLETS);
+                }
+                const { exceedsOnePage: newCheck } = await convertHtmlToPdf($.html());
+                if (!newCheck) {
+                    lastValidHtml = $.html();
+                    break;
+                }
+            } else {
+                lastValidHtml = $.html();
+                break;
+            }
+        }
 
-        currentBulletCount--;
+        // If page is too long, reduce bullets
+        currentBulletCount = Math.max(MIN_BULLETS, currentBulletCount - 1);
         for (const section of sections) {
             await adjustSectionBullets(
                 $, section.selector, currentBulletCount,
@@ -348,10 +370,11 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
                 section.context
             );
         }
+        
         attempts++;
     }
 
-    return $.html();
+    return lastValidHtml;
 }
 
 // Update updateResumeSection to use the bullet tracker
