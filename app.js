@@ -308,9 +308,9 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     
     const originalBullets = extractOriginalBullets($);
     
-    // Dynamically calculate initial bullet count based on content
-    let INITIAL_BULLET_COUNT = 5; // Start with maximum
-    const MIN_BULLETS = 2;
+    // Dynamic bullet count calculation based on content
+    let currentBulletCount = 5; // Start with more bullets
+    let minBulletCount = 3;
     
     const keywordString = fullTailoring ? 
         keywords.join(', ') : 
@@ -322,27 +322,27 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         { selector: $('.education-details'), type: 'education', context: 'for education', bullets: originalBullets.education }
     ];
 
-    // First pass: generate initial content
+    // Initial population of sections
     for (const section of sections) {
         await updateResumeSection(
             $, section.selector, keywordString, section.context,
             fullTailoring, sectionWordCounts[section.type],
             bulletTracker, section.type, section.bullets,
-            INITIAL_BULLET_COUNT, verbTracker
+            currentBulletCount, verbTracker
         );
     }
 
-    // Iteratively adjust bullet counts until page fits
-    let currentBulletCount = INITIAL_BULLET_COUNT;
-    let iteration = 0;
-    const MAX_ITERATIONS = 3;
+    // Iterative adjustment of bullet points to fit one page
+    let attempts = 0;
+    const maxAttempts = 5;
+    let lastValidHtml = $.html();
 
-    while (iteration < MAX_ITERATIONS) {
+    while (attempts < maxAttempts) {
         const { exceedsOnePage } = await convertHtmlToPdf($.html());
         
         if (!exceedsOnePage) {
-            // If page fits, check if we can add more content
-            if (currentBulletCount < INITIAL_BULLET_COUNT && iteration === 0) {
+            // If we have room, try adding more bullets
+            if (currentBulletCount < 6 && attempts === 0) {
                 currentBulletCount++;
                 for (const section of sections) {
                     await adjustSectionBullets(
@@ -351,12 +351,17 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
                         section.context
                     );
                 }
-            } else {
-                break; // Page fits perfectly
+                continue;
             }
-        } else {
-            // Reduce bullets if page is too long
-            currentBulletCount = Math.max(MIN_BULLETS, currentBulletCount - 1);
+            break;
+        }
+
+        // Save last valid state before reducing bullets
+        lastValidHtml = $.html();
+        
+        // Reduce bullets if page is too long
+        if (currentBulletCount > minBulletCount) {
+            currentBulletCount--;
             for (const section of sections) {
                 await adjustSectionBullets(
                     $, section.selector, currentBulletCount,
@@ -364,9 +369,12 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
                     section.context
                 );
             }
+        } else {
+            // If we can't reduce bullets further, use last valid state
+            return lastValidHtml;
         }
         
-        iteration++;
+        attempts++;
     }
 
     return $.html();
@@ -436,37 +444,29 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
 // Add new function to adjust bullets while maintaining section separation
 async function adjustSectionBullets($, selector, targetCount, sectionType, bulletTracker, keywords, context) {
     const sections = $(selector);
-    const adjustments = [];
-
     sections.each((_, section) => {
         const bulletList = $(section).find('ul');
-        const currentBullets = bulletList.find('li');
-        const currentCount = currentBullets.length;
+        const bullets = bulletList.find('li');
+        const currentCount = bullets.length;
 
         if (currentCount > targetCount) {
             // Remove excess bullets from the end
-            currentBullets.slice(targetCount).remove();
+            bullets.slice(targetCount).remove();
         } else if (currentCount < targetCount) {
-            // Queue bullet generation
-            adjustments.push(async () => {
-                const newBullets = await generateBullets(
-                    'generate', null, keywords, context, 15
-                );
-                
-                const validBullets = newBullets
-                    .filter(bp => !bulletTracker.isUsed(bp))
-                    .slice(0, targetCount - currentCount);
+            // Generate new section-specific bullets
+            generateBullets('generate', null, keywords, context, 15)
+                .then(newBullets => {
+                    const validBullets = newBullets
+                        .filter(bp => !bulletTracker.isUsed(bp))
+                        .slice(0, targetCount - currentCount);
 
-                validBullets.forEach(bullet => {
-                    bulletTracker.addBullet(bullet, sectionType);
-                    bulletList.append(`<li>${bullet}</li>`);
+                    validBullets.forEach(bullet => {
+                        bulletTracker.addBullet(bullet, sectionType);
+                        bulletList.append(`<li>${bullet}</li>`);
+                    });
                 });
-            });
         }
     });
-
-    // Execute all bullet generations in parallel
-    await Promise.all(adjustments.map(adj => adj()));
 }
 
 async function ensureBulletRange(bulletPoints, usedBullets, generateFn, minCount, maxCount) {
