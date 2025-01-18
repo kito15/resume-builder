@@ -308,10 +308,9 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     
     const originalBullets = extractOriginalBullets($);
     
-    // Adjusted constants for bullet management
-    const INITIAL_BULLET_COUNT = 5; // Start with more bullets
-    const MIN_BULLETS = 3; // Minimum bullets per section
-    const MAX_BULLETS = 6; // Maximum bullets per section
+    // Dynamically calculate initial bullet count based on content
+    let INITIAL_BULLET_COUNT = 5; // Start with maximum
+    const MIN_BULLETS = 2;
     
     const keywordString = fullTailoring ? 
         keywords.join(', ') : 
@@ -323,7 +322,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         { selector: $('.education-details'), type: 'education', context: 'for education', bullets: originalBullets.education }
     ];
 
-    // First pass: Generate initial content
+    // First pass: generate initial content
     for (const section of sections) {
         await updateResumeSection(
             $, section.selector, keywordString, section.context,
@@ -333,48 +332,44 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         );
     }
 
-    // Check and adjust page length
+    // Iteratively adjust bullet counts until page fits
     let currentBulletCount = INITIAL_BULLET_COUNT;
-    let attempts = 0;
-    let lastValidHtml = $.html();
+    let iteration = 0;
+    const MAX_ITERATIONS = 3;
 
-    while (attempts < 3) {
+    while (iteration < MAX_ITERATIONS) {
         const { exceedsOnePage } = await convertHtmlToPdf($.html());
         
         if (!exceedsOnePage) {
-            // Check if content is too sparse
-            const totalBullets = countTotalBullets($);
-            if (totalBullets < MIN_BULLETS * sections.length) {
-                // Generate additional bullets
+            // If page fits, check if we can add more content
+            if (currentBulletCount < INITIAL_BULLET_COUNT && iteration === 0) {
+                currentBulletCount++;
                 for (const section of sections) {
-                    await addMoreBullets($, section, keywordString, 
-                        bulletTracker, MIN_BULLETS, MAX_BULLETS);
-                }
-                const { exceedsOnePage: newCheck } = await convertHtmlToPdf($.html());
-                if (!newCheck) {
-                    lastValidHtml = $.html();
-                    break;
+                    await adjustSectionBullets(
+                        $, section.selector, currentBulletCount,
+                        section.type, bulletTracker, keywordString,
+                        section.context
+                    );
                 }
             } else {
-                lastValidHtml = $.html();
-                break;
+                break; // Page fits perfectly
+            }
+        } else {
+            // Reduce bullets if page is too long
+            currentBulletCount = Math.max(MIN_BULLETS, currentBulletCount - 1);
+            for (const section of sections) {
+                await adjustSectionBullets(
+                    $, section.selector, currentBulletCount,
+                    section.type, bulletTracker, keywordString,
+                    section.context
+                );
             }
         }
-
-        // If page is too long, reduce bullets
-        currentBulletCount = Math.max(MIN_BULLETS, currentBulletCount - 1);
-        for (const section of sections) {
-            await adjustSectionBullets(
-                $, section.selector, currentBulletCount,
-                section.type, bulletTracker, keywordString,
-                section.context
-            );
-        }
         
-        attempts++;
+        iteration++;
     }
 
-    return lastValidHtml;
+    return $.html();
 }
 
 // Update updateResumeSection to use the bullet tracker
@@ -441,29 +436,37 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
 // Add new function to adjust bullets while maintaining section separation
 async function adjustSectionBullets($, selector, targetCount, sectionType, bulletTracker, keywords, context) {
     const sections = $(selector);
+    const adjustments = [];
+
     sections.each((_, section) => {
         const bulletList = $(section).find('ul');
-        const bullets = bulletList.find('li');
-        const currentCount = bullets.length;
+        const currentBullets = bulletList.find('li');
+        const currentCount = currentBullets.length;
 
         if (currentCount > targetCount) {
             // Remove excess bullets from the end
-            bullets.slice(targetCount).remove();
+            currentBullets.slice(targetCount).remove();
         } else if (currentCount < targetCount) {
-            // Generate new section-specific bullets
-            generateBullets('generate', null, keywords, context, 15)
-                .then(newBullets => {
-                    const validBullets = newBullets
-                        .filter(bp => !bulletTracker.isUsed(bp))
-                        .slice(0, targetCount - currentCount);
+            // Queue bullet generation
+            adjustments.push(async () => {
+                const newBullets = await generateBullets(
+                    'generate', null, keywords, context, 15
+                );
+                
+                const validBullets = newBullets
+                    .filter(bp => !bulletTracker.isUsed(bp))
+                    .slice(0, targetCount - currentCount);
 
-                    validBullets.forEach(bullet => {
-                        bulletTracker.addBullet(bullet, sectionType);
-                        bulletList.append(`<li>${bullet}</li>`);
-                    });
+                validBullets.forEach(bullet => {
+                    bulletTracker.addBullet(bullet, sectionType);
+                    bulletList.append(`<li>${bullet}</li>`);
                 });
+            });
         }
     });
+
+    // Execute all bullet generations in parallel
+    await Promise.all(adjustments.map(adj => adj()));
 }
 
 async function ensureBulletRange(bulletPoints, usedBullets, generateFn, minCount, maxCount) {
