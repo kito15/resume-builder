@@ -299,22 +299,83 @@ function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
     return bullets; // Return last shuffle if we couldn't find perfect arrangement
 }
 
-// Update updateResume to use the new tracker
+// Add BulletCache class for efficient bullet point management
+class BulletCache {
+    constructor() {
+        this.cache = new Map();
+        this.sectionPools = {
+            job: new Set(),
+            project: new Set(),
+            education: new Set()
+        };
+        this.targetBulletCounts = {
+            job: 7,
+            project: 6,
+            education: 5
+        };
+    }
+
+    async generateAllBullets($, keywords, context, wordLimit) {
+        const sections = ['job', 'project', 'education'];
+        const cacheKey = `${keywords.join(',')}_${context}`;
+
+        if (this.cache.has(cacheKey)) {
+            return this.cache.get(cacheKey);
+        }
+
+        const allBullets = {};
+        const promises = sections.map(async (section) => {
+            const targetCount = this.targetBulletCounts[section];
+            const bullets = await generateBullets(
+                'generate',
+                null,
+                keywords,
+                `for ${section} experience`,
+                wordLimit
+            );
+            allBullets[section] = bullets.slice(0, targetCount);
+            bullets.forEach(bullet => this.sectionPools[section].add(bullet));
+        });
+
+        await Promise.all(promises);
+        this.cache.set(cacheKey, allBullets);
+        return allBullets;
+    }
+
+    getBulletsForSection(section, count) {
+        return Array.from(this.sectionPools[section]).slice(0, count);
+    }
+
+    addBulletToSection(bullet, section) {
+        this.sectionPools[section].add(bullet);
+    }
+
+    clear() {
+        this.cache.clear();
+        Object.values(this.sectionPools).forEach(pool => pool.clear());
+    }
+}
+
+// Update updateResume function to use BulletCache
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const sectionWordCounts = getSectionWordCounts($);
     const bulletTracker = new SectionBulletTracker();
     const verbTracker = new ActionVerbTracker();
+    const bulletCache = new BulletCache();
     
+    // Extract original bullets before any modifications
     const originalBullets = extractOriginalBullets($);
     
-    // Dynamic bullet count calculation based on content
-    let currentBulletCount = 5; // Start with more bullets
-    let minBulletCount = 3;
+    const INITIAL_BULLET_COUNT = 6;
+    const MIN_BULLETS = 3;
     
     const keywordString = fullTailoring ? 
         keywords.join(', ') : 
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
+
+    // Generate all bullets upfront
+    const allBullets = await bulletCache.generateAllBullets($, keywords, 'resume section', 15);
 
     const sections = [
         { selector: $('.job-details'), type: 'job', context: 'for a job experience', bullets: originalBullets.job },
@@ -322,66 +383,45 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         { selector: $('.education-details'), type: 'education', context: 'for education', bullets: originalBullets.education }
     ];
 
-    // Initial population of sections
+    // Update each section with its specific context
     for (const section of sections) {
         await updateResumeSection(
             $, section.selector, keywordString, section.context,
             fullTailoring, sectionWordCounts[section.type],
             bulletTracker, section.type, section.bullets,
-            currentBulletCount, verbTracker
+            INITIAL_BULLET_COUNT, verbTracker, bulletCache
         );
     }
 
-    // Iterative adjustment of bullet points to fit one page
+    // Check and adjust page length with smarter space management
+    let currentBulletCount = INITIAL_BULLET_COUNT;
     let attempts = 0;
-    const maxAttempts = 5;
-    let lastValidHtml = $.html();
 
-    while (attempts < maxAttempts) {
+    while (attempts < 3 && currentBulletCount >= MIN_BULLETS) {
         const { exceedsOnePage } = await convertHtmlToPdf($.html());
-        
-        if (!exceedsOnePage) {
-            // If we have room, try adding more bullets
-            if (currentBulletCount < 6 && attempts === 0) {
-                currentBulletCount++;
-                for (const section of sections) {
-                    await adjustSectionBullets(
-                        $, section.selector, currentBulletCount,
-                        section.type, bulletTracker, keywordString,
-                        section.context
-                    );
-                }
-                continue;
-            }
-            break;
-        }
+        if (!exceedsOnePage) break;
 
-        // Save last valid state before reducing bullets
-        lastValidHtml = $.html();
-        
-        // Reduce bullets if page is too long
-        if (currentBulletCount > minBulletCount) {
-            currentBulletCount--;
-            for (const section of sections) {
-                await adjustSectionBullets(
-                    $, section.selector, currentBulletCount,
-                    section.type, bulletTracker, keywordString,
-                    section.context
-                );
-            }
-        } else {
-            // If we can't reduce bullets further, use last valid state
-            return lastValidHtml;
+        // Reduce bullets proportionally based on section importance
+        currentBulletCount--;
+        for (const section of sections) {
+            const adjustedCount = Math.max(
+                MIN_BULLETS,
+                Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8))
+            );
+            await adjustSectionBullets(
+                $, section.selector, adjustedCount,
+                section.type, bulletTracker, keywordString,
+                section.context, bulletCache
+            );
         }
-        
         attempts++;
     }
 
     return $.html();
 }
 
-// Update updateResumeSection to use the bullet tracker
-async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount, verbTracker) {
+// Update updateResumeSection to use BulletCache
+async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount, verbTracker, bulletCache) {
     for (let i = 0; i < sections.length; i++) {
         const section = sections.eq(i);
         let bulletList = section.find('ul');
@@ -391,7 +431,7 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
             bulletList = section.find('ul');
         }
 
-        let bulletPoints;
+        let bulletPoints = bulletCache.getBulletsForSection(sectionType, targetBulletCount);
         
         if (fullTailoring && bulletList.find('li').length > 0) {
             const existingBullets = bulletList.find('li')
@@ -402,11 +442,9 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                 'tailor', existingBullets,
                 keywords, context, wordLimit
             );
-        } else {
-            bulletPoints = await generateBullets(
-                'generate', originalBullets,
-                keywords, context, wordLimit
-            );
+            
+            // Add tailored bullets to cache
+            bulletPoints.forEach(bp => bulletCache.addBulletToSection(bp, sectionType));
         }
 
         // Filter and shuffle bullets
@@ -414,20 +452,6 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
             .filter(bp => !bulletTracker.isUsed(bp) || 
                          bulletTracker.canUseBulletInSection(bp, sectionType))
             .slice(0, targetBulletCount);
-
-        // Generate additional bullets if needed
-        while (bulletPoints.length < targetBulletCount) {
-            const newBullets = await generateBullets(
-                'generate', null,
-                keywords, context, wordLimit
-            );
-            
-            const filteredNewBullets = newBullets
-                .filter(bp => !bulletTracker.isUsed(bp))
-                .slice(0, targetBulletCount - bulletPoints.length);
-                
-            bulletPoints = bulletPoints.concat(filteredNewBullets);
-        }
 
         // Shuffle bullets with verb checking
         bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, sectionType, verbTracker);
@@ -441,8 +465,8 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
     }
 }
 
-// Add new function to adjust bullets while maintaining section separation
-async function adjustSectionBullets($, selector, targetCount, sectionType, bulletTracker, keywords, context) {
+// Update adjustSectionBullets to use BulletCache
+async function adjustSectionBullets($, selector, targetCount, sectionType, bulletTracker, keywords, context, bulletCache) {
     const sections = $(selector);
     sections.each((_, section) => {
         const bulletList = $(section).find('ul');
@@ -453,18 +477,15 @@ async function adjustSectionBullets($, selector, targetCount, sectionType, bulle
             // Remove excess bullets from the end
             bullets.slice(targetCount).remove();
         } else if (currentCount < targetCount) {
-            // Generate new section-specific bullets
-            generateBullets('generate', null, keywords, context, 15)
-                .then(newBullets => {
-                    const validBullets = newBullets
-                        .filter(bp => !bulletTracker.isUsed(bp))
-                        .slice(0, targetCount - currentCount);
+            const cachedBullets = bulletCache.getBulletsForSection(sectionType, targetCount - currentCount);
+            const validBullets = cachedBullets
+                .filter(bp => !bulletTracker.isUsed(bp))
+                .slice(0, targetCount - currentCount);
 
-                    validBullets.forEach(bullet => {
-                        bulletTracker.addBullet(bullet, sectionType);
-                        bulletList.append(`<li>${bullet}</li>`);
-                    });
-                });
+            validBullets.forEach(bullet => {
+                bulletTracker.addBullet(bullet, sectionType);
+                bulletList.append(`<li>${bullet}</li>`);
+            });
         }
     });
 }
