@@ -12,7 +12,9 @@
     "axios": "",
     "cheerio": "",
     "openai": "",
-    "cors": ""
+    "cors": "",
+    "mysql2": "",
+    "bcrypt": ""
   },
   "scripts": {
     "start": "node app.js"
