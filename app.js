@@ -5,7 +5,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const cors = require('cors');
 const { pool, initializeDatabase } = require('./db');
-const { normalizeText, generateHash, calculateSimilarity } = require('./utils');
+const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimilarity } = require('./utils');
 
 const app = express();
 const port = 3000;
@@ -924,6 +924,8 @@ app.post('/customize-resume', async (req, res) => {
 initializeDatabase().catch(console.error);
 
 // Add new endpoints
+const MIN_KEYWORD_OVERLAP = 0.85; // 85% similarity
+
 app.post('/check-job', async (req, res) => {
     try {
         const { text } = req.body;
@@ -963,10 +965,16 @@ app.post('/check-job', async (req, res) => {
             );
 
             if (similarity >= 0.85) {
-                return res.json({
-                    found: true,
-                    keywords: JSON.parse(entry.keywords)
-                });
+                // After similarity check
+                const existingKeywords = JSON.parse(entry.keywords);
+                const similarity = calculateKeywordSimilarity(existingKeywords, keywords);
+                
+                if (similarity >= MIN_KEYWORD_OVERLAP) {
+                    return res.json({
+                        found: true,
+                        keywords: existingKeywords
+                    });
+                }
             }
         }
 
@@ -982,9 +990,18 @@ app.post('/check-job', async (req, res) => {
 app.post('/store-job', async (req, res) => {
     try {
         const { text, keywords } = req.body;
-        if (!text || !keywords) {
-            return res.status(400).json({ error: 'Text and keywords are required' });
+        
+        // Validate keywords array
+        if (!Array.isArray(keywords) || keywords.length < 3) {
+            return res.status(400).json({ 
+                error: 'Invalid keywords - must contain at least 3 items' 
+            });
         }
+
+        // Clean keywords before storage
+        const cleanKeywords = [...new Set(keywords)] // Remove duplicates
+            .filter(k => k.length >= 3) // Minimum length
+            .slice(0, 25); // Maximum keywords
 
         const hash = generateHash(text);
         const normalizedText = normalizeText(text);
@@ -1002,7 +1019,7 @@ app.post('/store-job', async (req, res) => {
                 `UPDATE job_descriptions 
                 SET keywords = ?, updated_at = CURRENT_TIMESTAMP 
                 WHERE content_hash = ?`,
-                [JSON.stringify(keywords), hash]
+                [JSON.stringify(cleanKeywords), hash]
             );
         } else {
             // Insert new entry
@@ -1010,7 +1027,7 @@ app.post('/store-job', async (req, res) => {
                 `INSERT INTO job_descriptions 
                 (content_hash, full_text, keywords, char_length, normalized_text) 
                 VALUES (?, ?, ?, ?, ?)`,
-                [hash, text, JSON.stringify(keywords), charLength, normalizedText]
+                [hash, text, JSON.stringify(cleanKeywords), charLength, normalizedText]
             );
         }
 
