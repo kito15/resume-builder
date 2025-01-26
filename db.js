@@ -5,7 +5,6 @@ const pool = mysql.createPool({
     user: process.env.MYSQL_USER,
     password: process.env.MYSQL_PASSWORD,
     database: process.env.MYSQL_DATABASE,
-    port: process.env.MYSQLPORT,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
@@ -30,6 +29,11 @@ async function initializeDatabase() {
                 INDEX idx_char_length (char_length),
                 FULLTEXT idx_normalized_text (normalized_text)
             ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+        `);
+
+        await connection.execute(`
+            DELETE FROM job_descriptions 
+            WHERE JSON_LENGTH(keywords) = 0
         `);
 
         connection.release();
