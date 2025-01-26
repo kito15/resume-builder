@@ -10,32 +10,163 @@ const port = 3000;
 
 const deepseekApiKey = process.env.api_key; // Replace with your actual DeepSeek API key
 
-// Update CORS configuration to match extension's external content script domains
-const corsOptions = {
-  origin: function(origin, callback) {
-    // Allow requests from extension contexts (like chrome-extension://) and non-LinkedIn domains
-    const isExtension = !origin; // Requests from extensions may not have an Origin
-    const isAllowedExternal = origin && 
-      !/https?:\/\/(.*\.)?linkedin\.com/.test(origin) &&
-      !/https?:\/\/(.*\.)?lever\.co/.test(origin); // Keep existing lever.co allowance
+// Add approved domains list matching the extension's external-content.js
+const approvedDomains = [
+    'linkedin.com/jobs',
+    'indeed.com',
+    'glassdoor.com',
+    'monster.com',
+    'careerbuilder.com',
+    'ziprecruiter.com',
+    'simplyhired.com',
+    'flexjobs.com',
+    'snagajob.com',
+    'usajobs.gov',
+    'idealist.org',
+    'dice.com',
+    'wellfound.com',
+    'angel.co',
+    'weworkremotely.com',
+    'remote.co',
+    'builtinnyc.com',
+    'builtinla.com',
+    'builtinchicago.com',
+    'builtinaustin.com',
+    'builtinboston.com',
+    'builtinseattle.com',
+    'builtinsf.com',
+    'hired.com',
+    'google.com/about/careers',
+    'careers.google.com',
+    'craigslist.org',
+    'themuse.com',
+    'theladders.com',
+    'roberthalf.com',
+    'kellyservices.com',
+    'adecco.com',
+    'randstad.com',
+    'joinhandshake.com',
+    'linkup.com',
+    'jobvite.com',
+    'github.com/jobs',
+    'behance.net/jobs',
+    'dribbble.com/jobs',
+    'artstation.com/jobs',
+    'mediabistro.com',
+    'journalismjobs.com',
+    'higheredjobs.com',
+    'insidehighered.com/jobs',
+    'schoolspring.com',
+    'healthecareers.com',
+    'nursingjobs.com',
+    'allhealthcarejobs.com',
+    'lawjobs.com',
+    'ihireaccounting.com',
+    'salesgravy.com',
+    'energyjobline.com',
+    'manufacturingjobs.com',
+    'truckingtruth.com',
+    'automotivecareers.com',
+    'wayup.com',
+    'chegg.com/internships',
+    'internships.com',
+    'upwork.com',
+    'fiverr.com',
+    'freelancer.com',
+    'toptal.com',
+    'peopleperhour.com',
+    '99designs.com',
+    'thumbtack.com',
+    'taskrabbit.com',
+    'guru.com',
+    'collegerecruiter.com',
+    'aftercollege.com',
+    'job.com',
+    'vault.com',
+    'yello.co',
+    'jobcase.com',
+    'workable.com',
+    'jora.com',
+    'neuvoo.com',
+    'careerjet.com',
+    'talentzoo.com',
+    'clearancejobs.com',
+    'efinancialcareers.com',
+    'rigzone.com',
+    'coolworks.com',
+    'entertainmentcareers.net',
+    'productionhub.com',
+    'poachedjobs.com',
+    'goodfoodjobs.com',
+    'starchefs.com',
+    'campleaders.com',
+    'k12jobspot.com',
+    'localwise.com',
+    'authenticjobs.com',
+    'climatebase.org',
+    'pocitjobs.com',
+    'diversityjobs.com',
+    'vetjobs.com',
+    'hirepurpose.com',
+    'workforce50.com',
+    'retiredbrains.com',
+    'aarp.org/jobs',
+    'ratracerebellion.com',
+    'otta.com',
+    'biospace.com',
+    'pdnjobs.com',
+    'medreps.com',
+    'cryptojobslist.com',
+    'gun.io',
+    '6figurejobs.com',
+    'krop.com',
+    'nurse.com',
+    'productionbeast.com',
+    'salesjobs.com',
+    'techcareers.com',
+    'travelnursesource.com',
+    'writerswrite.com',
+    'lever.co',
+    'greenhouse.io',
+    'workday.com',
+    'bamboohr.com',
+    'smartrecruiters.com'
+];
 
-    if (isExtension || isAllowedExternal) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  optionsSuccessStatus: 200
+// Convert domains to regex patterns that match subdomains
+const domainPatterns = approvedDomains.map(domain => {
+    const escaped = domain.replace(/\./g, '\\.').replace(/\*/g, '.*');
+    return new RegExp(`^(https?://)?([a-zA-Z0-9-]+\\.)*${escaped}(/|$)`);
+});
+
+// Update CORS configuration
+const corsOptions = {
+    origin: (origin, callback) => {
+        try {
+            // Allow extension contexts (no origin) and approved domains
+            if (!origin || domainPatterns.some(pattern => pattern.test(origin))) {
+                callback(null, true);
+            } else {
+                console.log('Blocked origin:', origin);
+                callback(new Error('Origin not allowed by CORS'));
+            }
+        } catch (error) {
+            console.error('CORS validation error:', error);
+            callback(error);
+        }
+    },
+    methods: ['POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    optionsSuccessStatus: 200
 };
 
 // Apply CORS middleware before routes
 app.use(cors(corsOptions));
 
-// Keep the existing OPTIONS handler
+// Add debug logging for preflight requests
 app.options('/customize-resume', cors(corsOptions), (req, res) => {
-  res.sendStatus(200);
+    console.log('Handling preflight for origin:', req.headers.origin);
+    res.sendStatus(200);
 });
 
 app.use(bodyParser.text({ type: 'text/html' }));
