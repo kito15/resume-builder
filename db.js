@@ -36,6 +36,18 @@ async function initializeDatabase() {
             WHERE JSON_LENGTH(keywords) = 0
         `);
 
+        // Validate existing records
+        const [validationResults] = await connection.execute(`
+            SELECT id, JSON_VALID(keywords) as valid 
+            FROM job_descriptions
+        `);
+        
+        validationResults.forEach(result => {
+            if (!result.valid) {
+                console.error(`Invalid JSON in record ${result.id}`);
+            }
+        });
+
         connection.release();
         console.log('Database initialized successfully');
     } catch (error) {
@@ -43,5 +55,19 @@ async function initializeDatabase() {
         throw error;
     }
 }
+
+pool.on('connection', (connection) => {
+    connection.on('error', (err) => {
+        console.error('MySQL connection error:', err);
+    });
+});
+
+pool.on('acquire', (connection) => {
+    console.log('Connection %d acquired', connection.threadId);
+});
+
+pool.on('release', (connection) => {
+    console.log('Connection %d released', connection.threadId);
+});
 
 module.exports = { pool, initializeDatabase }; 
