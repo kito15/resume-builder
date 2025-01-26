@@ -3,11 +3,40 @@ const bodyParser = require('body-parser');
 const puppeteer = require('puppeteer');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const cors = require('cors');
 
 const app = express();
 const port = 3000;
 
 const deepseekApiKey = process.env.api_key; // Replace with your actual DeepSeek API key
+
+// Update CORS configuration to match extension's external content script domains
+const corsOptions = {
+  origin: function(origin, callback) {
+    // Allow requests from extension contexts (like chrome-extension://) and non-LinkedIn domains
+    const isExtension = !origin; // Requests from extensions may not have an Origin
+    const isAllowedExternal = origin && 
+      !/https?:\/\/(.*\.)?linkedin\.com/.test(origin) &&
+      !/https?:\/\/(.*\.)?lever\.co/.test(origin); // Keep existing lever.co allowance
+
+    if (isExtension || isAllowedExternal) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200
+};
+
+// Apply CORS middleware before routes
+app.use(cors(corsOptions));
+
+// Keep the existing OPTIONS handler
+app.options('/customize-resume', cors(corsOptions), (req, res) => {
+  res.sendStatus(200);
+});
 
 app.use(bodyParser.text({ type: 'text/html' }));
 app.use(bodyParser.json({ limit: '50mb' }));
