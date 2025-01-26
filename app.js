@@ -141,34 +141,51 @@ const domainPatterns = approvedDomains.map(domain => {
     return new RegExp(`^(https?://)?([a-zA-Z0-9-]+\\.)*${escaped}(/|$)`);
 });
 
-// Update CORS configuration
+const EXTENSION_ID = 'cofmfaceeakbeddncoaainhnfoigljjh';
+const EXTENSION_ORIGIN = `chrome-extension://${EXTENSION_ID}`;
+
+// Enhanced CORS configuration
 const corsOptions = {
-    origin: (origin, callback) => {
-        try {
-            // Allow extension contexts (no origin) and approved domains
-            if (!origin || domainPatterns.some(pattern => pattern.test(origin))) {
-                callback(null, true);
-            } else {
-                console.log('Blocked origin:', origin);
-                callback(new Error('Origin not allowed by CORS'));
-            }
-        } catch (error) {
-            console.error('CORS validation error:', error);
-            callback(error);
-        }
-    },
-    methods: ['POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    optionsSuccessStatus: 200
+  origin: (origin, callback) => {
+    const approvedPatterns = approvedDomains.map(d => 
+      new RegExp(`^(https?://(.*\\.)?${d.replace('.', '\\.')})(:[0-9]+)?$`)
+    );
+
+    if (
+      !origin || // Allow server-to-server calls
+      origin === EXTENSION_ORIGIN ||
+      approvedPatterns.some(pattern => pattern.test(origin))
+    ) {
+      callback(null, true);
+    } else {
+      console.log('Blocked origin:', origin);
+      callback(new Error('Origin not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  maxAge: 86400
 };
 
-// Apply CORS middleware before routes
 app.use(cors(corsOptions));
 
-// Add debug logging for preflight requests
-app.options('/customize-resume', cors(corsOptions), (req, res) => {
-    console.log('Handling preflight for origin:', req.headers.origin);
-    res.sendStatus(200);
+// Add security headers middleware
+app.use((req, res, next) => {
+  res.header({
+    'Access-Control-Allow-Origin': EXTENSION_ORIGIN,
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+    'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin'
+  });
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(204).send();
+  }
+  
+  next();
 });
 
 app.use(bodyParser.text({ type: 'text/html' }));
