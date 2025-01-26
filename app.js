@@ -151,11 +151,14 @@ const corsOptions = {
       new RegExp(`^(https?://(.*\\.)?${d.replace('.', '\\.')})(:[0-9]+)?$`)
     );
 
-    if (
-      !origin || // Allow server-to-server calls
-      origin === EXTENSION_ORIGIN ||
-      approvedPatterns.some(pattern => pattern.test(origin))
-    ) {
+    const allowedOrigins = [
+      EXTENSION_ORIGIN,
+      ...approvedPatterns
+    ];
+
+    if (!origin || allowedOrigins.some(pattern => 
+      typeof pattern === 'string' ? origin === pattern : pattern.test(origin)
+    )) {
       callback(null, true);
     } else {
       console.log('Blocked origin:', origin);
@@ -165,28 +168,13 @@ const corsOptions = {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
-  maxAge: 86400
+  maxAge: 86400,
+  exposedHeaders: ['Content-Length'],
+  optionsSuccessStatus: 200
 };
 
 app.use(cors(corsOptions));
-
-// Add security headers middleware
-app.use((req, res, next) => {
-  res.header({
-    'Access-Control-Allow-Origin': EXTENSION_ORIGIN,
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-    'Access-Control-Max-Age': '86400',
-    'Vary': 'Origin'
-  });
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.status(204).send();
-  }
-  
-  next();
-});
+app.options('*', cors(corsOptions)); // Handle preflight for all routes
 
 app.use(bodyParser.text({ type: 'text/html' }));
 app.use(bodyParser.json({ limit: '50mb' }));
