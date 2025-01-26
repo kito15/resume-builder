@@ -949,9 +949,22 @@ app.post('/check-job', async (req, res) => {
         );
 
         if (exactMatches.length > 0) {
+            let keywords;
+            try {
+                keywords = JSON.parse(exactMatches[0].keywords);
+            } catch (e) {
+                console.error('Invalid JSON in database:', exactMatches[0].keywords);
+                throw new Error('Corrupted keyword data - please try again');
+            }
+            
+            if (!Array.isArray(keywords)) {
+                console.error('Non-array keywords:', keywords);
+                throw new Error('Invalid keyword format');
+            }
+
             return res.json({
                 found: true,
-                keywords: JSON.parse(exactMatches[0].keywords)
+                keywords
             });
         }
 
@@ -988,7 +1001,11 @@ app.post('/check-job', async (req, res) => {
 
     } catch (error) {
         console.error('Error checking job description:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ 
+            error: error.message.startsWith('Corrupted') 
+                ? 'Server encountered invalid data - please try again' 
+                : 'Internal server error' 
+        });
     }
 });
 
@@ -1011,6 +1028,15 @@ app.post('/store-job', async (req, res) => {
         const hash = generateHash(text);
         const normalizedText = normalizeText(text);
         const charLength = text.length;
+
+        // Validate JSON structure
+        try {
+            if (!Array.isArray(cleanKeywords)) {
+                throw new Error('Keywords must be an array');
+            }
+        } catch (e) {
+            return res.status(400).json({ error: 'Invalid keyword format' });
+        }
 
         // Check if exact hash already exists
         const [existing] = await pool.execute(
