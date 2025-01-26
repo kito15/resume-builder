@@ -4,6 +4,8 @@ const puppeteer = require('puppeteer');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const cors = require('cors');
+const { pool, initializeDatabase } = require('./db');
+const { normalizeText, generateHash, calculateSimilarity } = require('./utils');
 
 const app = express();
 const port = 3000;
@@ -915,6 +917,108 @@ app.post('/customize-resume', async (req, res) => {
     } catch (error) {
         console.error('Error processing resume:', error);
         res.status(500).send('Error processing resume: ' + error.message);
+    }
+});
+
+// Initialize database on startup
+initializeDatabase().catch(console.error);
+
+// Add new endpoints
+app.post('/check-job', async (req, res) => {
+    try {
+        const { text } = req.body;
+        if (!text) {
+            return res.status(400).json({ error: 'Text is required' });
+        }
+
+        const hash = generateHash(text);
+        const normalizedText = normalizeText(text);
+        const charLength = text.length;
+
+        // First, try exact hash match
+        const [exactMatches] = await pool.execute(
+            'SELECT * FROM job_descriptions WHERE content_hash = ?',
+            [hash]
+        );
+
+        if (exactMatches.length > 0) {
+            return res.json({
+                found: true,
+                keywords: JSON.parse(exactMatches[0].keywords)
+            });
+        }
+
+        // Check for similar length entries (±5%)
+        const lengthMargin = Math.floor(charLength * 0.05);
+        const [similarLengthEntries] = await pool.execute(
+            'SELECT * FROM job_descriptions WHERE char_length BETWEEN ? AND ?',
+            [charLength - lengthMargin, charLength + lengthMargin]
+        );
+
+        // Check for content similarity
+        for (const entry of similarLengthEntries) {
+            const similarity = calculateSimilarity(
+                normalizedText,
+                entry.normalized_text
+            );
+
+            if (similarity >= 0.85) {
+                return res.json({
+                    found: true,
+                    keywords: JSON.parse(entry.keywords)
+                });
+            }
+        }
+
+        // No match found
+        return res.json({ found: false });
+
+    } catch (error) {
+        console.error('Error checking job description:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/store-job', async (req, res) => {
+    try {
+        const { text, keywords } = req.body;
+        if (!text || !keywords) {
+            return res.status(400).json({ error: 'Text and keywords are required' });
+        }
+
+        const hash = generateHash(text);
+        const normalizedText = normalizeText(text);
+        const charLength = text.length;
+
+        // Check if exact hash already exists
+        const [existing] = await pool.execute(
+            'SELECT id FROM job_descriptions WHERE content_hash = ?',
+            [hash]
+        );
+
+        if (existing.length > 0) {
+            // Update existing entry
+            await pool.execute(
+                `UPDATE job_descriptions 
+                SET keywords = ?, updated_at = CURRENT_TIMESTAMP 
+                WHERE content_hash = ?`,
+                [JSON.stringify(keywords), hash]
+            );
+        } else {
+            // Insert new entry
+            await pool.execute(
+                `INSERT INTO job_descriptions 
+                (content_hash, full_text, keywords, char_length, normalized_text) 
+                VALUES (?, ?, ?, ?, ?)`,
+                [hash, text, JSON.stringify(keywords), charLength, normalizedText]
+            );
+        }
+
+        res.json({ success: true });
+
+    } catch (error) {
+        console.error('Error storing job description:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
