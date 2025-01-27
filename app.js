@@ -12,9 +12,9 @@ const port = 3000;
 
 const deepseekApiKey = process.env.api_key; // Replace with your actual DeepSeek API key
 
-// Add approved domains list matching the extension's external-content.js
+// Update the approvedDomains array
 const approvedDomains = [
-    'linkedin.com/jobs',
+    'linkedin.com',
     'indeed.com',
     'glassdoor.com',
     'monster.com',
@@ -136,10 +136,9 @@ const approvedDomains = [
 ];
 
 // Convert domains to regex patterns that match subdomains
-const domainPatterns = approvedDomains.map(domain => {
-    const escaped = domain.replace(/\./g, '\\.').replace(/\*/g, '.*');
-    return new RegExp(`^(https?://)?([a-zA-Z0-9-]+\\.)*${escaped}(/|$)`);
-});
+const domainPatterns = approvedDomains.map(d => 
+    new RegExp(`^(https?://(.*\\.)?${d.replace('.', '\\.')})(:[0-9]+)?$`)
+);
 
 const EXTENSION_ID = 'cofmfaceeakbeddncoaainhnfoigljjh';
 const EXTENSION_ORIGIN = `chrome-extension://${EXTENSION_ID}`;
