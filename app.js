@@ -934,10 +934,9 @@ const MIN_KEYWORD_OVERLAP = 0.85; // 85% similarity
 app.post('/check-job', async (req, res) => {
     try {
         const { text } = req.body;
-        if (!text) {
-            return res.status(400).json({ error: 'Text is required' });
-        }
+        if (!text) return res.status(400).json({ error: 'Text is required' });
 
+        // Server-side hashing
         const hash = generateHash(text);
         const normalizedText = normalizeText(text);
         const charLength = text.length;
@@ -1007,6 +1006,11 @@ app.post('/store-job', async (req, res) => {
     try {
         const { text, keywords } = req.body;
         
+        // Server-side validation and hashing
+        const hash = generateHash(text);
+        const normalizedText = normalizeText(text);
+        const charLength = text.length;
+
         // Validate keywords array
         if (!Array.isArray(keywords) || keywords.length < 3) {
             return res.status(400).json({ 
@@ -1018,10 +1022,6 @@ app.post('/store-job', async (req, res) => {
         const cleanKeywords = [...new Set(keywords)] // Remove duplicates
             .filter(k => k.length >= 3) // Minimum length
             .slice(0, 25); // Maximum keywords
-
-        const hash = generateHash(text);
-        const normalizedText = normalizeText(text);
-        const charLength = text.length;
 
         // Validate JSON structure
         try {
