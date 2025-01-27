@@ -949,13 +949,7 @@ app.post('/check-job', async (req, res) => {
         );
 
         if (exactMatches.length > 0) {
-            let keywords;
-            try {
-                keywords = JSON.parse(exactMatches[0].keywords);
-            } catch (e) {
-                console.error('Invalid JSON in database:', exactMatches[0].keywords);
-                throw new Error('Corrupted keyword data - please try again');
-            }
+            const keywords = exactMatches[0].keywords; // Already parsed by MySQL driver
             
             if (!Array.isArray(keywords)) {
                 console.error('Non-array keywords:', keywords);
@@ -984,7 +978,7 @@ app.post('/check-job', async (req, res) => {
 
             if (similarity >= 0.85) {
                 // After similarity check
-                const existingKeywords = JSON.parse(entry.keywords);
+                const existingKeywords = entry.keywords;
                 const similarity = calculateKeywordSimilarity(existingKeywords, keywords);
                 
                 if (similarity >= MIN_KEYWORD_OVERLAP) {
