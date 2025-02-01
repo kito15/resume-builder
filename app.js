@@ -1002,65 +1002,57 @@ app.post('/check-job', async (req, res) => {
 });
 
 app.post('/store-job', async (req, res) => {
-    try {
-        const { text, keywords } = req.body;
-        
-        // Server-side validation and hashing
-        const hash = generateHash(text);
-        const normalizedText = normalizeText(text);
-        const charLength = text.length;
+    // Immediately return success to the client
+    res.json({ success: true });
 
-        // Validate keywords array
-        if (!Array.isArray(keywords) || keywords.length < 3) {
-            return res.status(400).json({ 
-                error: 'Invalid keywords - must contain at least 3 items' 
-            });
-        }
-
-        // Clean keywords before storage
-        const cleanKeywords = [...new Set(keywords)] // Remove duplicates
-            .filter(k => k.length >= 3) // Minimum length
-            .slice(0, 25); // Maximum keywords
-
-        // Validate JSON structure
+    // Launch the storage operation asynchronously (fire-and-forget)
+    (async () => {
         try {
-            if (!Array.isArray(cleanKeywords)) {
-                throw new Error('Keywords must be an array');
+            const { text, keywords } = req.body;
+            
+            // Server-side validation and hashing
+            const hash = generateHash(text);
+            const normalizedText = normalizeText(text);
+            const charLength = text.length;
+
+            // Validate keywords array
+            if (!Array.isArray(keywords) || keywords.length < 3) {
+                console.error('Invalid keywords - must contain at least 3 items');
+                return;
             }
-        } catch (e) {
-            return res.status(400).json({ error: 'Invalid keyword format' });
-        }
 
-        // Check if exact hash already exists
-        const [existing] = await pool.execute(
-            'SELECT id FROM job_descriptions WHERE content_hash = ?',
-            [hash]
-        );
+            // Clean keywords before storage
+            const cleanKeywords = [...new Set(keywords)]
+                .filter(k => k.length >= 3)
+                .slice(0, 25);
 
-        if (existing.length > 0) {
-            // Update existing entry
-            await pool.execute(
-                `UPDATE job_descriptions 
-                SET keywords = ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE content_hash = ?`,
-                [JSON.stringify(cleanKeywords), hash]
+            // Check if exact hash already exists
+            const [existing] = await pool.execute(
+                'SELECT id FROM job_descriptions WHERE content_hash = ?',
+                [hash]
             );
-        } else {
-            // Insert new entry
-            await pool.execute(
-                `INSERT INTO job_descriptions 
-                (content_hash, full_text, keywords, char_length, normalized_text) 
-                VALUES (?, ?, ?, ?, ?)`,
-                [hash, text, JSON.stringify(cleanKeywords), charLength, normalizedText]
-            );
+
+            if (existing.length > 0) {
+                // Update existing entry
+                await pool.execute(
+                    `UPDATE job_descriptions 
+                    SET keywords = ?, updated_at = CURRENT_TIMESTAMP 
+                    WHERE content_hash = ?`,
+                    [JSON.stringify(cleanKeywords), hash]
+                );
+            } else {
+                // Insert new entry
+                await pool.execute(
+                    `INSERT INTO job_descriptions 
+                    (content_hash, full_text, keywords, char_length, normalized_text) 
+                    VALUES (?, ?, ?, ?, ?)`,
+                    [hash, text, JSON.stringify(cleanKeywords), charLength, normalizedText]
+                );
+            }
+        } catch (error) {
+            console.error('Error storing job description:', error);
         }
-
-        res.json({ success: true });
-
-    } catch (error) {
-        console.error('Error storing job description:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+    })();
 });
 
 app.listen(port, () => {
