@@ -140,10 +140,7 @@ const domainPatterns = approvedDomains.map(d =>
     new RegExp(`^(https?://(.*\\.)?${d.replace('.', '\\.')})(:[0-9]+)?$`)
 );
 
-const EXTENSION_ID = 'cofmfaceeakbeddncoaainhnfoigljjh';
-const EXTENSION_ORIGIN = `chrome-extension://${EXTENSION_ID}`;
-
-// Enhanced CORS configuration
+// Update the CORS configuration to accept any Chrome extension
 const corsOptions = {
   origin: (origin, callback) => {
     const approvedPatterns = approvedDomains.map(d => 
@@ -151,7 +148,8 @@ const corsOptions = {
     );
 
     const allowedOrigins = [
-      EXTENSION_ORIGIN,
+      // Match any Chrome extension origin
+      /^chrome-extension:\/\/[a-z]{32}$/,
       ...approvedPatterns
     ];
 
