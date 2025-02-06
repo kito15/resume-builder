@@ -7,7 +7,6 @@ const cors = require('cors');
 const { pool, initializeDatabase } = require('./db');
 const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimilarity } = require('./utils');
 const path = require('path');
-const indexRouter = require('./routes/index');
 
 const app = express();
 const port = 3000;
@@ -178,8 +177,9 @@ app.options('*', cors(corsOptions)); // Handle preflight for all routes
 app.use(bodyParser.text({ type: 'text/html' }));
 app.use(bodyParser.json({ limit: '50mb' }));
 
-app.set('views', path.join(__dirname, 'views'));
+// Configure view engine setup
 app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
 
 // Simple in-memory cache for LLM responses
 const lmCache = new Map();
@@ -1057,8 +1057,6 @@ app.post('/store-job', async (req, res) => {
         }
     })();
 });
-
-app.use('/', indexRouter);
 
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
