@@ -1061,6 +1061,8 @@ app.post('/store-job', async (req, res) => {
 
 app.use('/', indexRouter);
 
+app.use(express.static('public')); // Serve static files from public directory
+
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
 });
