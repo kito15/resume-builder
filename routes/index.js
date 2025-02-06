@@ -7,4 +7,9 @@ router.get('/', (req, res) => {
   res.render('index');
 });
 
+// Add login route
+router.get('/login', (req, res) => {
+  res.render('login');
+});
+
 module.exports = router;
