@@ -8,6 +8,7 @@ const { pool, initializeDatabase } = require('./db');
 const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimilarity } = require('./utils');
 const path = require('path');
 const indexRouter = require('./routes/index');
+const authRouter = require('./routes/auth');
 
 const app = express();
 const port = 3000;
@@ -1060,6 +1061,7 @@ app.post('/store-job', async (req, res) => {
 });
 
 app.use('/', indexRouter);
+app.use('/auth', authRouter);
 
 app.use(express.static('public')); // Serve static files from public directory
 
