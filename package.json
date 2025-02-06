@@ -14,7 +14,8 @@
     "openai": "",
     "cors": "",
     "mysql2": "",
-    "bcrypt": ""
+    "bcrypt": "",
+    "ejs": ""
   },
   "scripts": {
     "start": "node app.js"
