@@ -7,6 +7,7 @@ const cors = require('cors');
 const { pool, initializeDatabase } = require('./db');
 const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimilarity } = require('./utils');
 const path = require('path');
+const indexRouter = require('./routes/index');
 
 const app = express();
 const port = 3000;
@@ -1057,6 +1058,8 @@ app.post('/store-job', async (req, res) => {
         }
     })();
 });
+
+app.use('/', indexRouter);
 
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
