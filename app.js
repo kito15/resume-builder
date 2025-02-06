@@ -176,6 +176,8 @@ app.options('*', cors(corsOptions)); // Handle preflight for all routes
 app.use(bodyParser.text({ type: 'text/html' }));
 app.use(bodyParser.json({ limit: '50mb' }));
 
+app.set('view engine', 'ejs');
+
 // Simple in-memory cache for LLM responses
 const lmCache = new Map();
 
