@@ -1,0 +1,480 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResumeAI Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --turquoise: #38B2AC;
+            --turquoise-dark: #2C9D97;
+            --dark-blue: #1A365D;
+            --light-gray: #F8F9FA;
+            --text-gray: #718096;
+            --border-gray: #E2E8F0;
+            --accent-purple: #9F7AEA;
+            --transition-speed: 0.2s;
+        }
+        
+        body {
+            background-color: var(--light-gray);
+            font-family: 'Inter', sans-serif;
+            color: #2D3748;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .sidebar {
+            background-color: white;
+            width: 220px;
+            position: fixed;
+            height: 100vh;
+            padding: 20px;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.05);
+            z-index: 1000;
+            transition: transform var(--transition-speed) ease;
+        }
+
+        .main-content {
+            margin-left: 220px;
+            padding: 20px 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform var(--transition-speed) ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+        }
+
+        .feature-card {
+            background: linear-gradient(135deg, var(--turquoise), var(--turquoise-dark));
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            height: 180px;
+            position: relative;
+            overflow: hidden;
+            transition: transform var(--transition-speed) ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .dark-card {
+            background: linear-gradient(135deg, var(--dark-blue), #2A4365);
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            height: 180px;
+            position: relative;
+            overflow: hidden;
+            transition: transform var(--transition-speed) ease;
+        }
+
+        .dark-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .progress {
+            height: 4px;
+            background-color: rgba(255,255,255,0.2);
+        }
+
+        .progress-bar {
+            background-color: var(--turquoise);
+        }
+
+        .nav-link {
+            color: var(--text-gray);
+            padding: 8px 12px;
+            margin: 3px 0;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-size: 13px;
+            position: relative;
+            font-weight: 500;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background-color: #F7FAFC;
+            color: var(--turquoise);
+        }
+
+        .nav-link:hover {
+            background-color: rgba(56, 178, 172, 0.1);
+            color: var(--turquoise-dark);
+        }
+
+        .nav-link.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 20px;
+            background: var(--turquoise);
+            border-radius: 0 3px 3px 0;
+        }
+
+        .project-row {
+            border-bottom: 1px solid var(--border-gray);
+            padding: 12px 0;
+        }
+
+        .chart-container {
+            background: var(--dark-blue);
+            border-radius: 15px;
+            padding: 15px;
+            height: 250px;
+        }
+
+        .sales-chart {
+            background: white;
+            border-radius: 15px;
+            padding: 15px;
+            height: 250px;
+        }
+
+        .help-card {
+            background: var(--turquoise);
+            border-radius: 12px;
+            padding: 15px;
+            color: white;
+        }
+
+        .help-card button {
+            background: white;
+            color: var(--turquoise);
+            border: none;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--turquoise), var(--turquoise-dark));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1rem;
+            transition: transform var(--transition-speed) ease;
+        }
+
+        .stat-percentage {
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .project-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .order-item {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-gray);
+        }
+
+        .order-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        h4 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        h5 {
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        h6 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        .small-text {
+            font-size: 0.75rem;
+            letter-spacing: 0.02em;
+        }
+
+        .btn {
+            transition: all var(--transition-speed) ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        /* New Accessibility Styles */
+        .nav-link:focus-visible {
+            outline: 2px solid var(--turquoise);
+            outline-offset: 2px;
+        }
+
+        /* New Loading State Styles */
+        .loading {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255,255,255,0.2),
+                transparent
+            );
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* Enhanced Form Elements */
+        .form-control {
+            border-radius: 8px;
+            border: 1px solid var(--border-gray);
+            transition: all var(--transition-speed) ease;
+        }
+
+        .form-control:focus {
+            border-color: var(--turquoise);
+            box-shadow: 0 0 0 3px rgba(56, 178, 172, 0.1);
+        }
+
+        /* Add these new styles after existing root variables */
+        .brand-icon {
+            font-size: 1.2rem;
+            background: linear-gradient(135deg, var(--turquoise), var(--turquoise-dark));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            transition: transform var(--transition-speed) ease;
+        }
+
+        .brand-icon:hover {
+            transform: rotate(-5deg);
+        }
+        /* ...existing styles... */
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="mb-4">
+            <h5 class="fw-bold"><i class="fas fa-feather brand-icon me-2"></i> ResumeAI</h5>
+        </div>
+        
+        <nav>
+            <a href="#" class="nav-link active"><i class="fas fa-home me-2"></i> Dashboard</a>
+            <a href="#" class="nav-link"><i class="fas fa-file-alt me-2"></i> My Resumes</a>
+            <a href="#" class="nav-link"><i class="fas fa-briefcase me-2"></i> Saved Jobs</a>
+            <a href="#" class="nav-link"><i class="fas fa-sticky-note me-2"></i> Notes</a>
+            
+            <div class="mt-4">
+                <small class="text-muted fw-bold small-text">ACCOUNT PAGES</small>
+                <a href="#" class="nav-link"><i class="fas fa-user me-2"></i> Profile</a>
+                <a href="#" class="nav-link"><i class="fas fa-cog me-2"></i> Settings</a>
+                <a href="#" class="nav-link"><i class="fas fa-sign-out-alt me-2"></i> Log Out</a>
+            </div>
+        </nav>
+
+        <div class="position-absolute bottom-0 start-0 p-3 w-100">
+            <div class="help-card">
+                <h6 class="fw-bold mb-1">Need help?</h6>
+                <p class="small-text mb-2">Check our resume tips</p>
+                <button class="btn btn-sm w-100">VIEW TIPS</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <small class="text-muted small-text">Pages / Dashboard</small>
+                <h4 class="fw-bold mb-0">Dashboard</h4>
+            </div>
+            <div class="d-flex align-items-center">
+                <input type="search" class="form-control form-control-sm me-2" placeholder="Search jobs...">
+                <i class="fas fa-user-circle fs-5 text-muted"></i>
+                <i class="fas fa-cog fs-5 text-muted ms-3"></i>
+                <i class="fas fa-bell fs-5 text-muted ms-3"></i>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="stat-card d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-muted small-text">Credits Remaining</small>
+                        <h4 class="fw-bold mb-0">12</h4>
+                        <span class="stat-percentage text-success">3 used this week</span>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-coins"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-muted small-text">Tailored Resumes</small>
+                        <h4 class="fw-bold mb-0">7</h4>
+                        <span class="stat-percentage text-success">+2 this week</span>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-muted small-text">Saved Jobs</small>
+                        <h4 class="fw-bold mb-0">15</h4>
+                        <span class="stat-percentage text-primary">5 new matches</span>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-bookmark"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-muted small-text">Profile Views</small>
+                        <h4 class="fw-bold mb-0">42</h4>
+                        <span class="stat-percentage text-success">+8% this month</span>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-eye"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="feature-card">
+                    <h6 class="fw-bold mb-1">AI-Powered Resume Tailoring</h6>
+                    <h5 class="fw-bold mb-2">Optimize Your Resume</h5>
+                    <p class="small-text mb-2">Use our AI to tailor your resume for each job application and increase your chances of getting hired.</p>
+                    <a href="#" class="text-white small-text">Start Tailoring <i class="fas fa-arrow-right ms-1"></i></a>
+                    <img src="https://placehold.co/80x80" alt="AI Resume Icon" class="position-absolute bottom-0 end-0 m-3" style="width: 50px; height: 50px;">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="dark-card">
+                    <h6 class="fw-bold mb-1">Job Market Insights</h6>
+                    <p class="small-text mb-2">Stay ahead with real-time job market trends and tailored recommendations for your career growth.</p>
+                    <a href="#" class="text-white small-text">View Insights <i class="fas fa-arrow-right ms-1"></i></a>
+                    <img src="https://placehold.co/250x120" alt="Job Market Graph" class="position-absolute bottom-0 end-0" style="width: 180px; border-top-left-radius: 15px;">
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-8">
+                <div class="chart-container">
+                    <h5 class="text-white mb-3">Resume Tailoring History</h5>
+                    <!-- Line chart for resume tailoring history would go here -->
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="sales-chart">
+                    <h5 class="fw-bold mb-2">Job Application Activity</h5>
+                    <p class="text-success small-text"><i class="fas fa-arrow-up me-1"></i> 24% more active this month</p>
+                    <!-- Activity chart would go here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-8">
+                <div class="bg-white p-3 rounded-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0">Recent Tailored Resumes</h5>
+                        <span class="badge bg-light text-dark small-text"><i class="fas fa-check me-1"></i> 7 tailored this month</span>
+                    </div>
+                    <div class="project-row d-flex align-items-center">
+                        <div class="project-icon bg-primary me-3">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="fw-bold mb-0">Software Engineer Resume</h6>
+                            <small class="text-muted">Tailored for TechCorp Inc.</small>
+                        </div>
+                        <div class="text-end" style="width: 90px;">
+                            <small class="text-muted small-text">2 days ago</small>
+                            <div class="progress mt-1">
+                                <div class="progress-bar" role="progressbar" style="width: 90%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- More tailored resume rows would follow -->
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="bg-white p-3 rounded-3">
+                    <h5 class="fw-bold mb-3">My Notes</h5>
+                    <div class="order-item d-flex align-items-center">
+                        <div class="order-icon bg-success me-3">
+                            <i class="fas fa-sticky-note"></i>
+                        </div>
+                        <div>
+                            <h6 class="fw-bold mb-0">Interview Prep</h6>
+                            <small class="text-muted small-text">Added 2 days ago</small>
+                        </div>
+                    </div>
+                    <!-- More note items would follow -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</body>
+</html>

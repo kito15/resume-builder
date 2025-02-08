@@ -17,7 +17,7 @@ router.post('/signup', async (req, res) => {
             'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
             [name, email, hashedPassword]
         );
-        res.json({ success: true, userId: result.insertId });
+        res.json({ success: true, userId: result.insertId, redirectUrl: '/dashboard' });
     } catch (error) {
         console.error('Signup error:', error);
         res.status(500).json({ error: error.message });
@@ -46,11 +46,17 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
         // Return a simple success response (no JWT used)
-        res.json({ success: true, userId: user.id, name: user.name, email: user.email });
+        res.json({ 
+            success: true, 
+            userId: user.id, 
+            name: user.name, 
+            email: user.email,
+            redirectUrl: '/dashboard'
+        });
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-module.exports = router; 
+module.exports = router;

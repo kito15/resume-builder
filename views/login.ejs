@@ -342,8 +342,8 @@
                     if (data.error) {
                         throw new Error(data.error);
                     }
-                    // Success - redirect to home page
-                    window.location.href = '/';
+                    // Success - redirect to dashboard
+                    window.location.href = data.redirectUrl;
                 })
                 .catch(error => {
                     console.error('Form submission failed:', error);

@@ -12,4 +12,9 @@ router.get('/login', (req, res) => {
   res.render('login');
 });
 
+// Add dashboard route
+router.get('/dashboard', (req, res) => {
+  res.render('dashboard');
+});
+
 module.exports = router;
