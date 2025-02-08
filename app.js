@@ -17,6 +17,7 @@ const deepseekApiKey = process.env.api_key; // Replace with your actual DeepSeek
 
 // Update the approvedDomains array
 const approvedDomains = [
+    'nodejs-production-ee43.up.railway.app',
     'linkedin.com',
     'indeed.com',
     'glassdoor.com',
@@ -138,18 +139,28 @@ const approvedDomains = [
     'smartrecruiters.com'
 ];
 
-// Convert domains to regex patterns that match subdomains
-const domainPatterns = approvedDomains.map(d => 
-    new RegExp(`^(https?://(.*\\.)?${d.replace('.', '\\.')})(:[0-9]+)?$`)
-);
-
-// Update the CORS configuration to handle Chrome extension origins
+// Convert domains to regex patterns that match subdomains and protocols
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow Chrome extension origins and whitelisted domains
-    if (!origin || 
-        origin.startsWith('chrome-extension://') || 
-        domainPatterns.some(pattern => pattern.test(origin))) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const allowedOrigins = [
+      // Match any Chrome extension origin
+      /^chrome-extension:\/\/[a-z]{32}$/,
+      // Match Railway.app domain explicitly
+      'https://nodejs-production-ee43.up.railway.app',
+      // Match job board domains with any subdomain and protocol
+      ...approvedDomains.map(d => 
+        new RegExp(`^(https?://(.*\\.)?${d.replace(/\./g, '\\.')})(:[0-9]+)?$`)
+      )
+    ];
+
+    if (allowedOrigins.some(pattern => 
+      typeof pattern === 'string' ? origin === pattern : pattern.test(origin)
+    )) {
       callback(null, true);
     } else {
       console.log('Blocked origin:', origin);
