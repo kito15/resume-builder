@@ -180,6 +180,7 @@ app.options('*', cors(corsOptions)); // Handle preflight for all routes
 
 app.use(bodyParser.text({ type: 'text/html' }));
 app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ extended: true })); // Add URL-encoded parser
 
 // Configure view engine setup
 app.set('view engine', 'ejs');
