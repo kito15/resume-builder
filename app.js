@@ -143,22 +143,13 @@ const domainPatterns = approvedDomains.map(d =>
     new RegExp(`^(https?://(.*\\.)?${d.replace('.', '\\.')})(:[0-9]+)?$`)
 );
 
-// Update the CORS configuration to accept any Chrome extension
+// Update the CORS configuration to handle Chrome extension origins
 const corsOptions = {
   origin: (origin, callback) => {
-    const approvedPatterns = approvedDomains.map(d => 
-      new RegExp(`^(https?://(.*\\.)?${d.replace('.', '\\.')})(:[0-9]+)?$`)
-    );
-
-    const allowedOrigins = [
-      // Match any Chrome extension origin
-      /^chrome-extension:\/\/[a-z]{32}$/,
-      ...approvedPatterns
-    ];
-
-    if (!origin || allowedOrigins.some(pattern => 
-      typeof pattern === 'string' ? origin === pattern : pattern.test(origin)
-    )) {
+    // Allow Chrome extension origins and whitelisted domains
+    if (!origin || 
+        origin.startsWith('chrome-extension://') || 
+        domainPatterns.some(pattern => pattern.test(origin))) {
       callback(null, true);
     } else {
       console.log('Blocked origin:', origin);
