@@ -8,95 +8,58 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --turquoise: #38B2AC;
-            --turquoise-dark: #2C9D97;
-            --dark-blue: #1A365D;
-            --light-gray: #F8F9FA;
-            --text-gray: #718096;
-            --border-gray: #E2E8F0;
-            --accent-purple: #9F7AEA;
+            --primary-50: #F0FFF4;
+            --primary-500: #38B2AC;
+            --primary-600: #2C9D97;
+            --primary-700: #247E79;
+            --secondary-500: #9F7AEA;
+            --gray-300: #E2E8F0;
+            --gray-400: #CBD5E0;
+            --gray-500: #718096;
+            --gray-700: #4A5568;
+            --gray-900: #1A202C;
             --transition-speed: 0.2s;
         }
         
         body {
-            background-color: var(--light-gray);
             font-family: 'Inter', sans-serif;
-            color: #2D3748;
-            font-size: 14px;
-            line-height: 1.6;
+            background: linear-gradient(to bottom right, white, var(--primary-50));
+            min-height: 100vh;
         }
 
         .sidebar {
-            background-color: white;
-            width: 220px;
-            position: fixed;
+            background: white;
+            border-right: 1px solid var(--gray-300);
             height: 100vh;
+            position: fixed;
+            width: 250px;
             padding: 20px;
-            box-shadow: 4px 0 10px rgba(0,0,0,0.05);
-            z-index: 1000;
-            transition: transform var(--transition-speed) ease;
+            overflow-y: auto;
         }
 
         .main-content {
-            margin-left: 220px;
-            padding: 20px 30px;
+            margin-left: 250px;
+            padding: 30px;
         }
 
         .stat-card {
             background: white;
-            border-radius: 15px;
-            padding: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             transition: transform var(--transition-speed) ease;
         }
 
         .stat-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
-        }
-
-        .feature-card {
-            background: linear-gradient(135deg, var(--turquoise), var(--turquoise-dark));
-            border-radius: 15px;
-            padding: 20px;
-            color: white;
-            height: 180px;
-            position: relative;
-            overflow: hidden;
-            transition: transform var(--transition-speed) ease;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-2px);
-        }
-
-        .dark-card {
-            background: linear-gradient(135deg, var(--dark-blue), #2A4365);
-            border-radius: 15px;
-            padding: 20px;
-            color: white;
-            height: 180px;
-            position: relative;
-            overflow: hidden;
-            transition: transform var(--transition-speed) ease;
-        }
-
-        .dark-card:hover {
-            transform: translateY(-2px);
-        }
-
-        .progress {
-            height: 4px;
-            background-color: rgba(255,255,255,0.2);
         }
 
         .progress-bar {
-            background-color: var(--turquoise);
+            background-color: var(--primary-500);
         }
 
         .nav-link {
-            color: var(--text-gray);
+            color: var(--gray-700);
             padding: 8px 12px;
             margin: 3px 0;
             border-radius: 8px;
@@ -107,13 +70,13 @@
         }
 
         .nav-link:hover, .nav-link.active {
-            background-color: #F7FAFC;
-            color: var(--turquoise);
+            background-color: var(--primary-50);
+            color: var(--primary-600);
         }
 
         .nav-link:hover {
             background-color: rgba(56, 178, 172, 0.1);
-            color: var(--turquoise-dark);
+            color: var(--primary-700);
         }
 
         .nav-link.active::before {
@@ -124,20 +87,42 @@
             transform: translateY(-50%);
             width: 3px;
             height: 20px;
-            background: var(--turquoise);
+            background: var(--primary-500);
             border-radius: 0 3px 3px 0;
         }
 
         .project-row {
-            border-bottom: 1px solid var(--border-gray);
-            padding: 12px 0;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            background: white;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .project-row:hover {
+            background: var(--primary-50);
+        }
+
+        .project-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            color: white;
+        }
+
+        .bg-primary {
+            background: linear-gradient(135deg, var(--primary-500), var(--primary-600)) !important;
         }
 
         .chart-container {
-            background: var(--dark-blue);
+            background: var(--primary-500);
             border-radius: 15px;
             padding: 15px;
             height: 250px;
+            color: white;
         }
 
         .sales-chart {
@@ -148,7 +133,7 @@
         }
 
         .help-card {
-            background: var(--turquoise);
+            background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
             border-radius: 12px;
             padding: 15px;
             color: white;
@@ -156,140 +141,46 @@
 
         .help-card button {
             background: white;
-            color: var(--turquoise);
+            color: var(--primary-600);
             border: none;
             border-radius: 8px;
             padding: 6px 12px;
             font-weight: 600;
             font-size: 12px;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .help-card button:hover {
+            background: var(--primary-50);
+            transform: translateY(-1px);
         }
 
         .stat-icon {
             width: 40px;
             height: 40px;
-            background: linear-gradient(135deg, var(--turquoise), var(--turquoise-dark));
+            background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
             border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 1rem;
-            transition: transform var(--transition-speed) ease;
         }
 
-        .stat-percentage {
-            font-size: 0.8rem;
-            font-weight: 600;
+        .text-success {
+            color: var(--primary-600) !important;
         }
 
-        .project-icon {
-            width: 30px;
-            height: 30px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 0.9rem;
-        }
-
-        .order-item {
-            padding: 8px 0;
-            border-bottom: 1px solid var(--border-gray);
-        }
-
-        .order-icon {
-            width: 30px;
-            height: 30px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 0.9rem;
-        }
-
-        h4 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            letter-spacing: -0.02em;
-        }
-
-        h5 {
-            font-size: 1rem;
-            font-weight: 600;
-            letter-spacing: -0.02em;
-        }
-
-        h6 {
-            font-size: 0.9rem;
-            font-weight: 600;
-            letter-spacing: -0.02em;
+        .text-muted {
+            color: var(--gray-500) !important;
         }
 
         .small-text {
-            font-size: 0.75rem;
-            letter-spacing: 0.02em;
+            font-size: 12px;
         }
 
-        .btn {
-            transition: all var(--transition-speed) ease;
-        }
-
-        .btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-
-        /* New Accessibility Styles */
-        .nav-link:focus-visible {
-            outline: 2px solid var(--turquoise);
-            outline-offset: 2px;
-        }
-
-        /* New Loading State Styles */
-        .loading {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .loading::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(
-                90deg,
-                transparent,
-                rgba(255,255,255,0.2),
-                transparent
-            );
-            animation: loading 1.5s infinite;
-        }
-
-        @keyframes loading {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-
-        /* Enhanced Form Elements */
-        .form-control {
-            border-radius: 8px;
-            border: 1px solid var(--border-gray);
-            transition: all var(--transition-speed) ease;
-        }
-
-        .form-control:focus {
-            border-color: var(--turquoise);
-            box-shadow: 0 0 0 3px rgba(56, 178, 172, 0.1);
-        }
-
-        /* Add these new styles after existing root variables */
         .brand-icon {
-            font-size: 1.2rem;
-            background: linear-gradient(135deg, var(--turquoise), var(--turquoise-dark));
+            background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+            background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             transition: transform var(--transition-speed) ease;
@@ -298,7 +189,11 @@
         .brand-icon:hover {
             transform: rotate(-5deg);
         }
-        /* ...existing styles... */
+
+        .form-control:focus {
+            border-color: var(--primary-500);
+            box-shadow: 0 0 0 2px rgba(56, 178, 172, 0.25);
+        }
     </style>
 </head>
 <body>
@@ -346,11 +241,11 @@
 
         <div class="row g-3 mb-4">
             <div class="col-md-3">
-                <div class="stat-card d-flex justify-content-between align-items-center">
+                <div class="stat-card">
                     <div>
                         <small class="text-muted small-text">Credits Remaining</small>
                         <h4 class="fw-bold mb-0">12</h4>
-                        <span class="stat-percentage text-success">3 used this week</span>
+                        <span class="text-success">3 used this week</span>
                     </div>
                     <div class="stat-icon">
                         <i class="fas fa-coins"></i>
@@ -438,7 +333,7 @@
                         <h5 class="fw-bold mb-0">Recent Tailored Resumes</h5>
                         <span class="badge bg-light text-dark small-text"><i class="fas fa-check me-1"></i> 7 tailored this month</span>
                     </div>
-                    <div class="project-row d-flex align-items-center">
+                    <div class="project-row">
                         <div class="project-icon bg-primary me-3">
                             <i class="fas fa-file-alt"></i>
                         </div>
@@ -453,14 +348,13 @@
                             </div>
                         </div>
                     </div>
-                    <!-- More tailored resume rows would follow -->
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="bg-white p-3 rounded-3">
                     <h5 class="fw-bold mb-3">My Notes</h5>
-                    <div class="order-item d-flex align-items-center">
-                        <div class="order-icon bg-success me-3">
+                    <div class="project-row">
+                        <div class="project-icon bg-primary me-3">
                             <i class="fas fa-sticky-note"></i>
                         </div>
                         <div>
@@ -468,7 +362,6 @@
                             <small class="text-muted small-text">Added 2 days ago</small>
                         </div>
                     </div>
-                    <!-- More note items would follow -->
                 </div>
             </div>
         </div>
