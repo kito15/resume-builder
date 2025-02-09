@@ -41,14 +41,8 @@
         0 4px 6px -2px rgba(15, 23, 42, 0.1),
         0 0 0 1px rgba(15, 23, 42, 0.05),
         inset 0 1px 1px rgba(255, 255, 255, 0.8);
-    border: 1px solid transparent;
-    border-image: linear-gradient(
-        to bottom right,
-        rgba(255, 255, 255, 0.8),
-        rgba(15, 23, 42, 0.05)
-    ) 1;
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: box-shadow 0.3s ease;
 }
 
 .modal-content:hover {
@@ -62,51 +56,31 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1.5rem 1.75rem;
-    background: linear-gradient(
-        to bottom,
-        rgba(255, 255, 255, 1),
-        rgba(248, 249, 250, 0.95)
-    );
-    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-    box-shadow: 0 4px 6px -2px rgba(15, 23, 42, 0.03);
-    position: relative;
-    z-index: 2;
+    padding: 1.25rem 1.5rem;
+    background: linear-gradient(to right, #f8f9fa, #ffffff);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .modal-title {
     color: #0f172a;
     font-weight: 600;
     font-size: 1.25rem;
-    letter-spacing: -0.025em;
-    text-shadow: 
-        0 1px 1px rgba(255, 255, 255, 0.7),
-        0 2px 4px rgba(15, 23, 42, 0.04);
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.7);
 }
 
 .modal-body {
-    padding: 1.75rem;
+    padding: 1.5rem;
     color: #334155;
-    line-height: 1.7;
-    position: relative;
-    background: linear-gradient(
-        to bottom,
-        rgba(255, 255, 255, 0.5),
-        rgba(255, 255, 255, 1)
-    );
+    line-height: 1.6;
 }
 
 .modal-footer {
-    padding: 1.5rem 1.75rem;
-    background: linear-gradient(
-        to top,
-        rgba(248, 249, 250, 1),
-        rgba(255, 255, 255, 0.95)
-    );
-    border-top: 1px solid rgba(15, 23, 42, 0.08);
-    box-shadow: 0 -4px 6px -2px rgba(15, 23, 42, 0.03);
-    position: relative;
-    z-index: 2;
+    padding: 1.25rem 1.5rem;
+    background: linear-gradient(to right, #f8f9fa, #ffffff);
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
 }
 
 .close-button {
@@ -140,14 +114,6 @@
         inset 0 1px 1px rgba(255, 255, 255, 0.8);
 }
 
-.modal-error .modal-header {
-    background: linear-gradient(
-        to bottom,
-        rgba(255, 255, 255, 0.95),
-        rgba(254, 242, 242, 0.9)
-    );
-}
-
 .modal-warning {
     background: linear-gradient(145deg, #ffffff, #fffbeb);
     border-left: 4px solid #eab308;
@@ -155,14 +121,6 @@
         0 10px 25px -3px rgba(234, 179, 8, 0.15),
         0 4px 6px -2px rgba(234, 179, 8, 0.05),
         inset 0 1px 1px rgba(255, 255, 255, 0.8);
-}
-
-.modal-warning .modal-header {
-    background: linear-gradient(
-        to bottom,
-        rgba(255, 255, 255, 0.95),
-        rgba(254, 252, 232, 0.9)
-    );
 }
 
 .modal-success {
@@ -174,22 +132,12 @@
         inset 0 1px 1px rgba(255, 255, 255, 0.8);
 }
 
-.modal-success .modal-header {
-    background: linear-gradient(
-        to bottom,
-        rgba(255, 255, 255, 0.95),
-        rgba(240, 253, 244, 0.9)
-    );
-}
-
 .btn {
-    padding: 0.75rem 1.5rem;
+    padding: 0.625rem 1.25rem;
     border-radius: 0.5rem;
     font-weight: 500;
     transition: all 0.2s ease;
     border: 1px solid transparent;
-    position: relative;
-    overflow: hidden;
 }
 
 .btn-secondary {
@@ -199,7 +147,6 @@
         0 2px 4px rgba(15, 23, 42, 0.1),
         0 1px 2px rgba(15, 23, 42, 0.05),
         inset 0 1px 1px rgba(255, 255, 255, 0.1);
-    text-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
 }
 
 .btn-secondary:hover {
@@ -209,12 +156,6 @@
         0 4px 6px rgba(15, 23, 42, 0.15),
         0 2px 4px rgba(15, 23, 42, 0.1),
         inset 0 1px 1px rgba(255, 255, 255, 0.1);
-}
-
-.modal-body > * + * {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(15, 23, 42, 0.05);
 }
 
 @media (max-width: 640px) {
