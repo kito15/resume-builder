@@ -8,13 +8,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --turquoise: #38B2AC;
-            --turquoise-dark: #2C9D97;
-            --dark-blue: #1A365D;
-            --light-gray: #F8F9FA;
+            --primary-50: #F0FFF4;
+            --primary-100: #E6FFFA;
+            --primary-500: #6B7FFF;
+            --primary-600: #5A6BE0;
+            --primary-700: #4C5AC0;
             --text-gray: #718096;
             --border-gray: #E2E8F0;
-            --accent-purple: #9F7AEA;
+            --accent-teal: #38B2AC;
+            --accent-teal-dark: #2C9D97;
+            --dark-blue: #1A365D;
+            --light-gray: #F8F9FA;
             --transition-speed: 0.2s;
         }
         
@@ -57,7 +61,7 @@
         }
 
         .feature-card {
-            background: linear-gradient(135deg, var(--turquoise), var(--turquoise-dark));
+            background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
             border-radius: 15px;
             padding: 20px;
             color: white;
@@ -92,7 +96,7 @@
         }
 
         .progress-bar {
-            background-color: var(--turquoise);
+            background-color: var(--primary-500);
         }
 
         .nav-link {
@@ -107,13 +111,13 @@
         }
 
         .nav-link:hover, .nav-link.active {
-            background-color: #F7FAFC;
-            color: var(--turquoise);
+            background-color: var(--primary-50);
+            color: var(--primary-500);
         }
 
         .nav-link:hover {
-            background-color: rgba(56, 178, 172, 0.1);
-            color: var(--turquoise-dark);
+            background-color: rgba(107, 127, 255, 0.1);
+            color: var(--primary-600);
         }
 
         .nav-link.active::before {
@@ -124,7 +128,7 @@
             transform: translateY(-50%);
             width: 3px;
             height: 20px;
-            background: var(--turquoise);
+            background: var(--primary-500);
             border-radius: 0 3px 3px 0;
         }
 
@@ -134,7 +138,7 @@
         }
 
         .chart-container {
-            background: var(--dark-blue);
+            background: linear-gradient(135deg, var(--primary-600), var(--dark-blue));
             border-radius: 15px;
             padding: 15px;
             height: 250px;
@@ -148,7 +152,7 @@
         }
 
         .help-card {
-            background: var(--turquoise);
+            background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
             border-radius: 12px;
             padding: 15px;
             color: white;
@@ -156,7 +160,7 @@
 
         .help-card button {
             background: white;
-            color: var(--turquoise);
+            color: var(--primary-500);
             border: none;
             border-radius: 8px;
             padding: 6px 12px;
@@ -167,7 +171,7 @@
         .stat-icon {
             width: 40px;
             height: 40px;
-            background: linear-gradient(135deg, var(--turquoise), var(--turquoise-dark));
+            background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
             border-radius: 10px;
             display: flex;
             align-items: center;
@@ -282,14 +286,14 @@
         }
 
         .form-control:focus {
-            border-color: var(--turquoise);
-            box-shadow: 0 0 0 3px rgba(56, 178, 172, 0.1);
+            border-color: var(--primary-500);
+            box-shadow: 0 0 0 3px rgba(107, 127, 255, 0.1);
         }
 
         /* Add these new styles after existing root variables */
         .brand-icon {
             font-size: 1.2rem;
-            background: linear-gradient(135deg, var(--turquoise), var(--turquoise-dark));
+            background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             transition: transform var(--transition-speed) ease;
