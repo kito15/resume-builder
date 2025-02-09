@@ -1,6 +1,6 @@
 // job_description.js
-const { pool } = require('../config/db'); // Database connection
-const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimilarity } = require('../config/utils');
+const { pool } = require('./config/db'); // Database connection
+const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimilarity } = require('./config/utils');
 
 const MIN_KEYWORD_OVERLAP = 0.85; // 85% similarity
 
