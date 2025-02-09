@@ -12,6 +12,7 @@
         rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/modal.css">
 </head>
 
 <body class="h-full">
@@ -347,7 +348,11 @@
                 })
                 .catch(error => {
                     console.error('Form submission failed:', error);
-                    alert(error.message || 'An error occurred. Please try again.');
+                    showModal({
+                        title: 'Authentication Error',
+                        message: error.message || 'An error occurred. Please try again.',
+                        type: 'error'
+                    });
                 })
                 .finally(() => {
                     submitButton.disabled = false;
@@ -355,5 +360,6 @@
             });
         });
     </script>
+    <script src="/js/modal.js"></script>
 </body>
 </html>
