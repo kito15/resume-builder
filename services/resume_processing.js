@@ -4,7 +4,8 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimilarity } = require('../config/util'); // Fixed from '../config/utils'
 
-const deepseekApiKey = process.env.api_key;
+// Add new API key reference for Gemini
+const geminiApiKey = process.env.GEMINI_API_KEY;
 
 // --- Helper Classes and Functions (from original app.js) ---
 
@@ -319,33 +320,47 @@ Generate 4-5 achievement-focused bullets for ${context}`;
     }
 
     try {
-        const response = await axios.post('https://api.deepseek.com/chat/completions', {
-            model: 'deepseek-chat',
-            messages: [
-                { 
-                    role: 'system', 
-                    content: 'You are a specialized resume optimization AI focused on seamlessly integrating keywords while preserving achievement metrics. Your primary goal is ensuring ALL keywords appear naturally in each bullet point.'
+        // Update API endpoint and request structure
+        const response = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
+            {
+                system_instruction: {
+                    parts: [{
+                        text: "You are a specialized resume optimization AI focused on seamlessly integrating keywords while preserving achievement metrics."
+                    }]
                 },
-                { role: 'user', content: prompt }
-            ],
-            temperature: 0.7, // Add some creativity while maintaining consistency
-            stream: false
-        }, {
-            headers: {
-                'Authorization': `Bearer ${deepseekApiKey}`,
-                'Content-Type': 'application/json'
+                contents: [{
+                    parts: [{
+                        text: prompt
+                    }]
+                }],
+                generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 2000,  // Increased for longer responses
+                    topP: 0.9,
+                    topK: 40
+                },
+                safetySettings: [{
+                    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    threshold: "BLOCK_ONLY_HIGH"
+                }]
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             }
-        });
+        );
 
-        // Extract bullet points
-        const content = response.data.choices[0].message.content.trim();
+        // Update response parsing for Gemini's structure
+        const content = response.data.candidates[0].content.parts[0].text;
         const matched = content.match(/^\>\>(.+)$/gm) || [];
         return matched.map(bp =>
             bp.replace(/^>>\s*/, '')
               .replace(/\*\*/g, '')
         );
     } catch (error) {
-        console.error('Error generating bullets:', error);
+        console.error('Error generating bullets:', error.response?.data || error.message);
         throw error;
     }
 }
