@@ -13,7 +13,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/css/styles.css">
     <style>
-        /* Loading Screen Styles */
+        /* Loading Overlay Styles */
         .loading-overlay {
             position: fixed;
             top: 0;
@@ -27,10 +27,10 @@
             align-items: center;
             z-index: 9999;
             opacity: 0;
-            transition: opacity 0.3s ease-in-out;
+            transition: opacity 0.3s ease;
         }
 
-        .loading-overlay.show {
+        .loading-overlay.active {
             display: flex;
             opacity: 1;
         }
@@ -38,22 +38,38 @@
         .loading-spinner {
             width: 50px;
             height: 50px;
-            border: 4px solid var(--primary-100);
-            border-top: 4px solid var(--primary-500);
+            border: 3px solid var(--primary-100);
             border-radius: 50%;
+            border-top-color: var(--primary-500);
             animation: spin 1s linear infinite;
+        }
+
+        .loading-content {
+            text-align: center;
         }
 
         .loading-text {
             margin-top: 1rem;
-            font-size: 1.125rem;
             color: var(--primary-600);
             font-weight: 500;
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Enhanced Error Message Styles */
+        .error-message {
+            transform: translateY(-10px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .error-message.show {
+            transform: translateY(0);
+            opacity: 1;
         }
     </style>
 </head>
@@ -61,9 +77,9 @@
 <body class="h-full">
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
-        <div class="flex flex-col items-center">
+        <div class="loading-content">
             <div class="loading-spinner"></div>
-            <div class="loading-text">Logging you in...</div>
+            <p class="loading-text">Logging you in...</p>
         </div>
     </div>
     <div class="min-h-full flex">
@@ -118,7 +134,7 @@
 
                 <!-- Enhanced Login Form -->
                 <div id="login-panel" role="tabpanel" aria-labelledby="login-tab">
-                    <form class="space-y-6" action="/auth/login" method="POST" novalidate id="loginForm">
+                    <form class="space-y-6" action="/auth/login" method="POST" novalidate>
                         <!-- Add error message container -->
                         <div id="login-error" class="hidden rounded-md bg-red-50 p-4 mb-4" role="alert">
                             <div class="flex">
@@ -328,114 +344,126 @@
     </div>
 
     <script>
-        // Enhanced tab switching with smooth transitions
-        const loginTab = document.getElementById('login-tab');
-        const signupTab = document.getElementById('signup-tab');
-        const loginPanel = document.getElementById('login-panel');
-        const signupPanel = document.getElementById('signup-panel');
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.querySelector('form[action="/auth/login"]');
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const loginError = document.getElementById('login-error');
+            const loginErrorText = document.getElementById('login-error-text');
 
-        function switchTab(activeTab, inactiveTab, activePanel, inactivePanel) {
-            // Update tab styles
-            activeTab.classList.add('text-gray-900', 'border-primary-500');
-            activeTab.classList.remove('text-gray-400', 'border-transparent');
-            inactiveTab.classList.add('text-gray-400', 'border-transparent');
-            inactiveTab.classList.remove('text-gray-900', 'border-primary-500');
-            
-            // Update panel visibility with fade transition
-            activePanel.classList.remove('hidden');
-            inactivePanel.classList.add('hidden');
-            
-            // Update ARIA states
-            activeTab.setAttribute('aria-selected', 'true');
-            inactiveTab.setAttribute('aria-selected', 'false');
-        }
+            // Function to show loading overlay
+            function showLoading() {
+                loadingOverlay.classList.add('active');
+            }
 
-        loginTab.addEventListener('click', () => {
-            switchTab(loginTab, signupTab, loginPanel, signupPanel);
+            // Function to hide loading overlay
+            function hideLoading() {
+                loadingOverlay.classList.remove('active');
+            }
+
+            // Function to show error message
+            function showError(message) {
+                loginError.classList.remove('hidden');
+                loginErrorText.textContent = message;
+                loginError.classList.add('show');
+            }
+
+            // Function to hide error message
+            function hideError() {
+                loginError.classList.add('hidden');
+                loginError.classList.remove('show');
+                loginErrorText.textContent = '';
+            }
+
+            if (loginForm) {
+                loginForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    hideError();
+
+                    const formData = new FormData(loginForm);
+                    const email = formData.get('email');
+                    const password = formData.get('password');
+
+                    // Basic validation
+                    if (!email || !password) {
+                        showError('Please fill in all fields');
+                        return;
+                    }
+
+                    showLoading();
+
+                    try {
+                        const response = await fetch('/auth/login', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                email: email,
+                                password: password
+                            })
+                        });
+
+                        const data = await response.json();
+
+                        if (response.ok) {
+                            // Successful login - redirect to dashboard
+                            window.location.href = '/dashboard';
+                        } else {
+                            // Handle error
+                            hideLoading();
+                            showError(data.message || 'Invalid email or password');
+                        }
+                    } catch (error) {
+                        hideLoading();
+                        showError('An error occurred. Please try again.');
+                    }
+                });
+            }
+
+            // Handle tab switching
+            const loginTab = document.getElementById('login-tab');
+            const signupTab = document.getElementById('signup-tab');
+            const loginPanel = document.getElementById('login-panel');
+            const signupPanel = document.getElementById('signup-panel');
+
+            loginTab.addEventListener('click', function() {
+                loginPanel.classList.remove('hidden');
+                signupPanel.classList.add('hidden');
+                loginTab.classList.add('border-primary-500', 'text-gray-900');
+                loginTab.classList.remove('text-gray-400', 'border-transparent');
+                signupTab.classList.remove('border-primary-500', 'text-gray-900');
+                signupTab.classList.add('text-gray-400', 'border-transparent');
+            });
+
+            signupTab.addEventListener('click', function() {
+                signupPanel.classList.remove('hidden');
+                loginPanel.classList.add('hidden');
+                signupTab.classList.add('border-primary-500', 'text-gray-900');
+                signupTab.classList.remove('text-gray-400', 'border-transparent');
+                loginTab.classList.remove('border-primary-500', 'text-gray-900');
+                loginTab.classList.add('text-gray-400', 'border-transparent');
+            });
         });
 
-        signupTab.addEventListener('click', () => {
-            switchTab(signupTab, loginTab, signupPanel, loginPanel);
-        });
-
-        // Password visibility toggle
+        // Password visibility toggle function
         function togglePasswordVisibility(button) {
-            const input = button.previousElementSibling;
+            const input = button.parentElement.querySelector('input');
             const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
             input.setAttribute('type', type);
             
             // Update icon
             const svg = button.querySelector('svg');
-                if (type === 'text') {
-                    svg.innerHTML = `
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    `;
-                } else {
-                    svg.innerHTML = `
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    `;
-                }
+            if (type === 'text') {
+                svg.innerHTML = `
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                `;
+            } else {
+                svg.innerHTML = `
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                `;
             }
-
-        // Form validation and submission handling
-        document.querySelectorAll('form').forEach(form => {
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const submitButton = form.querySelector('button[type="submit"]');
-                const errorContainer = document.getElementById('login-error');
-                const errorText = document.getElementById('login-error-text');
-                
-                // Hide any existing error
-                errorContainer.classList.add('hidden');
-                
-                // Basic form validation
-                if (!form.checkValidity()) {
-                    form.reportValidity();
-                    return;
-                }
-                
-                // Show loading state
-                submitButton.disabled = true;
-                
-                // Create form data and submit
-                const formData = new FormData(form);
-                fetch(form.action, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: new URLSearchParams(formData).toString()
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        throw new Error(data.error);
-                    }
-                    // Success - redirect to dashboard
-                    window.location.href = data.redirectUrl;
-                })
-                .catch(error => {
-                    console.error('Form submission failed:', error);
-                    // Show error in the form
-                    errorText.textContent = error.message || 'An error occurred. Please try again.';
-                    errorContainer.classList.remove('hidden');
-                    // Smooth scroll to error if it's not in view
-                    errorContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                })
-                .finally(() => {
-                    submitButton.disabled = false;
-                });
-            });
-        });
-
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            // Only show loading if form is valid
-            if (this.checkValidity()) {
-                const loadingOverlay = document.getElementById('loadingOverlay');
-                loadingOverlay.classList.add('show');
-            }
-        });
+        }
     </script>
 </body>
 </html>
