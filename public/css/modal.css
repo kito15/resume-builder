@@ -1,71 +1,99 @@
 .custom-modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(
-        rgba(15, 23, 42, 0.9),
-        rgba(23, 31, 54, 0.95)
+    --modal-easing: cubic-bezier(0.32, 0.72, 0, 1);
+    --modal-backdrop: linear-gradient(
+        45deg,
+        rgba(15, 23, 42, 0.98),
+        rgba(23, 31, 54, 0.97)
     );
-    z-index: 1050;
+    display: flex;
     opacity: 0;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    backdrop-filter: blur(8px);
+    visibility: hidden;
+    perspective: 1000px;
+    transition: all 0.4s var(--modal-easing);
+    backdrop-filter: blur(12px) saturate(180%);
 }
 
 .custom-modal.show {
-    display: flex;
     opacity: 1;
+    visibility: visible;
 }
 
 .modal-dialog {
-    margin: 1.75rem auto;
-    max-width: 500px;
-    width: 90%;
-    transform: translateY(-50px) scale(0.95);
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: 
+        translateY(20px) 
+        scale(0.97) 
+        rotateX(-2deg);
+    opacity: 0;
+    transition: 
+        transform 0.6s var(--modal-easing),
+        opacity 0.4s ease;
 }
 
 .custom-modal.show .modal-dialog {
-    transform: translateY(0) scale(1);
+    transform: 
+        translateY(0) 
+        scale(1) 
+        rotateX(0);
+    opacity: 1;
 }
 
 .modal-content {
+    background: 
+        linear-gradient(
+            152deg,
+            rgba(255, 255, 255, 0.95),
+            rgba(248, 249, 250, 0.98)
+        );
+    border-radius: 1.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow:
+        0 12px 32px -8px rgba(15, 23, 42, 0.2),
+        0 4px 6px -2px rgba(15, 23, 42, 0.05),
+        inset 0 1px 1px rgba(255, 255, 255, 0.5);
     position: relative;
-    background: linear-gradient(145deg, #ffffff, #f8f9fa);
-    border-radius: 0.75rem;
-    box-shadow: 
-        0 10px 25px -3px rgba(15, 23, 42, 0.15),
-        0 4px 6px -2px rgba(15, 23, 42, 0.1),
-        0 0 0 1px rgba(15, 23, 42, 0.05),
-        inset 0 1px 1px rgba(255, 255, 255, 0.8);
     overflow: hidden;
-    transition: box-shadow 0.3s ease;
 }
 
-.modal-content:hover {
-    box-shadow: 
-        0 20px 30px -3px rgba(0, 0, 0, 0.15),
-        0 8px 10px -2px rgba(0, 0, 0, 0.1),
-        0 0 0 1px rgba(0, 0, 0, 0.05);
+.modal-content::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.4),
+        rgba(255, 255, 255, 0.1)
+    );
+    -webkit-mask: 
+        linear-gradient(#fff 0 0) content-box, 
+        linear-gradient(#fff 0 0);
+    mask: 
+        linear-gradient(#fff 0 0) content-box, 
+        linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
 }
 
 .modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.25rem 1.5rem;
-    background: linear-gradient(to right, #f8f9fa, #ffffff);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 1.5rem 2rem;
+    background: linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.6),
+        rgba(255, 255, 255, 0.3)
+    );
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .modal-title {
-    color: #0f172a;
+    font-size: 1.375rem;
     font-weight: 600;
-    font-size: 1.25rem;
-    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.7);
+    letter-spacing: -0.015em;
+    background: linear-gradient(45deg, #0f172a, #1e293b);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .modal-body {
@@ -84,90 +112,109 @@
 }
 
 .close-button {
-    background: transparent;
-    border: none;
-    font-size: 1.5rem;
-    line-height: 1;
-    color: #475569;
-    cursor: pointer;
-    padding: 0.5rem;
-    border-radius: 50%;
-    transition: all 0.2s ease;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    transition: 
+        transform 0.2s ease,
+        opacity 0.2s ease;
+    color: #64748b;
+    background: rgba(15, 23, 42, 0.05);
 }
 
 .close-button:hover {
-    background: linear-gradient(145deg, rgba(15, 23, 42, 0.05), rgba(15, 23, 42, 0.08));
-    color: #1e293b;
+    transform: scale(1.1) rotate(90deg);
+    color: #0f172a;
+    background: rgba(15, 23, 42, 0.08);
 }
 
 .modal-error {
-    background: linear-gradient(145deg, #ffffff, #fff1f2);
-    border-left: 4px solid #e11d48;
-    box-shadow:
-        0 10px 25px -3px rgba(225, 29, 72, 0.15),
-        0 4px 6px -2px rgba(225, 29, 72, 0.05),
-        inset 0 1px 1px rgba(255, 255, 255, 0.8);
+    background: linear-gradient(
+        152deg,
+        rgba(255, 241, 242, 0.98),
+        rgba(254, 226, 226, 0.95)
+    );
+    --accent-color: #dc2626;
 }
 
 .modal-warning {
-    background: linear-gradient(145deg, #ffffff, #fffbeb);
-    border-left: 4px solid #eab308;
-    box-shadow:
-        0 10px 25px -3px rgba(234, 179, 8, 0.15),
-        0 4px 6px -2px rgba(234, 179, 8, 0.05),
-        inset 0 1px 1px rgba(255, 255, 255, 0.8);
+    background: linear-gradient(
+        152deg,
+        rgba(255, 251, 235, 0.98),
+        rgba(254, 243, 199, 0.95)
+    );
+    --accent-color: #d97706;
 }
 
 .modal-success {
-    background: linear-gradient(145deg, #ffffff, #ecfdf5);
-    border-left: 4px solid #059669;
-    box-shadow:
-        0 10px 25px -3px rgba(5, 150, 105, 0.15),
-        0 4px 6px -2px rgba(5, 150, 105, 0.05),
-        inset 0 1px 1px rgba(255, 255, 255, 0.8);
+    background: linear-gradient(
+        152deg,
+        rgba(236, 253, 245, 0.98),
+        rgba(209, 250, 229, 0.95)
+    );
+    --accent-color: #059669;
+}
+
+.modal-content.modal-error::before {
+    background: linear-gradient(
+        45deg,
+        var(--accent-color),
+        #fda4af
+    );
 }
 
 .btn {
-    padding: 0.625rem 1.25rem;
-    border-radius: 0.5rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    border: 1px solid transparent;
+    position: relative;
+    overflow: hidden;
+    transition: 
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
 }
 
 .btn-secondary {
-    background: linear-gradient(145deg, #64748b, #475569);
-    color: white;
+    background: linear-gradient(
+        45deg,
+        #475569,
+        #334155
+    );
     box-shadow: 
-        0 2px 4px rgba(15, 23, 42, 0.1),
-        0 1px 2px rgba(15, 23, 42, 0.05),
+        0 2px 8px -2px rgba(15, 23, 42, 0.15),
         inset 0 1px 1px rgba(255, 255, 255, 0.1);
 }
 
 .btn-secondary:hover {
-    background: linear-gradient(145deg, #475569, #334155);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
     box-shadow: 
-        0 4px 6px rgba(15, 23, 42, 0.15),
-        0 2px 4px rgba(15, 23, 42, 0.1),
-        inset 0 1px 1px rgba(255, 255, 255, 0.1);
+        0 4px 12px -2px rgba(15, 23, 42, 0.25),
+        inset 0 1px 1px rgba(255, 255, 255, 0.15);
+}
+
+.modal-content:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        0 16px 40px -8px rgba(15, 23, 42, 0.2),
+        0 8px 12px -4px rgba(15, 23, 42, 0.1);
+}
+
+.close-button:focus-visible,
+.btn:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
 }
 
 @media (max-width: 640px) {
     .modal-dialog {
         margin: 1rem;
         width: calc(100% - 2rem);
+        transform: 
+            translateY(10px) 
+            scale(0.98) 
+            rotateX(-1deg);
     }
     
-    .modal-header,
-    .modal-body,
-    .modal-footer {
-        padding: 1rem;
+    .modal-header {
+        padding: 1.25rem;
+    }
+    
+    .modal-title {
+        font-size: 1.25rem;
     }
 }
 
@@ -180,15 +227,16 @@
     }
 }
 
-/* Status-specific title colors */
-.modal-error .modal-title {
-    color: #be123c;
-}
-
-.modal-warning .modal-title {
-    color: #b45309;
-}
-
-.modal-success .modal-title {
-    color: #047857;
+.modal-content::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: 
+        radial-gradient(rgba(15, 23, 42, 0.03) 15%, transparent 60%),
+        linear-gradient(45deg, transparent 49%, rgba(255, 255, 255, 0.1) 50%, transparent 51%);
+    background-size: 
+        3px 3px,
+        6px 6px;
+    pointer-events: none;
+    mix-blend-mode: overlay;
 }
