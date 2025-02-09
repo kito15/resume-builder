@@ -55,12 +55,31 @@ class CustomModal {
         const {
             title = '',
             message = '',
-            type = 'error'
+            type = 'error',
+            motionCurve = 'default'
         } = options;
 
         const modalContent = this.modal.querySelector('.modal-content');
-        modalContent.className = 'modal-content modal-' + type;
+        modalContent.className = `modal-content modal-${type}`;
         
+        // Set motion curve based on context
+        const curves = {
+            alert: 'cubic-bezier(0.68, -0.55, 0.27, 1.55)',
+            success: 'cubic-bezier(0.18, 0.89, 0.32, 1.28)',
+            default: 'cubic-bezier(0.34, 1.56, 0.64, 1)'
+        };
+        this.modal.style.setProperty('--motion-curve', curves[motionCurve] || curves.default);
+
+        // Animate elements sequentially
+        anime({
+            targets: [this.modal.querySelector('.modal-header'), this.modal.querySelector('.modal-body'), this.modal.querySelector('.modal-footer')],
+            opacity: [0, 1],
+            translateY: [20, 0],
+            delay: anime.stagger(80),
+            easing: 'easeOutExpo',
+            duration: 400
+        });
+
         const titleElement = this.modal.querySelector('.modal-title');
         titleElement.textContent = title;
 
@@ -72,8 +91,19 @@ class CustomModal {
     }
 
     hide() {
-        this.modal.classList.remove('show');
-        document.body.style.overflow = '';
+        anime({
+            targets: this.modal.querySelector('.modal-dialog'),
+            translateY: 40,
+            rotateX: '-3deg',
+            rotateY: '2deg',
+            opacity: 0,
+            duration: 300,
+            easing: 'easeInOutQuad',
+            complete: () => {
+                this.modal.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+        });
     }
 }
 
