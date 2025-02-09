@@ -6,22 +6,18 @@ class CustomModal {
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="modalTitle"></h5>
-                            <button type="button" class="close-button" aria-label="Close">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                                </svg>
-                            </button>
+                            <button type="button" class="close-button" aria-label="Close" tabindex="0">&times;</button>
                         </div>
                         <div class="modal-body"></div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal" tabindex="0">Close</button>
                         </div>
                     </div>
                 </div>
             </div>
         `;
         this.init();
+        this.isAnimating = false;
     }
 
     init() {
@@ -29,128 +25,140 @@ class CustomModal {
             document.body.insertAdjacentHTML('beforeend', this.modalTemplate);
         }
         this.modal = document.getElementById('customModal');
+        this.focusableElements = this.modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
         this.bindEvents();
-        this.setupA11y();
     }
 
-    setupA11y() {
-        this.modal.setAttribute('role', 'dialog');
-        this.modal.setAttribute('aria-modal', 'true');
-        this.trapFocus = this.trapFocus.bind(this);
+    bindEvents() {
+        // Backdrop click handling
+        this.modal.addEventListener('click', (e) => {
+            if (e.target === this.modal && !this.isAnimating) {
+                this.hide();
+            }
+        });
+
+        // Close button handling
+        const closeButton = this.modal.querySelector('.close-button');
+        if (closeButton) {
+            closeButton.addEventListener('click', () => !this.isAnimating && this.hide());
+        }
+
+        // Dismiss button handling
+        const dismissButton = this.modal.querySelector('[data-dismiss="modal"]');
+        if (dismissButton) {
+            dismissButton.addEventListener('click', () => !this.isAnimating && this.hide());
+        }
+
+        // Keyboard handling
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.modal.classList.contains('show') && !this.isAnimating) {
+                this.hide();
+            }
+            
+            // Trap focus within modal when open
+            if (e.key === 'Tab' && this.modal.classList.contains('show')) {
+                this.handleTabKey(e);
+            }
+        });
+
+        // Prevent scroll on body when modal is open
+        this.modal.addEventListener('show.modal', () => {
+            document.body.style.overflow = 'hidden';
+        });
+
+        this.modal.addEventListener('hide.modal', () => {
+            document.body.style.overflow = '';
+        });
     }
 
-    trapFocus(e) {
-        if (!this.modal.classList.contains('show')) return;
+    handleTabKey(e) {
+        const firstFocusableEl = this.focusableElements[0];
+        const lastFocusableEl = this.focusableElements[this.focusableElements.length - 1];
 
-        const focusableElements = this.modal.querySelectorAll(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        const firstFocusable = focusableElements[0];
-        const lastFocusable = focusableElements[focusableElements.length - 1];
-
-        if (e.key === 'Tab') {
-            if (e.shiftKey && document.activeElement === firstFocusable) {
+        if (e.shiftKey) {
+            if (document.activeElement === firstFocusableEl) {
+                lastFocusableEl.focus();
                 e.preventDefault();
-                lastFocusable.focus();
-            } else if (!e.shiftKey && document.activeElement === lastFocusable) {
+            }
+        } else {
+            if (document.activeElement === lastFocusableEl) {
+                firstFocusableEl.focus();
                 e.preventDefault();
-                firstFocusable.focus();
             }
         }
     }
 
     show(options = {}) {
+        if (this.isAnimating) return;
+        
         const {
             title = '',
             message = '',
             type = 'error',
-            onClose = null
+            onShow = null,
+            onShown = null,
+            onHide = null,
+            onHidden = null
         } = options;
 
-        this.onClose = onClose;
+        this.isAnimating = true;
+        
+        // Trigger show event
+        const showEvent = new CustomEvent('show.modal');
+        this.modal.dispatchEvent(showEvent);
+        
+        if (onShow) onShow();
+
         const modalContent = this.modal.querySelector('.modal-content');
-        modalContent.className = `modal-content modal-${type}`;
+        modalContent.className = 'modal-content modal-' + type;
         
         const titleElement = this.modal.querySelector('.modal-title');
         titleElement.textContent = title;
+        titleElement.setAttribute('id', 'modalTitle');
 
         const bodyElement = this.modal.querySelector('.modal-body');
         bodyElement.textContent = message;
 
-        // Store the active element to restore focus later
-        this.previousActiveElement = document.activeElement;
+        // Show modal with animation
+        requestAnimationFrame(() => {
+            this.modal.classList.add('show');
+            
+            // Focus first focusable element
+            setTimeout(() => {
+                this.isAnimating = false;
+                if (this.focusableElements.length) {
+                    this.focusableElements[0].focus();
+                }
+                if (onShown) onShown();
+            }, 500); // Match CSS transition duration
+        });
 
-        this.modal.classList.add('show');
-        document.body.style.overflow = 'hidden';
-
-        // Focus the first focusable element
-        setTimeout(() => {
-            const firstFocusable = this.modal.querySelector('button');
-            if (firstFocusable) firstFocusable.focus();
-        }, 100);
-
-        // Add focus trap
-        document.addEventListener('keydown', this.trapFocus);
+        // Store callbacks
+        this._onHide = onHide;
+        this._onHidden = onHidden;
     }
 
     hide() {
-        this.modal.classList.remove('show');
-        document.body.style.overflow = '';
+        if (this.isAnimating) return;
         
-        // Remove focus trap
-        document.removeEventListener('keydown', this.trapFocus);
+        this.isAnimating = true;
+        
+        // Trigger hide event
+        const hideEvent = new CustomEvent('hide.modal');
+        this.modal.dispatchEvent(hideEvent);
+        
+        if (this._onHide) this._onHide();
 
-        // Restore focus
-        if (this.previousActiveElement) {
-            this.previousActiveElement.focus();
-        }
-
-        if (typeof this.onClose === 'function') {
-            this.onClose();
-        }
-    }
-
-    bindEvents() {
-        this.modal.addEventListener('click', (e) => {
-            if (e.target === this.modal) {
-                this.hide();
-            }
-        });
-
-        const closeButton = this.modal.querySelector('.close-button');
-        if (closeButton) {
-            closeButton.addEventListener('click', () => this.hide());
-        }
-
-        const dismissButton = this.modal.querySelector('[data-dismiss="modal"]');
-        if (dismissButton) {
-            dismissButton.addEventListener('click', () => this.hide());
-        }
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.modal.classList.contains('show')) {
-                this.hide();
-            }
-        });
-
-        // Add ripple effect to buttons
-        const buttons = this.modal.querySelectorAll('.btn');
-        buttons.forEach(button => {
-            button.addEventListener('click', (e) => {
-                const rect = button.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                
-                const ripple = document.createElement('div');
-                ripple.style.left = `${x}px`;
-                ripple.style.top = `${y}px`;
-                ripple.className = 'ripple';
-                
-                button.appendChild(ripple);
-                
-                setTimeout(() => ripple.remove(), 1000);
-            });
-        });
+        this.modal.classList.remove('show');
+        
+        setTimeout(() => {
+            this.isAnimating = false;
+            if (this._onHidden) this._onHidden();
+            
+            // Clean up
+            this._onHide = null;
+            this._onHidden = null;
+        }, 500); // Match CSS transition duration
     }
 }
 
