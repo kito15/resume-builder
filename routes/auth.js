@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const router = express.Router();
-const { pool } = require('../config/db');
+const { pool } = require('./config/db');
 
 // Signup endpoint
 router.post('/signup', async (req, res) => {
