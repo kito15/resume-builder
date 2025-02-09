@@ -101,7 +101,7 @@
     background: rgba(255, 255, 255, 0.1);
     border: none;
     font-size: 1.75rem;
-    line-height: 0;
+    line-height: 1;
     color: #475569;
     cursor: pointer;
     padding: 0;
@@ -117,17 +117,6 @@
     box-shadow: 
         0 2px 4px rgba(15, 23, 42, 0.05),
         inset 0 1px 1px rgba(255, 255, 255, 0.2);
-    position: relative;
-}
-
-.close-button::before {
-    content: '×';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    height: 32px;
-    line-height: 28px;
 }
 
 .close-button:hover {
