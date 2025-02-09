@@ -1,32 +1,46 @@
 class CustomModal {
     constructor() {
         this.modalTemplate = `
-            <div class="custom-modal" id="customModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+            <div class="custom-modal" id="customModal">
                 <div class="modal-dialog">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <div class="modal-title-wrapper">
+                            <div class="header-content">
                                 <span class="modal-icon"></span>
-                                <h5 class="modal-title" id="modalTitle"></h5>
+                                <h5 class="modal-title"></h5>
                             </div>
                             <button type="button" class="close-button" aria-label="Close">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
                                 </svg>
                             </button>
                         </div>
                         <div class="modal-body"></div>
                         <div class="modal-footer">
-                            <button type="button" class="modal-btn btn-secondary" data-dismiss="modal">
-                                <span class="btn-text">Dismiss</span>
-                            </button>
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
                         </div>
                     </div>
                 </div>
             </div>
         `;
+        this.icons = {
+            error: `<svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12" y2="16"></line>
+                    </svg>`,
+            warning: `<svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="#ffc107" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12" y2="17"></line>
+                    </svg>`,
+            success: `<svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="#28a745" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>`
+        };
         this.init();
-        this.previousActiveElement = null;
     }
 
     init() {
@@ -61,86 +75,40 @@ class CustomModal {
         });
     }
 
-    getIcon(type) {
-        const iconColor = type === 'error' ? 'var(--color-error)' : 
-                         type === 'warning' ? 'var(--color-warning)' : 'var(--color-success)';
-        
-        const icons = {
-            error: `<svg class="status-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${iconColor}">
-                <circle cx="12" cy="12" r="10" stroke-width="2"/>
-                <path d="M12 8v4m0 4h.01" stroke-width="2" stroke-linecap="round"/>
-            </svg>`,
-            warning: `<svg class="status-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${iconColor}">
-                <path d="M12 9v4m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 18c-.77 1.333.192 3 1.732 3z" stroke-width="2"/>
-            </svg>`,
-            success: `<svg class="status-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${iconColor}">
-                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="2"/>
-            </svg>`
-        };
-        
-        return icons[type] || icons.error;
-    }
-
     show(options = {}) {
         const {
             title = '',
             message = '',
             type = 'error',
-            dismissable = true,
-            buttonText = 'Dismiss'
+            html = false
         } = options;
 
-        // Store currently focused element
-        this.previousActiveElement = document.activeElement;
-
         const modalContent = this.modal.querySelector('.modal-content');
-        modalContent.className = `modal-content modal-${type}`;
+        modalContent.className = 'modal-content modal-' + type;
         
         const iconContainer = this.modal.querySelector('.modal-icon');
-        iconContainer.innerHTML = this.getIcon(type);
-
+        iconContainer.innerHTML = this.icons[type] || '';
+        
         const titleElement = this.modal.querySelector('.modal-title');
         titleElement.textContent = title;
 
         const bodyElement = this.modal.querySelector('.modal-body');
-        bodyElement.innerHTML = message;
+        if (html) {
+            bodyElement.innerHTML = message;
+        } else {
+            bodyElement.textContent = message;
+        }
 
-        const dismissButton = this.modal.querySelector('[data-dismiss="modal"]');
-        dismissButton.querySelector('.btn-text').textContent = buttonText;
-
-        // Add show class to trigger animations
         this.modal.classList.add('show');
-        modalContent.classList.add('modal-enter');
-        
-        // Lock body scroll
         document.body.style.overflow = 'hidden';
 
-        // Focus the close button after animation
-        setTimeout(() => {
-            this.modal.querySelector('.close-button').focus();
-            modalContent.classList.remove('modal-enter');
-        }, 300);
-
-        // Trigger haptic feedback on mobile if available
-        if (window.navigator.vibrate) {
-            window.navigator.vibrate(50);
-        }
+        const closeButton = this.modal.querySelector('.close-button');
+        setTimeout(() => closeButton.focus(), 100);
     }
 
     hide() {
-        const modalContent = this.modal.querySelector('.modal-content');
-        modalContent.classList.add('modal-leave');
-
-        setTimeout(() => {
-            this.modal.classList.remove('show');
-            document.body.style.overflow = '';
-            modalContent.classList.remove('modal-leave');
-
-            // Restore focus to previous element
-            if (this.previousActiveElement) {
-                this.previousActiveElement.focus();
-            }
-        }, 200);
+        this.modal.classList.remove('show');
+        document.body.style.overflow = '';
     }
 }
 
