@@ -6,8 +6,8 @@ const path = require('path');
 const { initializeDatabase } = require('./db');  // Database connection
 const indexRouter = require('./routes/index');
 const authRouter = require('./routes/auth');
-const { customizeResume } = require('./resume_processing'); // Import functions
-const { checkJobDescription, storeJobDescription } = require('./job_description'); //Import job desc functions
+const { customizeResume } = require('./services/resume_processing'); // Import from services
+const { checkJobDescription, storeJobDescription } = require('./services/job_description'); //Import from services
 
 const app = express();
 const port = 3000;
