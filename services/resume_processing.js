@@ -2,7 +2,7 @@
 const puppeteer = require('puppeteer');
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimilarity } = require('../config/utils'); // Import utilities.
+const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimilarity } = require('../config/util'); // Fixed from '../config/utils'
 
 const deepseekApiKey = process.env.api_key;
 
