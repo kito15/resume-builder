@@ -17,4 +17,9 @@ router.get('/dashboard', (req, res) => {
   res.render('dashboard');
 });
 
+// Add route to serve profile section partial
+router.get('/partials/profile-section', (req, res) => {
+    res.render('partials/profile-section');
+});
+
 module.exports = router;
