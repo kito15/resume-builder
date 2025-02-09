@@ -322,7 +322,7 @@ Generate 4-5 achievement-focused bullets for ${context}`;
     try {
         // Update API endpoint and request structure
         const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
             {
                 system_instruction: {
                     parts: [{
