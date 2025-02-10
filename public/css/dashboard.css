@@ -302,8 +302,8 @@ h6 {
 
 .profile-image-container {
     position: relative;
-    width: 120px;
-    height: 120px;
+    width: 100px;
+    height: 100px;
 }
 
 .profile-image {
@@ -317,8 +317,8 @@ h6 {
     position: absolute;
     bottom: 0;
     right: 0;
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     background: var(--primary-500);
     color: white;
     border-radius: 50%;
@@ -368,12 +368,22 @@ h6 {
 
 .settings-list {
     border: 1px solid var(--border-gray);
-    border-radius: 8px;
+    border-radius: 6px;
 }
 
 .setting-item .d-flex {
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
+.form-check-input {
+    width: 2.5rem !important;
+    height: 1.25rem !important;
+}
+
+.btn {
+    padding: 0.4rem 1rem;
+    font-size: 0.875rem;
 }
 
 /* Responsive Adjustments */
@@ -389,4 +399,17 @@ h6 {
     .profile-section .btn-lg {
         width: 100%;
     }
+
+    .profile-section {
+        padding: 0.5rem !important;
+    }
+    
+    .row {
+        --bs-gutter-x: 1rem;
+    }
+}
+
+.smaller-text {
+    font-size: 0.7rem;
+    letter-spacing: 0.01em;
 }

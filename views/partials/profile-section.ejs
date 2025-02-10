@@ -1,6 +1,6 @@
-<div class="profile-section">
-    <!-- Profile Header with improved spacing and hierarchy -->
-    <div class="d-flex justify-content-between align-items-center mb-5">
+<div class="profile-section px-4">
+    <!-- Profile Header - More compact -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <div class="d-flex align-items-center gap-2 mb-1">
                 <a href="#" class="text-decoration-none text-muted small-text">Pages</a>
@@ -9,17 +9,17 @@
             </div>
             <h4 class="fw-bold mb-0">My Profile</h4>
         </div>
-        <button class="btn btn-primary px-4" id="saveProfileBtn">
+        <button class="btn btn-primary btn-sm px-4" id="saveProfileBtn">
             <i class="fas fa-save me-2"></i>Save Changes
         </button>
     </div>
 
-    <!-- Profile Summary with improved layout -->
-    <div class="profile-summary mb-5 pb-4 border-bottom">
-        <div class="d-flex flex-wrap align-items-center gap-4">
+    <!-- Profile Summary - Reduced spacing -->
+    <div class="profile-summary mb-4 pb-3 border-bottom">
+        <div class="d-flex flex-wrap align-items-center gap-3">
             <div class="position-relative">
                 <div class="profile-image-container">
-                    <img src="https://placehold.co/120x120" alt="Profile Picture" 
+                    <img src="https://placehold.co/100x100" alt="Profile Picture" 
                          class="rounded-circle profile-image">
                     <label for="avatar-upload" class="profile-image-upload" 
                            title="Upload new photo">
@@ -30,58 +30,58 @@
                 </div>
             </div>
             <div class="flex-grow-1">
-                <h5 class="fw-bold fs-4 mb-2">John Doe</h5>
-                <div class="d-flex align-items-center gap-3 text-muted mb-2">
-                    <span class="d-flex align-items-center">
-                        <i class="fas fa-briefcase me-2"></i>Software Engineer
+                <h5 class="fw-bold mb-1">John Doe</h5>
+                <div class="d-flex align-items-center gap-3 text-muted">
+                    <span class="d-flex align-items-center small-text">
+                        <i class="fas fa-briefcase me-1"></i>Software Engineer
                     </span>
-                    <span class="separator">•</span>
-                    <span class="d-flex align-items-center">
-                        <i class="fas fa-map-marker-alt me-2"></i>San Francisco, CA
+                    <span class="separator small-text">•</span>
+                    <span class="d-flex align-items-center small-text">
+                        <i class="fas fa-map-marker-alt me-1"></i>San Francisco, CA
                     </span>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Profile Details with improved structure -->
-    <div class="row g-5">
+    <!-- Profile Details - Compact grid -->
+    <div class="row g-4">
         <!-- Personal Information -->
         <div class="col-lg-8">
-            <section class="mb-5">
-                <div class="d-flex align-items-center mb-4">
-                    <i class="fas fa-user-circle fs-4 text-primary me-2"></i>
+            <section class="mb-4">
+                <div class="d-flex align-items-center mb-3">
+                    <i class="fas fa-user-circle text-primary me-2"></i>
                     <h5 class="fw-bold mb-0">Personal Information</h5>
                 </div>
-                <div class="row g-4">
+                <div class="row g-3">
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label class="form-label text-muted mb-2">First Name</label>
-                            <input type="text" class="form-control form-control-lg" value="John">
+                            <label class="form-label text-muted small-text">First Name</label>
+                            <input type="text" class="form-control" value="John">
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label class="form-label text-muted mb-2">Last Name</label>
-                            <input type="text" class="form-control form-control-lg" value="Doe">
+                            <label class="form-label text-muted small-text">Last Name</label>
+                            <input type="text" class="form-control" value="Doe">
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label class="form-label text-muted mb-2">Email</label>
-                            <input type="email" class="form-control form-control-lg" value="john.doe@example.com">
+                            <label class="form-label text-muted small-text">Email</label>
+                            <input type="email" class="form-control" value="john.doe@example.com">
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label class="form-label text-muted mb-2">Phone</label>
-                            <input type="tel" class="form-control form-control-lg" value="+1 (555) 123-4567">
+                            <label class="form-label text-muted small-text">Phone</label>
+                            <input type="tel" class="form-control" value="+1 (555) 123-4567">
                         </div>
                     </div>
                     <div class="col-12">
                         <div class="form-group">
-                            <label class="form-label text-muted mb-2">Bio</label>
-                            <textarea class="form-control form-control-lg" rows="4" 
+                            <label class="form-label text-muted small-text">Bio</label>
+                            <textarea class="form-control" rows="3" 
                                     placeholder="Tell us about yourself">Experienced software engineer with a passion for building scalable applications.</textarea>
                         </div>
                     </div>
@@ -89,35 +89,33 @@
             </section>
         </div>
 
-        <!-- Account Settings with improved layout -->
+        <!-- Account Settings -->
         <div class="col-lg-4">
-            <section class="mb-5">
-                <div class="d-flex align-items-center mb-4">
-                    <i class="fas fa-cog fs-4 text-primary me-2"></i>
+            <section class="mb-4">
+                <div class="d-flex align-items-center mb-3">
+                    <i class="fas fa-cog text-primary me-2"></i>
                     <h5 class="fw-bold mb-0">Account Settings</h5>
                 </div>
                 <div class="settings-list">
                     <div class="setting-item">
-                        <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
                             <div>
-                                <h6 class="mb-1">Two-Factor Authentication</h6>
-                                <p class="text-muted small-text mb-0">Enable 2FA security</p>
+                                <h6 class="mb-0 small-text">Two-Factor Authentication</h6>
+                                <p class="text-muted smaller-text mb-0">Enable 2FA security</p>
                             </div>
                             <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" 
-                                       style="width: 3rem; height: 1.5rem;">
+                                <input class="form-check-input" type="checkbox" role="switch">
                             </div>
                         </div>
                     </div>
                     <div class="setting-item">
-                        <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
                             <div>
-                                <h6 class="mb-1">Email Notifications</h6>
-                                <p class="text-muted small-text mb-0">Receive job alerts</p>
+                                <h6 class="mb-0 small-text">Email Notifications</h6>
+                                <p class="text-muted smaller-text mb-0">Receive job alerts</p>
                             </div>
                             <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" checked 
-                                       style="width: 3rem; height: 1.5rem;">
+                                <input class="form-check-input" type="checkbox" role="switch" checked>
                             </div>
                         </div>
                     </div>
@@ -125,15 +123,15 @@
             </section>
 
             <section>
-                <div class="d-flex align-items-center mb-4">
-                    <i class="fas fa-shield-alt fs-4 text-primary me-2"></i>
+                <div class="d-flex align-items-center mb-3">
+                    <i class="fas fa-shield-alt text-primary me-2"></i>
                     <h5 class="fw-bold mb-0">Security</h5>
                 </div>
-                <div class="d-grid gap-3">
-                    <button class="btn btn-outline-primary btn-lg d-flex align-items-center justify-content-center gap-2">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary d-flex align-items-center justify-content-center gap-2">
                         <i class="fas fa-key"></i>Change Password
                     </button>
-                    <button class="btn btn-outline-danger btn-lg d-flex align-items-center justify-content-center gap-2">
+                    <button class="btn btn-outline-danger d-flex align-items-center justify-content-center gap-2">
                         <i class="fas fa-trash-alt"></i>Delete Account
                     </button>
                 </div>
