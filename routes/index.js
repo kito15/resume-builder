@@ -27,4 +27,9 @@ router.get('/partials/notes-section', (req, res) => {
     res.render('partials/notes-section');
 });
 
+// Add resume section route
+router.get('/partials/resume-section', (req, res) => {
+    res.render('partials/resume-section');
+});
+
 module.exports = router;
