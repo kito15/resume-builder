@@ -1,0 +1,93 @@
+.resume-section {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Upload Area */
+.upload-zone {
+    border: 2px dashed var(--bs-gray-300);
+    border-radius: 8px;
+    background-color: var(--bs-gray-100);
+    transition: all 0.3s ease;
+}
+
+.upload-zone:hover {
+    border-color: var(--bs-primary);
+    background-color: var(--bs-primary-bg-subtle);
+}
+
+.upload-zone i {
+    color: var(--bs-primary);
+}
+
+/* Resume List */
+.resume-item {
+    border-bottom: 1px solid var(--bs-gray-200);
+    transition: background-color 0.2s ease;
+}
+
+.resume-item:hover {
+    background-color: var(--bs-gray-100);
+}
+
+.resume-icon {
+    width: 40px;
+    height: 40px;
+    background-color: var(--bs-primary-bg-subtle);
+    color: var(--bs-primary);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.resume-actions button {
+    padding: 0.25rem 0.5rem;
+    color: var(--bs-gray-600);
+}
+
+.resume-actions button:hover {
+    color: var(--bs-primary);
+    background-color: var(--bs-primary-bg-subtle);
+}
+
+/* Template Section */
+.template-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.template-item {
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.template-item:hover,
+.template-item.active {
+    background-color: var(--bs-primary-bg-subtle);
+}
+
+.template-item img {
+    border-radius: 4px;
+    border: 1px solid var(--bs-gray-200);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 992px) {
+    .template-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .template-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .resume-actions {
+        flex-wrap: nowrap;
+    }
+} 

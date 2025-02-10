@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const profileLink = document.querySelector('a[href="#"].nav-link:has(i.fas.fa-user)');
     const dashboardLink = document.querySelector('a[href="#"].nav-link:has(i.fas.fa-home)');
     const notesLink = document.querySelector('a[href="#"].nav-link:has(i.fas.fa-sticky-note)');
+    const resumeLink = document.querySelector('a[href="#"].nav-link:has(i.fas.fa-file-alt)');
     let dashboardContent = null;
 
     profileLink.addEventListener('click', async function(e) {
@@ -83,6 +84,40 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Handle resume link click
+    resumeLink?.addEventListener('click', async function(e) {
+        e.preventDefault();
+        
+        try {
+            // Store current dashboard content if not stored
+            if (!dashboardContent) {
+                dashboardContent = mainContent.innerHTML;
+            }
+
+            // Remove active class from all links and add to resumes
+            document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+            resumeLink.classList.add('active');
+
+            // Show loading state
+            mainContent.classList.add('loading');
+
+            // Fetch resume section
+            const response = await fetch('/partials/resume-section');
+            const resumeHTML = await response.text();
+
+            // Update main content
+            mainContent.innerHTML = resumeHTML;
+
+            // Initialize resume functionality
+            initializeResumes();
+
+        } catch (error) {
+            console.error('Error loading resumes:', error);
+        } finally {
+            mainContent.classList.remove('loading');
+        }
+    });
+
     // Initialize notes functionality
     function initializeNotes() {
         const searchInput = document.querySelector('.notes-section input[type="search"]');
@@ -137,5 +172,57 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         });
+    }
+
+    // Add this function to initialize resume functionality
+    function initializeResumes() {
+        const uploadBtn = document.getElementById('uploadResumeBtn');
+        const uploadArea = document.getElementById('uploadArea');
+        const resumeFile = document.getElementById('resumeFile');
+
+        // Toggle upload area
+        uploadBtn?.addEventListener('click', () => {
+            uploadArea.classList.toggle('d-none');
+        });
+
+        // Handle file upload
+        resumeFile?.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                // Add your file upload logic here
+                console.log('File selected:', file);
+                uploadArea.classList.add('d-none');
+            }
+        });
+
+        // Handle drag and drop
+        const uploadZone = document.querySelector('.upload-zone');
+        if (uploadZone) {
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadZone.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            uploadZone.addEventListener('dragenter', () => {
+                uploadZone.classList.add('highlight');
+            });
+
+            uploadZone.addEventListener('dragleave', () => {
+                uploadZone.classList.remove('highlight');
+            });
+
+            uploadZone.addEventListener('drop', (e) => {
+                const file = e.dataTransfer.files[0];
+                if (file) {
+                    // Add your file upload logic here
+                    console.log('File dropped:', file);
+                    uploadArea.classList.add('d-none');
+                }
+            });
+        }
     }
 }); 
