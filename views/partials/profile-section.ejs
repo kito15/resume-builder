@@ -1,101 +1,143 @@
 <div class="profile-section">
-    <!-- Profile Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <!-- Profile Header with improved spacing and hierarchy -->
+    <div class="d-flex justify-content-between align-items-center mb-5">
         <div>
-            <small class="text-muted small-text">Pages / Profile</small>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <a href="#" class="text-decoration-none text-muted small-text">Pages</a>
+                <i class="fas fa-chevron-right small-text text-muted"></i>
+                <span class="text-primary small-text">Profile</span>
+            </div>
             <h4 class="fw-bold mb-0">My Profile</h4>
         </div>
-        <button class="btn btn-primary" id="saveProfileBtn">Save Changes</button>
+        <button class="btn btn-primary px-4" id="saveProfileBtn">
+            <i class="fas fa-save me-2"></i>Save Changes
+        </button>
     </div>
 
-    <!-- Profile Summary -->
-    <div class="bg-white p-4 rounded-3 mb-4">
+    <!-- Profile Summary with improved layout -->
+    <div class="profile-summary mb-5 pb-4 border-bottom">
         <div class="d-flex flex-wrap align-items-center gap-4">
             <div class="position-relative">
-                <img src="https://placehold.co/120x120" alt="Profile Picture" 
-                     class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;">
-                <div class="position-absolute bottom-0 end-0">
-                    <label for="avatar-upload" class="btn btn-sm btn-light rounded-circle shadow-sm" 
-                           style="width: 32px; height: 32px;">
+                <div class="profile-image-container">
+                    <img src="https://placehold.co/120x120" alt="Profile Picture" 
+                         class="rounded-circle profile-image">
+                    <label for="avatar-upload" class="profile-image-upload" 
+                           title="Upload new photo">
                         <i class="fas fa-camera"></i>
                     </label>
-                    <input type="file" id="avatar-upload" class="d-none">
+                    <input type="file" id="avatar-upload" class="d-none" 
+                           accept="image/*">
                 </div>
             </div>
             <div class="flex-grow-1">
-                <h5 class="fw-bold mb-1">John Doe</h5>
-                <p class="text-muted mb-2">Software Engineer</p>
-                <p class="small-text mb-0">
-                    <i class="fas fa-map-marker-alt me-1"></i> San Francisco, CA
-                </p>
+                <h5 class="fw-bold fs-4 mb-2">John Doe</h5>
+                <div class="d-flex align-items-center gap-3 text-muted mb-2">
+                    <span class="d-flex align-items-center">
+                        <i class="fas fa-briefcase me-2"></i>Software Engineer
+                    </span>
+                    <span class="separator">•</span>
+                    <span class="d-flex align-items-center">
+                        <i class="fas fa-map-marker-alt me-2"></i>San Francisco, CA
+                    </span>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Profile Details -->
-    <div class="row g-4">
+    <!-- Profile Details with improved structure -->
+    <div class="row g-5">
         <!-- Personal Information -->
         <div class="col-lg-8">
-            <div class="bg-white p-4 rounded-3">
-                <h5 class="fw-bold mb-3">Personal Information</h5>
-                <div class="row g-3">
+            <section class="mb-5">
+                <div class="d-flex align-items-center mb-4">
+                    <i class="fas fa-user-circle fs-4 text-primary me-2"></i>
+                    <h5 class="fw-bold mb-0">Personal Information</h5>
+                </div>
+                <div class="row g-4">
                     <div class="col-md-6">
-                        <label class="form-label">First Name</label>
-                        <input type="text" class="form-control" value="John">
+                        <div class="form-group">
+                            <label class="form-label text-muted mb-2">First Name</label>
+                            <input type="text" class="form-control form-control-lg" value="John">
+                        </div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Last Name</label>
-                        <input type="text" class="form-control" value="Doe">
+                        <div class="form-group">
+                            <label class="form-label text-muted mb-2">Last Name</label>
+                            <input type="text" class="form-control form-control-lg" value="Doe">
+                        </div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Email</label>
-                        <input type="email" class="form-control" value="john.doe@example.com">
+                        <div class="form-group">
+                            <label class="form-label text-muted mb-2">Email</label>
+                            <input type="email" class="form-control form-control-lg" value="john.doe@example.com">
+                        </div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Phone</label>
-                        <input type="tel" class="form-control" value="+1 (555) 123-4567">
+                        <div class="form-group">
+                            <label class="form-label text-muted mb-2">Phone</label>
+                            <input type="tel" class="form-control form-control-lg" value="+1 (555) 123-4567">
+                        </div>
                     </div>
                     <div class="col-12">
-                        <label class="form-label">Bio</label>
-                        <textarea class="form-control" rows="3">Experienced software engineer with a passion for building scalable applications.</textarea>
+                        <div class="form-group">
+                            <label class="form-label text-muted mb-2">Bio</label>
+                            <textarea class="form-control form-control-lg" rows="4" 
+                                    placeholder="Tell us about yourself">Experienced software engineer with a passion for building scalable applications.</textarea>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </section>
         </div>
 
-        <!-- Account Settings -->
+        <!-- Account Settings with improved layout -->
         <div class="col-lg-4">
-            <div class="bg-white p-4 rounded-3 mb-4">
-                <h5 class="fw-bold mb-3">Account Settings</h5>
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div>
-                        <h6 class="mb-1">Two-Factor Auth</h6>
-                        <small class="text-muted">Enable 2FA security</small>
+            <section class="mb-5">
+                <div class="d-flex align-items-center mb-4">
+                    <i class="fas fa-cog fs-4 text-primary me-2"></i>
+                    <h5 class="fw-bold mb-0">Account Settings</h5>
+                </div>
+                <div class="settings-list">
+                    <div class="setting-item">
+                        <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                            <div>
+                                <h6 class="mb-1">Two-Factor Authentication</h6>
+                                <p class="text-muted small-text mb-0">Enable 2FA security</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" 
+                                       style="width: 3rem; height: 1.5rem;">
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" role="switch">
+                    <div class="setting-item">
+                        <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                            <div>
+                                <h6 class="mb-1">Email Notifications</h6>
+                                <p class="text-muted small-text mb-0">Receive job alerts</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" checked 
+                                       style="width: 3rem; height: 1.5rem;">
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="mb-1">Email Notifications</h6>
-                        <small class="text-muted">Receive job alerts</small>
-                    </div>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" role="switch" checked>
-                    </div>
-                </div>
-            </div>
+            </section>
 
-            <div class="bg-white p-4 rounded-3">
-                <h5 class="fw-bold mb-3">Security</h5>
-                <button class="btn btn-outline-primary w-100 mb-2">
-                    Change Password
-                </button>
-                <button class="btn btn-outline-danger w-100">
-                    Delete Account
-                </button>
-            </div>
+            <section>
+                <div class="d-flex align-items-center mb-4">
+                    <i class="fas fa-shield-alt fs-4 text-primary me-2"></i>
+                    <h5 class="fw-bold mb-0">Security</h5>
+                </div>
+                <div class="d-grid gap-3">
+                    <button class="btn btn-outline-primary btn-lg d-flex align-items-center justify-content-center gap-2">
+                        <i class="fas fa-key"></i>Change Password
+                    </button>
+                    <button class="btn btn-outline-danger btn-lg d-flex align-items-center justify-content-center gap-2">
+                        <i class="fas fa-trash-alt"></i>Delete Account
+                    </button>
+                </div>
+            </section>
         </div>
     </div>
 </div> 

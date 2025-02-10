@@ -293,3 +293,100 @@ h6 {
 .brand-icon:hover {
     transform: rotate(-5deg);
 }
+
+/* Profile Section Enhancements */
+.profile-section {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.profile-image-container {
+    position: relative;
+    width: 120px;
+    height: 120px;
+}
+
+.profile-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border: 2px solid var(--border-gray);
+}
+
+.profile-image-upload {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 32px;
+    height: 32px;
+    background: var(--primary-500);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-speed) ease;
+}
+
+.profile-image-upload:hover {
+    background: var(--primary-600);
+}
+
+.separator {
+    color: var(--border-gray);
+    font-size: 20px;
+    line-height: 1;
+}
+
+.form-control-lg {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-gray);
+    background-color: white;
+}
+
+.form-control-lg:focus {
+    border-color: var(--primary-500);
+    box-shadow: none;
+}
+
+.setting-item:last-child .d-flex {
+    border-bottom: none;
+}
+
+.form-check-input {
+    cursor: pointer;
+    border: 2px solid var(--border-gray);
+}
+
+.btn-lg {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+}
+
+.settings-list {
+    border: 1px solid var(--border-gray);
+    border-radius: 8px;
+}
+
+.setting-item .d-flex {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .profile-summary {
+        text-align: center;
+    }
+    
+    .profile-image-container {
+        margin: 0 auto;
+    }
+    
+    .profile-section .btn-lg {
+        width: 100%;
+    }
+}
