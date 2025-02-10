@@ -1,140 +1,137 @@
-<div class="profile-section">
-    <!-- Profile Header with improved spacing and hierarchy -->
+<div class="profile-section py-4">
+    <!-- Breadcrumb & Actions -->
     <div class="d-flex justify-content-between align-items-center mb-5">
         <div>
-            <div class="d-flex align-items-center gap-2 mb-1">
-                <a href="#" class="text-decoration-none text-muted small-text">Pages</a>
-                <i class="fas fa-chevron-right small-text text-muted"></i>
-                <span class="text-primary small-text">Profile</span>
-            </div>
-            <h4 class="fw-bold mb-0">My Profile</h4>
+            <nav aria-label="breadcrumb" class="mb-2">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="#" class="text-decoration-none text-muted small-text">Pages</a></li>
+                    <li class="breadcrumb-item active small-text" aria-current="page">Profile</li>
+                </ol>
+            </nav>
+            <h4 class="fw-bold mb-0 page-title">My Profile</h4>
         </div>
-        <button class="btn btn-primary px-4" id="saveProfileBtn">
+        <button class="btn btn-primary px-4 d-flex align-items-center" id="saveProfileBtn">
             <i class="fas fa-save me-2"></i>Save Changes
         </button>
     </div>
 
-    <!-- Profile Summary with improved layout -->
-    <div class="profile-summary mb-5 pb-4 border-bottom">
+    <!-- Profile Header -->
+    <div class="profile-header mb-5">
         <div class="d-flex flex-wrap align-items-center gap-4">
-            <div class="position-relative">
+            <div class="profile-image-wrapper">
                 <div class="profile-image-container">
-                    <img src="https://placehold.co/120x120" alt="Profile Picture" 
-                         class="rounded-circle profile-image">
-                    <label for="avatar-upload" class="profile-image-upload" 
-                           title="Upload new photo">
+                    <img src="https://placehold.co/120x120" alt="Profile Picture" class="profile-image">
+                    <label for="avatar-upload" class="profile-image-upload" title="Upload new photo">
                         <i class="fas fa-camera"></i>
                     </label>
-                    <input type="file" id="avatar-upload" class="d-none" 
-                           accept="image/*">
                 </div>
+                <input type="file" id="avatar-upload" class="d-none" accept="image/*">
             </div>
-            <div class="flex-grow-1">
-                <h5 class="fw-bold fs-4 mb-2">John Doe</h5>
-                <div class="d-flex align-items-center gap-3 text-muted mb-2">
-                    <span class="d-flex align-items-center">
+            <div class="profile-info flex-grow-1">
+                <h5 class="profile-name mb-2">John Doe</h5>
+                <div class="profile-meta d-flex align-items-center flex-wrap gap-3">
+                    <div class="d-flex align-items-center text-muted">
                         <i class="fas fa-briefcase me-2"></i>Software Engineer
-                    </span>
-                    <span class="separator">•</span>
-                    <span class="d-flex align-items-center">
+                    </div>
+                    <div class="meta-separator"></div>
+                    <div class="d-flex align-items-center text-muted">
                         <i class="fas fa-map-marker-alt me-2"></i>San Francisco, CA
-                    </span>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Profile Details with improved structure -->
+    <!-- Main Content -->
     <div class="row g-5">
         <!-- Personal Information -->
         <div class="col-lg-8">
-            <section class="mb-5">
-                <div class="d-flex align-items-center mb-4">
-                    <i class="fas fa-user-circle fs-4 text-primary me-2"></i>
-                    <h5 class="fw-bold mb-0">Personal Information</h5>
+            <section class="profile-section-content mb-5">
+                <div class="section-header d-flex align-items-center mb-4">
+                    <i class="fas fa-user-circle fs-4 text-primary me-3"></i>
+                    <h5 class="section-title mb-0">Personal Information</h5>
                 </div>
                 <div class="row g-4">
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label class="form-label text-muted mb-2">First Name</label>
+                            <label class="form-label">First Name</label>
                             <input type="text" class="form-control form-control-lg" value="John">
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label class="form-label text-muted mb-2">Last Name</label>
+                            <label class="form-label">Last Name</label>
                             <input type="text" class="form-control form-control-lg" value="Doe">
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label class="form-label text-muted mb-2">Email</label>
+                            <label class="form-label">Email</label>
                             <input type="email" class="form-control form-control-lg" value="john.doe@example.com">
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label class="form-label text-muted mb-2">Phone</label>
+                            <label class="form-label">Phone</label>
                             <input type="tel" class="form-control form-control-lg" value="+1 (555) 123-4567">
                         </div>
                     </div>
                     <div class="col-12">
                         <div class="form-group">
-                            <label class="form-label text-muted mb-2">Bio</label>
-                            <textarea class="form-control form-control-lg" rows="4" 
-                                    placeholder="Tell us about yourself">Experienced software engineer with a passion for building scalable applications.</textarea>
+                            <label class="form-label">Bio</label>
+                            <textarea class="form-control form-control-lg" rows="4">Experienced software engineer with a passion for building scalable applications.</textarea>
                         </div>
                     </div>
                 </div>
             </section>
         </div>
 
-        <!-- Account Settings with improved layout -->
+        <!-- Settings Column -->
         <div class="col-lg-4">
-            <section class="mb-5">
-                <div class="d-flex align-items-center mb-4">
-                    <i class="fas fa-cog fs-4 text-primary me-2"></i>
-                    <h5 class="fw-bold mb-0">Account Settings</h5>
+            <!-- Account Settings -->
+            <section class="profile-section-content mb-5">
+                <div class="section-header d-flex align-items-center mb-4">
+                    <i class="fas fa-cog fs-4 text-primary me-3"></i>
+                    <h5 class="section-title mb-0">Account Settings</h5>
                 </div>
-                <div class="settings-list">
-                    <div class="setting-item">
-                        <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                <div class="settings-group">
+                    <div class="setting-item border-bottom py-3">
+                        <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h6 class="mb-1">Two-Factor Authentication</h6>
-                                <p class="text-muted small-text mb-0">Enable 2FA security</p>
+                                <h6 class="setting-title mb-1">Two-Factor Authentication</h6>
+                                <p class="setting-description mb-0">Enable 2FA security</p>
                             </div>
                             <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" 
-                                       style="width: 3rem; height: 1.5rem;">
+                                <input class="form-check-input" type="checkbox" role="switch">
                             </div>
                         </div>
                     </div>
-                    <div class="setting-item">
-                        <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                    <div class="setting-item py-3">
+                        <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h6 class="mb-1">Email Notifications</h6>
-                                <p class="text-muted small-text mb-0">Receive job alerts</p>
+                                <h6 class="setting-title mb-1">Email Notifications</h6>
+                                <p class="setting-description mb-0">Receive job alerts</p>
                             </div>
                             <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" checked 
-                                       style="width: 3rem; height: 1.5rem;">
+                                <input class="form-check-input" type="checkbox" role="switch" checked>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <section>
-                <div class="d-flex align-items-center mb-4">
-                    <i class="fas fa-shield-alt fs-4 text-primary me-2"></i>
-                    <h5 class="fw-bold mb-0">Security</h5>
+            <!-- Security Section -->
+            <section class="profile-section-content">
+                <div class="section-header d-flex align-items-center mb-4">
+                    <i class="fas fa-shield-alt fs-4 text-primary me-3"></i>
+                    <h5 class="section-title mb-0">Security</h5>
                 </div>
                 <div class="d-grid gap-3">
-                    <button class="btn btn-outline-primary btn-lg d-flex align-items-center justify-content-center gap-2">
-                        <i class="fas fa-key"></i>Change Password
+                    <button class="btn btn-outline-primary btn-lg">
+                        <i class="fas fa-key me-2"></i>Change Password
                     </button>
-                    <button class="btn btn-outline-danger btn-lg d-flex align-items-center justify-content-center gap-2">
-                        <i class="fas fa-trash-alt"></i>Delete Account
+                    <button class="btn btn-outline-danger btn-lg">
+                        <i class="fas fa-trash-alt me-2"></i>Delete Account
                     </button>
                 </div>
             </section>
