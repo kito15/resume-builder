@@ -22,4 +22,9 @@ router.get('/partials/profile-section', (req, res) => {
     res.render('partials/profile-section');
 });
 
+// Add notes section route
+router.get('/partials/notes-section', (req, res) => {
+    res.render('partials/notes-section');
+});
+
 module.exports = router;

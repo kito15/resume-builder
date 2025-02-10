@@ -1,0 +1,145 @@
+<div class="notes-section px-4">
+    <!-- Notes Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <a href="#" class="text-decoration-none text-muted small-text">Pages</a>
+                <i class="fas fa-chevron-right small-text text-muted"></i>
+                <span class="text-primary small-text">Notes</span>
+            </div>
+            <h4 class="fw-bold mb-0">My Notes</h4>
+        </div>
+        <button class="btn btn-primary btn-sm px-4" id="newNoteBtn">
+            <i class="fas fa-plus me-2"></i>New Note
+        </button>
+    </div>
+
+    <!-- Notes Grid -->
+    <div class="row g-4">
+        <!-- Notes List Column -->
+        <div class="col-lg-8">
+            <!-- Search and Filter -->
+            <div class="d-flex gap-3 mb-3">
+                <div class="flex-grow-1">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0">
+                            <i class="fas fa-search text-muted"></i>
+                        </span>
+                        <input type="search" class="form-control border-start-0 ps-0" 
+                               placeholder="Search notes...">
+                    </div>
+                </div>
+                <select class="form-select" style="width: auto;">
+                    <option value="all">All Notes</option>
+                    <option value="interview">Interview Prep</option>
+                    <option value="research">Job Research</option>
+                    <option value="tasks">Tasks</option>
+                </select>
+            </div>
+
+            <!-- Notes List -->
+            <div class="notes-list">
+                <!-- Note Item -->
+                <div class="note-item">
+                    <div class="d-flex gap-3">
+                        <div class="note-color interview"></div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <h6 class="fw-bold mb-0">Technical Interview Prep</h6>
+                                <div class="note-actions">
+                                    <button class="btn btn-link btn-sm p-0 me-2">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-link btn-sm p-0 text-danger">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="note-preview mb-2">Review system design concepts and practice common algorithm questions...</p>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge bg-primary-soft">Interview Prep</span>
+                                <small class="text-muted">Updated 2 days ago</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Additional note items with different categories -->
+                <div class="note-item">
+                    <div class="d-flex gap-3">
+                        <div class="note-color research"></div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <h6 class="fw-bold mb-0">TechCorp Research</h6>
+                                <div class="note-actions">
+                                    <button class="btn btn-link btn-sm p-0 me-2">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-link btn-sm p-0 text-danger">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="note-preview mb-2">Company background, culture, and recent news articles for interview preparation...</p>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge bg-info-soft">Research</span>
+                                <small class="text-muted">Updated 1 week ago</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions Column -->
+        <div class="col-lg-4">
+            <!-- Categories Summary -->
+            <div class="bg-white p-3 rounded-3 mb-4">
+                <h6 class="fw-bold mb-3">Categories</h6>
+                <div class="category-list">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="d-flex align-items-center gap-2">
+                            <span class="category-dot interview"></span>
+                            Interview Prep
+                        </span>
+                        <span class="badge bg-light">4</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="d-flex align-items-center gap-2">
+                            <span class="category-dot research"></span>
+                            Job Research
+                        </span>
+                        <span class="badge bg-light">3</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="d-flex align-items-center gap-2">
+                            <span class="category-dot tasks"></span>
+                            Tasks
+                        </span>
+                        <span class="badge bg-light">2</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Add Note -->
+            <div class="bg-white p-3 rounded-3">
+                <h6 class="fw-bold mb-3">Quick Note</h6>
+                <form id="quickNoteForm">
+                    <input type="text" class="form-control mb-2" 
+                           placeholder="Note title">
+                    <textarea class="form-control mb-2" rows="3" 
+                             placeholder="Write your note here..."></textarea>
+                    <select class="form-select mb-3">
+                        <option value="">Select category</option>
+                        <option value="interview">Interview Prep</option>
+                        <option value="research">Job Research</option>
+                        <option value="tasks">Tasks</option>
+                    </select>
+                    <button type="submit" class="btn btn-primary w-100">
+                        Save Note
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div> 
