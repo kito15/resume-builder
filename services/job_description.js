@@ -35,29 +35,26 @@ async function checkJobDescription(req, res) {
             });
         }
 
-        // Check for similar length entries (±5%)
+        // NEW: Narrow the candidate set by ordering by closeness in char length and limiting the results
         const lengthMargin = Math.floor(charLength * 0.05);
         const [similarLengthEntries] = await pool.execute(
-            'SELECT * FROM job_descriptions WHERE char_length BETWEEN ? AND ?',
-            [charLength - lengthMargin, charLength + lengthMargin]
+            `SELECT * FROM job_descriptions 
+             WHERE char_length BETWEEN ? AND ? 
+             ORDER BY ABS(char_length - ?) 
+             LIMIT 10`,
+            [charLength - lengthMargin, charLength + lengthMargin, charLength]
         );
 
-        // Check for content similarity
+        // Check for content similarity in a reduced candidate set
         for (const entry of similarLengthEntries) {
-            const similarity = calculateSimilarity(
-                normalizedText,
-                entry.normalized_text
-            );
-
-            if (similarity >= 0.85) {
-                // After similarity check
-                const existingKeywords = entry.keywords;
-                 const similarity = calculateKeywordSimilarity(existingKeywords, keywords);
-
-                if (similarity >= MIN_KEYWORD_OVERLAP) {
+            const similarityScore = calculateSimilarity(normalizedText, entry.normalized_text);
+            if (similarityScore >= 0.85) {
+                // Use a separate variable name for keyword similarity
+                const keywordSim = calculateKeywordSimilarity(entry.keywords, entry.keywords);
+                if (keywordSim >= MIN_KEYWORD_OVERLAP) {
                     return res.json({
                         found: true,
-                        keywords: existingKeywords
+                        keywords: entry.keywords
                     });
                 }
             }
