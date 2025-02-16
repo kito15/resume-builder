@@ -7,23 +7,23 @@ const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimila
 // Add new API key reference for Gemini
 const geminiApiKey = process.env.GEMINI_API_KEY;
 
+// Global browser instance for Puppeteer to improve performance by reusing the browser across resume processing requests.
+let browserInstance = null;
+
+async function getBrowser() {
+    if (!browserInstance) {
+        browserInstance = await puppeteer.launch({
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+    }
+    return browserInstance;
+}
+
 // --- Helper Classes and Functions (from original app.js) ---
 
 // Simple in-memory cache for LLM responses
 const lmCache = new Map();
 
-function getAverageBulletPointWordCount($) {
-    let totalWords = 0;
-    let totalBullets = 0;
-    $('li').each((_, el) => {
-        const text = $(el).text().trim();
-        if (text) {
-            totalWords += text.split(/\s+/).length;
-            totalBullets++;
-        }
-    });
-    return totalBullets === 0 ? 15 : Math.floor(totalWords / totalBullets);
-}
 
 function countWordsInBullet(text) {
     // Remove extra whitespace and special characters
@@ -174,6 +174,15 @@ class ActionVerbTracker {
 // Add function to get first verb from bullet point
 function getFirstVerb(bulletText) {
     return bulletText.trim().split(/\s+/)[0].toLowerCase();
+}
+
+// New helper function to sanitize bullet text
+function sanitizeBullet(bulletText) {
+    // Remove common markdown formatting characters such as asterisks, underscores, backticks, and tildes
+    let sanitized = bulletText.replace(/[*_`~]/g, '');
+    // Normalize spaces
+    sanitized = sanitized.replace(/\s+/g, ' ').trim();
+    return sanitized;
 }
 
 // Add function to shuffle bullets with verb checking
@@ -355,10 +364,12 @@ Generate 4-5 achievement-focused bullets for ${context}`;
         // Update response parsing for Gemini's structure
         const content = response.data.candidates[0].content.parts[0].text;
         const matched = content.match(/^\>\>(.+)$/gm) || [];
-        return matched.map(bp =>
-            bp.replace(/^>>\s*/, '')
-              .replace(/\*\*/g, '')
-        );
+        return matched.map(bp => {
+            // Remove the ">>" prefix and then sanitize the bullet text
+            let sanitized = bp.replace(/^>>\s*/, '');
+            sanitized = sanitizeBullet(sanitized);
+            return sanitized;
+        });
     } catch (error) {
         console.error('Error generating bullets:', error.response?.data || error.message);
         throw error;
@@ -476,9 +487,7 @@ async function checkPageHeight(page) {
 }
 
 async function convertHtmlToPdf(htmlContent) {
-    const browser = await puppeteer.launch({
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    const browser = await getBrowser();
     const page = await browser.newPage();
 
     const customCSS = `
@@ -653,7 +662,7 @@ async function convertHtmlToPdf(htmlContent) {
         }
     });
 
-    await browser.close();
+    await page.close();
     return { pdfBuffer, exceedsOnePage: height > MAX_HEIGHT };
 }
 
