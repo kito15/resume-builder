@@ -283,7 +283,7 @@ CRITICAL REQUIREMENTS:
 3) Maintain original actions and responsibilities
 4) Each bullet starts with ">>" and uses strong action verbs
 5) Keep within ${wordLimit} words unless preserving details requires more
-6) Do NOT include keywords within parentheses anywhere in the bullet point. All keywords must be integrated naturally.
+6) Do NOT append keywords in parentheses or as a separate segment. The keywords must be seamlessly integrated into the text.
 
 STRUCTURE (implicit, not explicit):
 - Begin with impactful action
@@ -336,10 +336,9 @@ Generate 4-5 achievement-focused bullets for ${context}`;
                     }]
                 }],
                 generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 2000,  // Increased for longer responses
-                    topP: 0.9,
-                    topK: 40
+                    temperature: 1.0,
+                    maxOutputTokens: 2000  // Increased for longer responses
+    
                 },
                 safetySettings: [{
                     category: "HARM_CATEGORY_DANGEROUS_CONTENT",
