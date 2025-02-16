@@ -4,6 +4,9 @@ const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimila
 
 const MIN_KEYWORD_OVERLAP = 0.85; // 85% similarity
 
+// At the top of the file, add a simple in‑memory cache
+const jobDescCache = new Map();
+
 async function checkJobDescription(req, res) {
     try {
         const { text } = req.body;
@@ -13,6 +16,12 @@ async function checkJobDescription(req, res) {
         const hash = generateHash(text);
         const normalizedText = normalizeText(text);
         const charLength = text.length;
+
+        // Check if we already computed the result for this text
+        if (jobDescCache.has(hash)) {
+            console.log('Returning cached result for hash:', hash);
+            return res.json(jobDescCache.get(hash));
+        }
 
         // First, try exact hash match
         const [exactMatches] = await pool.execute(
@@ -29,10 +38,9 @@ async function checkJobDescription(req, res) {
                 throw new Error('Invalid keyword format');
             }
 
-            return res.json({
-                found: true,
-                keywords
-            });
+            const result = { found: true, keywords };
+            jobDescCache.set(hash, result);
+            return res.json(result);
         }
 
         // NEW: Narrow the candidate set by ordering by closeness in char length and limiting the results
@@ -52,16 +60,17 @@ async function checkJobDescription(req, res) {
                 // Use a separate variable name for keyword similarity
                 const keywordSim = calculateKeywordSimilarity(entry.keywords, entry.keywords);
                 if (keywordSim >= MIN_KEYWORD_OVERLAP) {
-                    return res.json({
-                        found: true,
-                        keywords: entry.keywords
-                    });
+                    const result = { found: true, keywords: entry.keywords };
+                    jobDescCache.set(hash, result);
+                    return res.json(result);
                 }
             }
         }
 
         // No match found
-        return res.json({ found: false });
+        const result = { found: false };
+        jobDescCache.set(hash, result);
+        return res.json(result);
 
     } catch (error) {
         console.error('Error checking job description:', error);
