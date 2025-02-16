@@ -15,7 +15,8 @@
     "cors": "",
     "mysql2": "",
     "bcrypt": "",
-    "ejs": ""
+    "ejs": "",
+    "fast-levenshtein": ""
   },
   "scripts": {
     "start": "node app.js"
