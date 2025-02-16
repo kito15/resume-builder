@@ -283,6 +283,7 @@ CRITICAL REQUIREMENTS:
 3) Maintain original actions and responsibilities
 4) Each bullet starts with ">>" and uses strong action verbs
 5) Keep within ${wordLimit} words unless preserving details requires more
+6) Do NOT include keywords within parentheses anywhere in the bullet point. All keywords must be integrated naturally.
 
 STRUCTURE (implicit, not explicit):
 - Begin with impactful action
