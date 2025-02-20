@@ -6,21 +6,6 @@ const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimila
 
 // Add new API key reference for Gemini
 const geminiApiKey = process.env.GEMINI_API_KEY;
-
-// Global browser instance for Puppeteer to improve performance by reusing the browser across resume processing requests.
-let browserInstance = null;
-
-async function getBrowser() {
-    if (!browserInstance) {
-        browserInstance = await puppeteer.launch({
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
-    }
-    return browserInstance;
-}
-
-// --- Helper Classes and Functions (from original app.js) ---
-
 // Simple in-memory cache for LLM responses
 const lmCache = new Map();
 
@@ -176,15 +161,6 @@ function getFirstVerb(bulletText) {
     return bulletText.trim().split(/\s+/)[0].toLowerCase();
 }
 
-// New helper function to sanitize bullet text
-function sanitizeBullet(bulletText) {
-    // Remove common markdown formatting characters such as asterisks, underscores, backticks, and tildes
-    let sanitized = bulletText.replace(/[*_`~]/g, '');
-    // Normalize spaces
-    sanitized = sanitized.replace(/\s+/g, ' ').trim();
-    return sanitized;
-}
-
 // Add function to shuffle bullets with verb checking
 function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
     let attempts = 0;
@@ -292,7 +268,6 @@ CRITICAL REQUIREMENTS:
 3) Maintain original actions and responsibilities
 4) Each bullet starts with ">>" and uses strong action verbs
 5) Keep within ${wordLimit} words unless preserving details requires more
-6) Do NOT append keywords in parentheses or as a separate segment. The keywords must be seamlessly integrated into the text.
 
 STRUCTURE (implicit, not explicit):
 - Begin with impactful action
@@ -345,9 +320,10 @@ Generate 4-5 achievement-focused bullets for ${context}`;
                     }]
                 }],
                 generationConfig: {
-                    temperature: 1.0,
-                    maxOutputTokens: 2000  // Increased for longer responses
-    
+                    temperature: 0.7,
+                    maxOutputTokens: 2000,  // Increased for longer responses
+                    topP: 0.9,
+                    topK: 40
                 },
                 safetySettings: [{
                     category: "HARM_CATEGORY_DANGEROUS_CONTENT",
@@ -364,12 +340,11 @@ Generate 4-5 achievement-focused bullets for ${context}`;
         // Update response parsing for Gemini's structure
         const content = response.data.candidates[0].content.parts[0].text;
         const matched = content.match(/^\>\>(.+)$/gm) || [];
-        return matched.map(bp => {
-            // Remove the ">>" prefix and then sanitize the bullet text
-            let sanitized = bp.replace(/^>>\s*/, '');
-            sanitized = sanitizeBullet(sanitized);
-            return sanitized;
-        });
+        return matched.map(bp =>
+            bp.replace(/^>>\s*/, '')
+              .replace(/\*\*/g, '')
+              .replace(/\s*\([^)]*\)$/, '') // Remove any trailing parenthesis and enclosed keywords
+        );
     } catch (error) {
         console.error('Error generating bullets:', error.response?.data || error.message);
         throw error;
@@ -487,7 +462,9 @@ async function checkPageHeight(page) {
 }
 
 async function convertHtmlToPdf(htmlContent) {
-    const browser = await getBrowser();
+    const browser = await puppeteer.launch({
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
     const page = await browser.newPage();
 
     const customCSS = `
@@ -662,7 +639,7 @@ async function convertHtmlToPdf(htmlContent) {
         }
     });
 
-    await page.close();
+    await browser.close();
     return { pdfBuffer, exceedsOnePage: height > MAX_HEIGHT };
 }
 
@@ -744,9 +721,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     return $.html();
 }
 
-
-
-// --- Express Endpoint Handler (exported function) ---
 async function customizeResume(req, res) {
     try {
         const { htmlContent, keywords, fullTailoring } = req.body;
