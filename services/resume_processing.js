@@ -586,8 +586,8 @@ async function convertHtmlToPdf(htmlContent) {
         }
         body {
             font-family: 'Calibri', 'Arial', sans-serif;
-            font-size: 10pt;
-            line-height: 1.15;
+            font-size: 9.5pt;
+            line-height: 1.1;
             margin: 0;
             padding: 0;
             color: #000;
@@ -614,7 +614,7 @@ async function convertHtmlToPdf(htmlContent) {
             gap: 3px;
             align-items: center;
             color: #000;
-            font-size: 8.5pt;
+            font-size: 8pt;
         }
         
         /* Keep only the separator in gray */
@@ -628,9 +628,9 @@ async function convertHtmlToPdf(htmlContent) {
         h2 {
             text-transform: uppercase;
             border-bottom: 1.25px solid #000;
-            margin: 7px 0 3px 0;
+            margin: 6px 0 3px 0;
             padding: 0;
-            font-size: 12pt;
+            font-size: 11pt;
             font-weight: bold;
             letter-spacing: 0.5px;
             color: #000;
@@ -638,7 +638,7 @@ async function convertHtmlToPdf(htmlContent) {
         
         /* Experience Section */
         .job-details, .project-details, .education-details {
-            margin-bottom: 4px;
+            margin-bottom: 3px;
         }
         
         .position-header {
@@ -661,7 +661,7 @@ async function convertHtmlToPdf(htmlContent) {
             font-weight: bold;
             font-style: italic;
             margin-right: 3px;
-            font-size: 10.5pt;
+            font-size: 10pt;
         }
         
         .location {
@@ -673,14 +673,14 @@ async function convertHtmlToPdf(htmlContent) {
         /* Bullet Points */
         ul {
             margin: 0;
-            padding-left: 15px;
-            margin-bottom: 3px;
+            padding-left: 14px;
+            margin-bottom: 2px;
         }
         
         li {
             margin-bottom: 0;
             padding-left: 0;
-            line-height: 1.2;
+            line-height: 1.15;
             text-align: justify;
             margin-top: 1px;
         }
@@ -696,54 +696,54 @@ async function convertHtmlToPdf(htmlContent) {
             font-style: italic;
             white-space: nowrap;
             min-width: fit-content;
-            font-size: 9pt;
+            font-size: 8.5pt;
         }
         
         /* Skills Section */
         .skills-section {
-            margin-bottom: 4px;
+            margin-bottom: 3px;
         }
         
         .skills-section p {
             margin: 1px 0;
-            line-height: 1.2;
+            line-height: 1.15;
         }
         
         /* Adjust spacing between sections */
         section {
-            margin-bottom: 5px;
+            margin-bottom: 4px;
         }
         
         /* Project Section */
         .project-title {
             font-weight: bold;
             font-style: italic;
-            font-size: 10.5pt;
+            font-size: 10pt;
         }
         
         /* Education Section */
         .degree {
             font-style: italic;
             font-weight: bold;
-            font-size: 10pt;
+            font-size: 9.5pt;
         }
         
         /* Position Title */
         .position-title {
             font-style: italic;
             font-weight: bold;
-            font-size: 10.5pt;
+            font-size: 10pt;
         }
         
         /* Improved spacing for skills section */
         .skills-section p strong {
             font-weight: bold;
-            font-size: 10pt;
+            font-size: 9.5pt;
         }
         
         /* Make section headings more prominent */
         .section-heading {
-            font-size: 12pt;
+            font-size: 11pt;
             font-weight: bold;
             text-transform: uppercase;
             margin-bottom: 2px;
