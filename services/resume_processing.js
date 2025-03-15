@@ -260,38 +260,41 @@ class BulletCache {
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     let prompt;
-    const basePrompt = `Expert resume writer: Transform bullets into compelling achievements while naturally incorporating ALL keywords.
+    const basePrompt = `Expert resume writer: Transform bullets into compelling achievements with quantifiable results while naturally incorporating ALL keywords.
 
 CRITICAL REQUIREMENTS:
 1) Preserve EXACT numbers, metrics, and achievements (e.g., "increased efficiency by 45%" must stay exactly as "45%")
-2) Integrate ALL keywords (${keywords}) naturally into the flow
-3) Maintain original actions and responsibilities
-4) Each bullet starts with ">>" and uses strong action verbs
+2) ENHANCE bullets with specific metrics/numbers where missing - add quantified impact (%, $, time saved, etc.)
+3) Integrate ALL keywords (${keywords}) naturally into the flow
+4) Each bullet starts with ">>" and uses powerful, varied action verbs (avoid weak verbs like "helped", "worked on")
 5) Keep within ${wordLimit} words unless preserving details requires more
+6) Maintain consistent date formatting and chronological ordering
+7) NO buzzwords, clichés, or generic corporate speak (avoid: "synergy", "thinking outside the box", etc.)
+8) Ensure each bullet in a section uses a DIFFERENT strong action verb
 
 STRUCTURE (implicit, not explicit):
-- Begin with impactful action
-- Weave in context naturally
-- Integrate keywords smoothly
-- End with quantifiable results
+- Begin with powerful, specific action verb (e.g., "Engineered" not "Created", "Spearheaded" not "Led")
+- Weave in context with clear, concise language
+- Integrate keywords seamlessly without awkward placement
+- End with concrete, quantifiable results showing impact
 
 EXAMPLES:
 Original: "Managed database optimization project"
 Keywords: "Python, AWS"
-✓ CORRECT: ">>Spearheaded database optimization project using Python scripts and AWS infrastructure, improving query speed by 60%"
-✗ WRONG: ">>Used Python and AWS to manage databases" (lost original responsibility)
-✗ WRONG: ">>Managed database project (Python, AWS)" (artificial keyword placement)
+✓ CORRECT: ">>Engineered database optimization system using Python scripts and AWS infrastructure, reducing query latency by 60% and cutting storage costs $12K annually"
+✗ WRONG: ">>Used Python and AWS to manage databases" (lacks impact, weak verb)
+✗ WRONG: ">>Managed database project (Python, AWS)" (artificial keyword placement, no metrics)
 
-Original: "Led team of 5 developers, increased productivity 30%"
+Original: "Led team of 5 developers, increased productivity"
 Keywords: "agile, JavaScript"
-✓ CORRECT: ">>Led 5-person agile development team delivering JavaScript applications, driving 30% productivity increase"
-✗ WRONG: ">>Used agile and JavaScript to increase productivity" (lost team size)
+✓ CORRECT: ">>Orchestrated 5-person agile development team delivering JavaScript applications, driving 30% productivity increase and reducing sprint cycle time by 4 days"
+✗ WRONG: ">>Leveraged agile and JavaScript to synergize team dynamics" (buzzwords, no metrics)
 
 VALIDATION:
-1. Verify ALL keywords appear naturally
-2. Confirm ALL metrics remain unchanged
-3. Ensure original achievements stay intact
-4. Check for ">>" prefix`;
+1. Verify ALL bullets contain specific numbers/metrics showing impact
+2. Confirm ALL keywords appear naturally within context
+3. Ensure each bullet starts with a unique, powerful action verb
+4. Check for ">>" prefix and proper formatting`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
@@ -301,7 +304,7 @@ ${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `${basePrompt}
 
-Generate 4-5 achievement-focused bullets for ${context}`;
+Generate 4-5 achievement-focused bullets ${context} with concrete metrics and varied action verbs`;
     }
 
     try {
