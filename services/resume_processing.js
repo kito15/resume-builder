@@ -683,7 +683,7 @@ async function convertHtmlToPdf(htmlContent) {
             line-height: 1.2;
             text-align: justify;
             margin-top: 1px;
-            font-size: 9pt;
+            font-size: 9.5pt;
         }
         
         /* Links */
