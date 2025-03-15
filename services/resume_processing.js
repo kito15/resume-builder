@@ -105,20 +105,20 @@ function extractOriginalBullets($) {
 // Add new class to track section-specific bullets
 class SectionBulletTracker {
     constructor() {
-        this.bulletMap = new Map(); // Maps bullet text to section type
+        this.bulletMap = new Map(); // Maps bullet text to position ID
         this.usedBullets = new Set(); // Tracks all used bullets
     }
 
-    addBullet(bulletText, sectionType) {
-        this.bulletMap.set(bulletText, sectionType);
+    addBullet(bulletText, positionId) {
+        this.bulletMap.set(bulletText, positionId);
         this.usedBullets.add(bulletText);
     }
 
-    canUseBulletInSection(bulletText, sectionType) {
+    canUseBulletInSection(bulletText, positionId) {
         // If bullet hasn't been used before, it can be used
         if (!this.bulletMap.has(bulletText)) return true;
-        // If bullet has been used, only allow in same section type
-        return this.bulletMap.get(bulletText) === sectionType;
+        // If bullet has been used, only allow in same position
+        return this.bulletMap.get(bulletText) === positionId;
     }
 
     isUsed(bulletText) {
@@ -205,6 +205,7 @@ function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
 class BulletCache {
     constructor() {
         this.cache = new Map();
+        this.positionPools = new Map(); // Maps position IDs to bullet pools
         this.sectionPools = {
             job: new Set(),
             project: new Set(),
@@ -248,12 +249,46 @@ class BulletCache {
         return Array.from(this.sectionPools[section]).slice(0, count);
     }
 
+    getBulletsForPosition(positionId, count) {
+        if (!this.positionPools.has(positionId)) {
+            // If no specific pool exists for this position, create one
+            this.positionPools.set(positionId, new Set());
+            
+            // Get section type (job, project, education) from position ID
+            const sectionType = positionId.split('-')[0];
+            
+            // Copy some bullets from the section pool to this position pool
+            if (this.sectionPools[sectionType]) {
+                const sectionBullets = Array.from(this.sectionPools[sectionType]);
+                sectionBullets.forEach(bullet => {
+                    this.positionPools.get(positionId).add(bullet);
+                });
+            }
+        }
+        
+        return Array.from(this.positionPools.get(positionId)).slice(0, count);
+    }
+
     addBulletToSection(bullet, section) {
         this.sectionPools[section].add(bullet);
     }
 
+    addBulletToPosition(bullet, positionId) {
+        if (!this.positionPools.has(positionId)) {
+            this.positionPools.set(positionId, new Set());
+        }
+        this.positionPools.get(positionId).add(bullet);
+        
+        // Also add to section pool for backward compatibility
+        const sectionType = positionId.split('-')[0];
+        if (this.sectionPools[sectionType]) {
+            this.sectionPools[sectionType].add(bullet);
+        }
+    }
+
     clear() {
         this.cache.clear();
+        this.positionPools.clear();
         Object.values(this.sectionPools).forEach(pool => pool.clear());
     }
 }
@@ -354,69 +389,59 @@ Generate 4-5 achievement-focused bullets ${context} with concrete metrics and va
     }
 }
 
-async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount, verbTracker, bulletCache) {
-    for (let i = 0; i < sections.length; i++) {
-        const section = sections.eq(i);
-        let bulletList = section.find('ul');
+// Add function to extract position IDs from the HTML
+function generatePositionIds($) {
+    const positionIds = {
+        job: [],
+        project: [],
+        education: []
+    };
 
-        if (bulletList.length === 0) {
-            section.append('<ul></ul>');
-            bulletList = section.find('ul');
-        }
+    // Generate IDs for job positions
+    $('.job-details').each((index, section) => {
+        const company = $(section).find('.company-name').text().trim();
+        const position = $(section).find('.position-title').text().trim();
+        const id = `job-${index}-${company.replace(/\s+/g, '-').toLowerCase()}`;
+        positionIds.job.push(id);
+    });
 
-        let bulletPoints = bulletCache.getBulletsForSection(sectionType, targetBulletCount);
-        
-        if (fullTailoring && bulletList.find('li').length > 0) {
-            const existingBullets = bulletList.find('li')
-                .map((_, el) => $(el).text())
-                .get();
-                
-            bulletPoints = await generateBullets(
-                'tailor', existingBullets,
-                keywords, context, wordLimit
-            );
-            
-            // Add tailored bullets to cache
-            bulletPoints.forEach(bp => bulletCache.addBulletToSection(bp, sectionType));
-        }
+    // Generate IDs for projects
+    $('.project-details').each((index, section) => {
+        const project = $(section).find('.project-title').text().trim();
+        const id = `project-${index}-${project.replace(/\s+/g, '-').toLowerCase()}`;
+        positionIds.project.push(id);
+    });
 
-        // Filter and shuffle bullets
-        bulletPoints = bulletPoints
-            .filter(bp => !bulletTracker.isUsed(bp) || 
-                         bulletTracker.canUseBulletInSection(bp, sectionType))
-            .slice(0, targetBulletCount);
+    // Generate IDs for education
+    $('.education-details').each((index, section) => {
+        const school = $(section).find('.school-name').text().trim();
+        const id = `education-${index}-${school.replace(/\s+/g, '-').toLowerCase()}`;
+        positionIds.education.push(id);
+    });
 
-        // Shuffle bullets with verb checking
-        bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, sectionType, verbTracker);
-
-        // Update bullet list
-        bulletList.empty();
-        bulletPoints.forEach(point => {
-            bulletTracker.addBullet(point, sectionType);
-            bulletList.append(`<li>${point}</li>`);
-        });
-    }
+    return positionIds;
 }
 
-// Update adjustSectionBullets to use BulletCache
-async function adjustSectionBullets($, selector, targetCount, sectionType, bulletTracker, keywords, context, bulletCache) {
+// Update adjustSectionBullets to use BulletCache and position IDs
+async function adjustSectionBullets($, selector, targetCount, sectionType, bulletTracker, keywords, context, bulletCache, positionIds) {
     const sections = $(selector);
-    sections.each((_, section) => {
+    sections.each((index, section) => {
         const bulletList = $(section).find('ul');
         const bullets = bulletList.find('li');
         const currentCount = bullets.length;
+        const positionId = positionIds[sectionType][index] || `${sectionType}-${index}`;
 
         if (currentCount > targetCount) {
             // Remove excess bullets from the end
             bullets.slice(targetCount).remove();
         } else if (currentCount < targetCount) {
-            const cachedBullets = bulletCache.getBulletsForSection(sectionType, targetCount - currentCount);
+            const cachedBullets = bulletCache.getBulletsForPosition(positionId, targetCount - currentCount);
             const validBullets = cachedBullets
                 .filter(bp => !bulletTracker.isUsed(bp))
                 .slice(0, targetCount - currentCount);
 
             validBullets.forEach(bullet => {
-                bulletTracker.addBullet(bullet, sectionType);
+                bulletTracker.addBullet(bullet, positionId);
                 bulletList.append(`<li>${bullet}</li>`);
             });
         }
@@ -687,13 +712,16 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         { selector: $('.education-details'), type: 'education', context: 'for education', bullets: originalBullets.education }
     ];
 
+    // Extract position IDs
+    const positionIds = generatePositionIds($);
+
     // Update each section with its specific context
     for (const section of sections) {
         await updateResumeSection(
             $, section.selector, keywordString, section.context,
             fullTailoring, sectionWordCounts[section.type],
             bulletTracker, section.type, section.bullets,
-            INITIAL_BULLET_COUNT, verbTracker, bulletCache
+            INITIAL_BULLET_COUNT, verbTracker, bulletCache, positionIds
         );
     }
 
@@ -715,13 +743,58 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
             await adjustSectionBullets(
                 $, section.selector, adjustedCount,
                 section.type, bulletTracker, keywordString,
-                section.context, bulletCache
+                section.context, bulletCache, positionIds
             );
         }
         attempts++;
     }
 
     return $.html();
+}
+
+async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount, verbTracker, bulletCache, positionIds) {
+    for (let i = 0; i < sections.length; i++) {
+        const section = sections.eq(i);
+        let bulletList = section.find('ul');
+        const positionId = positionIds[sectionType][i] || `${sectionType}-${i}`;
+
+        if (bulletList.length === 0) {
+            section.append('<ul></ul>');
+            bulletList = section.find('ul');
+        }
+
+        let bulletPoints = bulletCache.getBulletsForPosition(positionId, targetBulletCount);
+        
+        if (fullTailoring && bulletList.find('li').length > 0) {
+            const existingBullets = bulletList.find('li')
+                .map((_, el) => $(el).text())
+                .get();
+                
+            bulletPoints = await generateBullets(
+                'tailor', existingBullets,
+                keywords, context, wordLimit
+            );
+            
+            // Add tailored bullets to position-specific cache
+            bulletPoints.forEach(bp => bulletCache.addBulletToPosition(bp, positionId));
+        }
+
+        // Filter and shuffle bullets
+        bulletPoints = bulletPoints
+            .filter(bp => !bulletTracker.isUsed(bp) || 
+                         bulletTracker.canUseBulletInSection(bp, positionId))
+            .slice(0, targetBulletCount);
+
+        // Shuffle bullets with verb checking
+        bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, sectionType, verbTracker);
+
+        // Update bullet list
+        bulletList.empty();
+        bulletPoints.forEach(point => {
+            bulletTracker.addBullet(point, positionId);
+            bulletList.append(`<li>${point}</li>`);
+        });
+    }
 }
 
 async function customizeResume(req, res) {
