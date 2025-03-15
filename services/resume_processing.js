@@ -598,9 +598,9 @@ async function convertHtmlToPdf(htmlContent) {
         h1 {
             text-align: center;
             margin: 0 0 2px 0;
-            font-size: 18pt;
+            font-size: 22pt;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 1px;
             color: #000;
             font-weight: bold;
         }
@@ -627,10 +627,10 @@ async function convertHtmlToPdf(htmlContent) {
         /* Section Styling */
         h2 {
             text-transform: uppercase;
-            border-bottom: 1px solid #000;
-            margin: 6px 0 3px 0;
+            border-bottom: 1.25px solid #000;
+            margin: 7px 0 3px 0;
             padding: 0;
-            font-size: 11.5pt;
+            font-size: 12pt;
             font-weight: bold;
             letter-spacing: 0.5px;
             color: #000;
@@ -638,7 +638,7 @@ async function convertHtmlToPdf(htmlContent) {
         
         /* Experience Section */
         .job-details, .project-details, .education-details {
-            margin-bottom: 5px;
+            margin-bottom: 4px;
         }
         
         .position-header {
@@ -668,7 +668,6 @@ async function convertHtmlToPdf(htmlContent) {
             font-style: normal;
             margin-left: auto;
             padding-right: 3px;
-            font-size: 9pt;
         }
         
         /* Bullet Points */
@@ -712,7 +711,7 @@ async function convertHtmlToPdf(htmlContent) {
         
         /* Adjust spacing between sections */
         section {
-            margin-bottom: 4px;
+            margin-bottom: 5px;
         }
         
         /* Project Section */
@@ -744,28 +743,10 @@ async function convertHtmlToPdf(htmlContent) {
         
         /* Make section headings more prominent */
         .section-heading {
-            font-size: 11.5pt;
+            font-size: 12pt;
             font-weight: bold;
             text-transform: uppercase;
             margin-bottom: 2px;
-        }
-        
-        /* Skills formatting */
-        .skills-line {
-            display: flex;
-            font-size: 9.5pt;
-        }
-        
-        .skills-category {
-            font-weight: bold;
-            min-width: 140px;
-        }
-        
-        /* Allow slightly more content */
-        .job-details li, .project-details li, .education-details li {
-            line-height: 1.15;
-            margin-top: 0;
-            margin-bottom: 1.5px;
         }
     `;
 
