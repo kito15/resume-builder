@@ -226,6 +226,13 @@ CONTENT REQUIREMENTS:
    Instead of "large team" → "team of 5 engineers"
    Instead of "multiple clients" → "4 enterprise clients"
 
+CRITICAL MEANING PRESERVATION:
+- You MUST preserve the exact meaning and core achievements from the original bullets
+- Do NOT change or embellish the fundamental accomplishments described
+- Only enhance the format and specificity while keeping the same exact meaning
+- If a bullet describes managing 3 people, do not change it to 4 people
+- The facts, scope, and impact must remain identical to the original
+
 ACTION VERB DIVERSITY REQUIREMENTS:
 1) EVERY bullet must begin with a DIFFERENT specific action verb
 2) DO NOT repeat any action verbs within these bullets
