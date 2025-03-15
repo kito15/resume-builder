@@ -211,7 +211,7 @@ If you don't format bullets with ">>" prefix, they will be completely discarded.
 
 CONTENT REQUIREMENTS:
 1) EVERY bullet point MUST include at least one specific metric (%, $, time saved, team size, etc.)
-2) Preserve EXACT numbers from original bullets (e.g., "increased efficiency by 45%" must stay exactly as "45%")
+2) Preserve EXACT numbers from original bullets (e.g., "increased efficiency by 15%" must stay exactly as "15%")
 3) Add concrete metrics where missing - specify exact numbers for:
    - Revenue/cost impact in dollars
    - Time/efficiency improvements as percentages
@@ -222,9 +222,9 @@ CONTENT REQUIREMENTS:
 5) Keep within ${wordLimit} words unless preserving metrics requires more
 6) Maintain consistent date formatting and chronological ordering
 7) NO vague descriptors - replace with specifics:
-   Instead of "significantly improved" → "improved by 35%"
-   Instead of "large team" → "team of 12 engineers"
-   Instead of "multiple clients" → "15 enterprise clients"
+   Instead of "significantly improved" → "improved by 15%"
+   Instead of "large team" → "team of 5 engineers"
+   Instead of "multiple clients" → "4 enterprise clients"
 
 ACTION VERB DIVERSITY REQUIREMENTS:
 1) EVERY bullet must begin with a DIFFERENT specific action verb
@@ -233,7 +233,7 @@ ACTION VERB DIVERSITY REQUIREMENTS:
 4) Use concrete, measurable verbs that demonstrate clear impact${verbAvoidanceText}${mostUsedVerbsText}
 
 STRUCTURE (implicit, not explicit):
-- Begin with powerful,specific action verbs
+- Begin with powerful, specific action verbs
 - Include exact context (team size, project scope, timeline)
 - State measurable outcome with specific metrics
 - Integrate keywords naturally within achievement
@@ -245,8 +245,8 @@ YOUR RESPONSE FORMAT - STRICTLY REQUIRED:
 - Each bullet should be on its own line
 
 EXAMPLES OF CORRECT FORMAT:
->>Automated deployment pipeline for 12 microservices, reducing build time from 45 minutes to 8 minutes and eliminating 95% of manual errors
->>Redesigned database architecture for 20 daily users, cutting query latency by 75% and server costs by $10k annually
+>>Automated deployment pipeline for 3 microservices, reducing build time from 15 minutes to 4 minutes and eliminating 80% of manual errors
+>>Redesigned database architecture for 8 daily users, cutting query latency by 25% and server costs by $2k annually
 
 EXAMPLES OF INCORRECT FORMAT:
 - "Automated deployment pipeline" (missing ">>" prefix)
