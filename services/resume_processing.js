@@ -202,7 +202,7 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `Expert resume writer: Transform bullets into compelling achievements with quantifiable results while naturally incorporating ALL keywords.
+    const basePrompt = `Expert resume writer: Transform bullets into specific, measurable achievements with concrete numbers and metrics.
 
 CRITICAL FORMATTING REQUIREMENT:
 Every bullet point you generate MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
@@ -210,24 +210,33 @@ For example: ">>Developed..." not ">> Developed..." and not "Developed...".
 If you don't format bullets with ">>" prefix, they will be completely discarded.
 
 CONTENT REQUIREMENTS:
-1) Preserve EXACT numbers, metrics, and achievements (e.g., "increased efficiency by 45%" must stay exactly as "45%")
-2) ENHANCE bullets with specific metrics/numbers where missing - add quantified impact (%, $, time saved, etc.)
-3) Integrate ALL keywords (${keywords}) naturally into the flow
-4) Keep within ${wordLimit} words unless preserving details requires more
-5) Maintain consistent date formatting and chronological ordering
-6) NO buzzwords, clichés, or generic corporate speak (avoid: "synergy", "thinking outside the box", etc.)
+1) EVERY bullet point MUST include at least one specific metric (%, $, time saved, team size, etc.)
+2) Preserve EXACT numbers from original bullets (e.g., "increased efficiency by 45%" must stay exactly as "45%")
+3) Add concrete metrics where missing - specify exact numbers for:
+   - Revenue/cost impact in dollars
+   - Time/efficiency improvements as percentages
+   - Team/user/customer size in exact numbers
+   - Project duration in months/years
+   - Resource savings in specific units
+4) Integrate ALL keywords (${keywords}) naturally into the flow
+5) Keep within ${wordLimit} words unless preserving metrics requires more
+6) Maintain consistent date formatting and chronological ordering
+7) NO vague descriptors - replace with specifics:
+   Instead of "significantly improved" → "improved by 35%"
+   Instead of "large team" → "team of 12 engineers"
+   Instead of "multiple clients" → "15 enterprise clients"
 
 ACTION VERB DIVERSITY REQUIREMENTS:
-1) EVERY bullet must begin with a DIFFERENT powerful action verb
+1) EVERY bullet must begin with a DIFFERENT specific action verb
 2) DO NOT repeat any action verbs within these bullets
 3) DO NOT use action verbs already used in other resume sections
-4) Use specific, impactful verbs that showcase transferable skills${verbAvoidanceText}${mostUsedVerbsText}
+4) Use concrete, measurable verbs that demonstrate clear impact${verbAvoidanceText}${mostUsedVerbsText}
 
 STRUCTURE (implicit, not explicit):
-- Begin with powerful, specific action verb (e.g., "Engineered" not "Created", "Spearheaded" not "Led")
-- Weave in context with clear, concise language
-- Integrate keywords seamlessly without awkward placement
-- End with concrete, quantifiable results showing impact
+- Begin with powerful,specific action verbs
+- Include exact context (team size, project scope, timeline)
+- State measurable outcome with specific metrics
+- Integrate keywords naturally within achievement
 
 YOUR RESPONSE FORMAT - STRICTLY REQUIRED:
 - Output ONLY the bullet points, each starting with ">>"
@@ -236,14 +245,14 @@ YOUR RESPONSE FORMAT - STRICTLY REQUIRED:
 - Each bullet should be on its own line
 
 EXAMPLES OF CORRECT FORMAT:
->>Engineered distributed database system using AWS and Python, cutting query response time by 65% and improving scalability
->>Spearheaded agile development team of 5 engineers, delivering JavaScript applications 30% ahead of schedule
+>>Automated deployment pipeline for 12 microservices, reducing build time from 45 minutes to 8 minutes and eliminating 95% of manual errors
+>>Redesigned database architecture for 3M daily users, cutting query latency by 75% and server costs by $45K annually
 
 EXAMPLES OF INCORRECT FORMAT:
-- "Engineered distributed database system" (missing ">>" prefix)
-- ">> Engineered distributed database system" (space after ">>")
+- "Automated deployment pipeline" (missing ">>" prefix)
+- ">> Automated deployment" (space after ">>")
 - "Here are some bullet points:" (explanatory text not allowed)
-- "1. >>Engineered distributed database system" (numbering not allowed)`;
+- "1. >>Automated deployment" (numbering not allowed)`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
