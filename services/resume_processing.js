@@ -586,7 +586,7 @@ async function convertHtmlToPdf(htmlContent) {
         }
         body {
             font-family: 'Calibri', 'Arial', sans-serif;
-            font-size: 11pt;
+            font-size: 10pt;
             line-height: 1.15;
             margin: 0;
             padding: 0;
@@ -598,7 +598,7 @@ async function convertHtmlToPdf(htmlContent) {
         h1 {
             text-align: center;
             margin: 0 0 2px 0;
-            font-size: 20pt;
+            font-size: 18pt;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: #000;
@@ -607,14 +607,14 @@ async function convertHtmlToPdf(htmlContent) {
         
         .contact-info {
             text-align: center;
-            margin-bottom: 6px;
+            margin-bottom: 5px;
             width: 100%;
             display: flex;
             justify-content: center;
             gap: 3px;
             align-items: center;
             color: #000;
-            font-size: 9pt;
+            font-size: 8.5pt;
         }
         
         /* Keep only the separator in gray */
@@ -627,10 +627,10 @@ async function convertHtmlToPdf(htmlContent) {
         /* Section Styling */
         h2 {
             text-transform: uppercase;
-            border-bottom: 1.25px solid #000;
-            margin: 8px 0 4px 0;
+            border-bottom: 1px solid #000;
+            margin: 6px 0 3px 0;
             padding: 0;
-            font-size: 13pt;
+            font-size: 11.5pt;
             font-weight: bold;
             letter-spacing: 0.5px;
             color: #000;
@@ -661,13 +661,14 @@ async function convertHtmlToPdf(htmlContent) {
             font-weight: bold;
             font-style: italic;
             margin-right: 3px;
-            font-size: 11.5pt;
+            font-size: 10.5pt;
         }
         
         .location {
             font-style: normal;
             margin-left: auto;
             padding-right: 3px;
+            font-size: 9pt;
         }
         
         /* Bullet Points */
@@ -696,7 +697,7 @@ async function convertHtmlToPdf(htmlContent) {
             font-style: italic;
             white-space: nowrap;
             min-width: fit-content;
-            font-size: 10pt;
+            font-size: 9pt;
         }
         
         /* Skills Section */
@@ -711,42 +712,60 @@ async function convertHtmlToPdf(htmlContent) {
         
         /* Adjust spacing between sections */
         section {
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
         
         /* Project Section */
         .project-title {
             font-weight: bold;
             font-style: italic;
-            font-size: 11.5pt;
+            font-size: 10.5pt;
         }
         
         /* Education Section */
         .degree {
             font-style: italic;
             font-weight: bold;
-            font-size: 11pt;
+            font-size: 10pt;
         }
         
         /* Position Title */
         .position-title {
             font-style: italic;
             font-weight: bold;
-            font-size: 11.5pt;
+            font-size: 10.5pt;
         }
         
         /* Improved spacing for skills section */
         .skills-section p strong {
             font-weight: bold;
-            font-size: 10.5pt;
+            font-size: 10pt;
         }
         
         /* Make section headings more prominent */
         .section-heading {
-            font-size: 13pt;
+            font-size: 11.5pt;
             font-weight: bold;
             text-transform: uppercase;
             margin-bottom: 2px;
+        }
+        
+        /* Skills formatting */
+        .skills-line {
+            display: flex;
+            font-size: 9.5pt;
+        }
+        
+        .skills-category {
+            font-weight: bold;
+            min-width: 140px;
+        }
+        
+        /* Allow slightly more content */
+        .job-details li, .project-details li, .education-details li {
+            line-height: 1.15;
+            margin-top: 0;
+            margin-bottom: 1.5px;
         }
     `;
 
