@@ -246,7 +246,7 @@ YOUR RESPONSE FORMAT - STRICTLY REQUIRED:
 
 EXAMPLES OF CORRECT FORMAT:
 >>Automated deployment pipeline for 12 microservices, reducing build time from 45 minutes to 8 minutes and eliminating 95% of manual errors
->>Redesigned database architecture for 3M daily users, cutting query latency by 75% and server costs by $45K annually
+>>Redesigned database architecture for 20 daily users, cutting query latency by 75% and server costs by $10k annually
 
 EXAMPLES OF INCORRECT FORMAT:
 - "Automated deployment pipeline" (missing ">>" prefix)
