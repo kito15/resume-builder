@@ -587,7 +587,7 @@ async function convertHtmlToPdf(htmlContent) {
         body {
             font-family: 'Calibri', 'Arial', sans-serif;
             font-size: 9.5pt;
-            line-height: 1.1;
+            line-height: 1.15;
             margin: 0;
             padding: 0;
             color: #000;
@@ -614,7 +614,7 @@ async function convertHtmlToPdf(htmlContent) {
             gap: 3px;
             align-items: center;
             color: #000;
-            font-size: 8pt;
+            font-size: 8.5pt;
         }
         
         /* Keep only the separator in gray */
@@ -628,7 +628,7 @@ async function convertHtmlToPdf(htmlContent) {
         h2 {
             text-transform: uppercase;
             border-bottom: 1.25px solid #000;
-            margin: 6px 0 3px 0;
+            margin: 7px 0 3px 0;
             padding: 0;
             font-size: 11pt;
             font-weight: bold;
@@ -673,14 +673,14 @@ async function convertHtmlToPdf(htmlContent) {
         /* Bullet Points */
         ul {
             margin: 0;
-            padding-left: 14px;
-            margin-bottom: 2px;
+            padding-left: 15px;
+            margin-bottom: 3px;
         }
         
         li {
             margin-bottom: 0;
             padding-left: 0;
-            line-height: 1.15;
+            line-height: 1.2;
             text-align: justify;
             margin-top: 1px;
         }
@@ -701,12 +701,12 @@ async function convertHtmlToPdf(htmlContent) {
         
         /* Skills Section */
         .skills-section {
-            margin-bottom: 3px;
+            margin-bottom: 4px;
         }
         
         .skills-section p {
             margin: 1px 0;
-            line-height: 1.15;
+            line-height: 1.2;
         }
         
         /* Adjust spacing between sections */
