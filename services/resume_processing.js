@@ -105,20 +105,20 @@ function extractOriginalBullets($) {
 // Add new class to track section-specific bullets
 class SectionBulletTracker {
     constructor() {
-        this.bulletMap = new Map(); // Maps bullet text to position ID
+        this.bulletMap = new Map(); // Maps bullet text to section type
         this.usedBullets = new Set(); // Tracks all used bullets
     }
 
-    addBullet(bulletText, positionId) {
-        this.bulletMap.set(bulletText, positionId);
+    addBullet(bulletText, sectionType) {
+        this.bulletMap.set(bulletText, sectionType);
         this.usedBullets.add(bulletText);
     }
 
-    canUseBulletInSection(bulletText, positionId) {
+    canUseBulletInSection(bulletText, sectionType) {
         // If bullet hasn't been used before, it can be used
         if (!this.bulletMap.has(bulletText)) return true;
-        // If bullet has been used, only allow in same position
-        return this.bulletMap.get(bulletText) === positionId;
+        // If bullet has been used, only allow in same section type
+        return this.bulletMap.get(bulletText) === sectionType;
     }
 
     isUsed(bulletText) {
@@ -205,7 +205,6 @@ function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
 class BulletCache {
     constructor() {
         this.cache = new Map();
-        this.positionPools = new Map(); // Maps position IDs to bullet pools
         this.sectionPools = {
             job: new Set(),
             project: new Set(),
@@ -249,46 +248,14 @@ class BulletCache {
         return Array.from(this.sectionPools[section]).slice(0, count);
     }
 
-    getBulletsForPosition(positionId, count) {
-        if (!this.positionPools.has(positionId)) {
-            // If no specific pool exists for this position, create one
-            this.positionPools.set(positionId, new Set());
-            
-            // Get section type (job, project, education) from position ID
-            const sectionType = positionId.split('-')[0];
-            
-            // Copy some bullets from the section pool to this position pool
-            if (this.sectionPools[sectionType]) {
-                const sectionBullets = Array.from(this.sectionPools[sectionType]);
-                sectionBullets.forEach(bullet => {
-                    this.positionPools.get(positionId).add(bullet);
-                });
-            }
-        }
-        
-        return Array.from(this.positionPools.get(positionId)).slice(0, count);
-    }
-
     addBulletToSection(bullet, section) {
-        this.sectionPools[section].add(bullet);
-    }
-
-    addBulletToPosition(bullet, positionId) {
-        if (!this.positionPools.has(positionId)) {
-            this.positionPools.set(positionId, new Set());
-        }
-        this.positionPools.get(positionId).add(bullet);
-        
-        // Also add to section pool for backward compatibility
-        const sectionType = positionId.split('-')[0];
-        if (this.sectionPools[sectionType]) {
-            this.sectionPools[sectionType].add(bullet);
+        if (bullet && bullet.trim().length > 0) {
+            this.sectionPools[section].add(bullet);
         }
     }
 
     clear() {
         this.cache.clear();
-        this.positionPools.clear();
         Object.values(this.sectionPools).forEach(pool => pool.clear());
     }
 }
@@ -297,230 +264,188 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
     let prompt;
     const basePrompt = `Expert resume writer: Transform bullets into compelling achievements with quantifiable results while naturally incorporating ALL keywords.
 
-CRITICAL REQUIREMENTS:
-1) YOU MUST PREFIX EVERY BULLET POINT WITH ">>" - THIS IS ABSOLUTELY REQUIRED
-2) Preserve EXACT numbers, metrics, and achievements (e.g., "increased efficiency by 45%" must stay exactly as "45%")
-3) ENHANCE bullets with specific metrics/numbers where missing - add quantified impact (%, $, time saved, etc.)
-4) Integrate ALL keywords (${keywords}) naturally into the flow
-5) Each bullet starts with ">>" followed by a powerful action verb (avoid weak verbs like "helped", "worked on")
-6) Keep within ${wordLimit} words unless preserving details requires more
-7) Maintain consistent date formatting and chronological ordering
-8) NO buzzwords, clichés, or generic corporate speak (avoid: "synergy", "thinking outside the box", etc.)
-9) Ensure each bullet in a section uses a DIFFERENT strong action verb
+CRITICAL FORMATTING REQUIREMENT:
+Every bullet point you generate MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
+For example: ">>Developed..." not ">> Developed..." and not "Developed...".
+If you don't format bullets with ">>" prefix, they will be completely discarded.
+
+CONTENT REQUIREMENTS:
+1) Preserve EXACT numbers, metrics, and achievements (e.g., "increased efficiency by 45%" must stay exactly as "45%")
+2) ENHANCE bullets with specific metrics/numbers where missing - add quantified impact (%, $, time saved, etc.)
+3) Integrate ALL keywords (${keywords}) naturally into the flow
+4) Keep within ${wordLimit} words unless preserving details requires more
+5) Maintain consistent date formatting and chronological ordering
+6) NO buzzwords, clichés, or generic corporate speak (avoid: "synergy", "thinking outside the box", etc.)
+7) Ensure each bullet in a section uses a DIFFERENT strong action verb
 
 STRUCTURE (implicit, not explicit):
-- BEGIN EACH BULLET POINT WITH THE ">>" PREFIX - THIS IS MANDATORY
-- Begin each bullet with powerful, specific action verb (e.g., "Engineered" not "Created", "Spearheaded" not "Led")
+- Begin with powerful, specific action verb (e.g., "Engineered" not "Created", "Spearheaded" not "Led")
 - Weave in context with clear, concise language
 - Integrate keywords seamlessly without awkward placement
 - End with concrete, quantifiable results showing impact
 
-EXAMPLES:
-Original: "Managed database optimization project"
-Keywords: "Python, AWS"
-✓ CORRECT: ">>Engineered database optimization system using Python scripts and AWS infrastructure, reducing query latency by 60% and cutting storage costs $12K annually"
-✗ WRONG: "Engineered database optimization system using Python scripts and AWS infrastructure, reducing query latency by 60%" (missing ">>" prefix)
-✗ WRONG: "Used Python and AWS to manage databases" (lacks impact, weak verb, missing ">>" prefix)
-✗ WRONG: ">>Managed database project (Python, AWS)" (artificial keyword placement, no metrics)
+YOUR RESPONSE FORMAT - STRICTLY REQUIRED:
+- Output ONLY the bullet points, each starting with ">>"
+- Do not include ANY explanations before or after the bullet points
+- Do not include ANY line numbers, bullet points (#, *, -), or annotations
+- Each bullet should be on its own line
 
-Original: "Led team of 5 developers, increased productivity"
-Keywords: "agile, JavaScript"
-✓ CORRECT: ">>Orchestrated 5-person agile development team delivering JavaScript applications, driving 30% productivity increase and reducing sprint cycle time by 4 days"
-✗ WRONG: "Orchestrated 5-person agile development team" (missing ">>" prefix)
-✗ WRONG: ">>Leveraged agile and JavaScript to synergize team dynamics" (buzzwords, no metrics)
+EXAMPLES OF CORRECT FORMAT:
+>>Engineered distributed database system using AWS and Python, cutting query response time by 65% and improving scalability
+>>Spearheaded agile development team of 5 engineers, delivering JavaScript applications 30% ahead of schedule
 
-VALIDATION:
-1. VERIFY EVERY BULLET STARTS WITH ">>" PREFIX - THIS IS CRUCIAL
-2. Verify ALL bullets contain specific numbers/metrics showing impact
-3. Confirm ALL keywords appear naturally within context
-4. Ensure each bullet starts with a unique, powerful action verb
-5. Check for ">>" prefix and proper formatting`;
+EXAMPLES OF INCORRECT FORMAT:
+- "Engineered distributed database system" (missing ">>" prefix)
+- ">> Engineered distributed database system" (space after ">>")
+- "Here are some bullet points:" (explanatory text not allowed)
+- "1. >>Engineered distributed database system" (numbering not allowed)`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
 
 INPUT BULLETS TO ENHANCE (integrate ALL keywords naturally):
-${(existingBullets || []).join('\n')}
-
-IMPORTANT: EVERY GENERATED BULLET MUST START WITH THE ">>" PREFIX! No exceptions.`;
+${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `${basePrompt}
 
-Generate 4-5 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
-
-IMPORTANT: EVERY GENERATED BULLET MUST START WITH THE ">>" PREFIX! No exceptions.`;
+Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
+REMEMBER: EVERY BULLET MUST START WITH >> (no space after)`;
     }
 
-    // Maximum retry attempts
-    const MAX_RETRIES = 3;
-    let retries = 0;
-    let bullets = [];
-
-    while (retries < MAX_RETRIES && bullets.length < 3) {
-        try {
-            console.log(`Attempt ${retries + 1} to generate bullets for ${context}`);
-            
-            // Add retry context to prompt if this is a retry
-            const retryPrompt = retries > 0 ? 
-                `${prompt}\n\nThis is retry #${retries+1}. Previous attempts didn't produce enough properly formatted bullets. REMEMBER: EVERY BULLET MUST START WITH ">>" - this is critical for processing.` : 
-                prompt;
-            
-            // Call the language model
-            const response = await axios.post(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
-                {
-                    system_instruction: {
-                        parts: [{
-                            text: "You are a specialized resume optimization AI focused on seamlessly integrating keywords while preserving achievement metrics. Your MOST IMPORTANT requirement is to prefix every bullet point with >>."
-                        }]
-                    },
-                    contents: [{
-                        parts: [{
-                            text: retryPrompt
-                        }]
-                    }],
-                    generationConfig: {
-                        temperature: 0.7,
-                        maxOutputTokens: 2000,
-                        topP: 0.9,
-                        topK: 40
-                    },
-                    safetySettings: [{
-                        category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-                        threshold: "BLOCK_ONLY_HIGH"
+    try {
+        const response = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
+            {
+                system_instruction: {
+                    parts: [{
+                        text: "You are a specialized resume optimization AI. Your ONLY task is to generate resume bullet points. You MUST format all bullet points with '>>' prefix (no space after). Do not include ANY other text."
                     }]
                 },
-                {
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+                contents: [{
+                    parts: [{
+                        text: prompt
+                    }]
+                }],
+                generationConfig: {
+                    temperature: 0.4, // Lower temperature for more predictable formatting
+                    maxOutputTokens: 2000,
+                    topP: 0.9,
+                    topK: 40
+                },
+                safetySettings: [{
+                    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    threshold: "BLOCK_ONLY_HIGH"
+                }]
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json'
                 }
-            );
+            }
+        );
 
-            // Parse response
-            const content = response.data.candidates[0].content.parts[0].text;
+        const content = response.data.candidates[0].content.parts[0].text;
+        
+        // Primary matching for ">>" prefixed lines
+        let matched = content.match(/^\>\>(.+)$/gm) || [];
+        
+        // Secondary matching for lines that might be bullet points but missing the prefix
+        if (matched.length < 3) {
+            console.log('Warning: Not enough ">>" prefixed bullets found, applying secondary extraction');
             
-            // Log the raw content for debugging
-            console.log(`Raw LLM response for ${context} (attempt ${retries + 1}):`);
-            console.log(content.substring(0, 200) + "..."); // Log first 200 chars for debugging
+            // Extract any line that looks like a complete sentence and might be a bullet point
+            const potentialBullets = content.split(/\n+/).filter(line => {
+                // Filter for lines that start with an action verb (capitalized word)
+                // and contain some text (at least 30 chars) and ideally have numbers
+                const trimmed = line.trim();
+                return trimmed.length > 30 && 
+                       /^[A-Z][a-z]+/.test(trimmed) && 
+                       (/\d+/.test(trimmed) || /ed\s/.test(trimmed));
+            });
             
-            // Match lines starting with >>
-            const matched = content.match(/^\>\>(.+)$/gm) || [];
-            console.log(`Found ${matched.length} properly formatted bullets`);
-            
-            // If we didn't find any properly formatted bullets, try a simpler matching approach
-            let processedBullets = [];
-            if (matched.length === 0) {
-                // Try to find bullets with a more lenient approach - looking for any paragraph that appears to be a bullet
-                console.log("No >> prefixed bullets found, trying alternative extraction...");
-                const paragraphs = content.split(/\n+/).filter(p => p.trim().length > 10);
-                
-                // Format them properly
-                processedBullets = paragraphs.map(p => {
-                    // Clean up the paragraph and add proper prefix
-                    const cleaned = p.trim()
-                        .replace(/^[-•*]\s*/, '') // Remove existing bullet markers
-                        .replace(/^\d+\.\s*/, '') // Remove numbering
-                        .replace(/^[A-Z][a-z]+:?\s+/, ''); // Remove potential labels
-                    
-                    // Only include if it looks like a valid bullet (starts with an action verb)
-                    const words = cleaned.split(/\s+/);
-                    if (words.length > 3 && words[0].match(/^[A-Z][a-z]+ed$|^[A-Z][a-z]+d$/)) {
-                        return cleaned;
-                    }
-                    return null;
-                }).filter(Boolean);
-                
-                console.log(`Alternative extraction found ${processedBullets.length} potential bullets`);
-            } else {
-                // Process the correctly formatted bullets
-                processedBullets = matched.map(bp =>
-                    bp.replace(/^>>\s*/, '')
-                      .replace(/\*\*/g, '')
-                      .replace(/\s*\([^)]*\)$/, '') // Remove any trailing parenthesis and enclosed keywords
-                );
+            // Add these as properly formatted bullets
+            if (potentialBullets.length > 0) {
+                const formattedBullets = potentialBullets.map(b => `>>${b}`);
+                matched = [...matched, ...formattedBullets];
+                console.log(`Added ${formattedBullets.length} secondary-extracted bullets`);
             }
-            
-            // Add these bullets to our collection
-            bullets = [...bullets, ...processedBullets];
-            
-            // If we have enough bullets, break out of the loop
-            if (bullets.length >= 3) {
-                break;
-            }
-            
-            // Otherwise, try again
-            retries++;
-            
-        } catch (error) {
-            console.error('Error generating bullets (attempt ' + (retries + 1) + '):', error.response?.data || error.message);
-            retries++;
-            
-            // Short delay before retry
-            await new Promise(resolve => setTimeout(resolve, 500));
         }
+        
+        // Clean up the bullets
+        return matched.map(bp =>
+            bp.replace(/^>>\s*/, '')
+              .replace(/\*\*/g, '')
+              .replace(/\s*\([^)]*\)$/, '') // Remove any trailing parenthesis and enclosed keywords
+        );
+    } catch (error) {
+        console.error('Error generating bullets:', error.response?.data || error.message);
+        return []; // Return empty array in case of error
     }
-
-    // Log results
-    console.log(`Final bullet count for ${context}: ${bullets.length}`);
-    
-    // Return what we have, even if it's not enough
-    return bullets;
 }
 
-// Add function to extract position IDs from the HTML
-function generatePositionIds($) {
-    const positionIds = {
-        job: [],
-        project: [],
-        education: []
-    };
+async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount, verbTracker, bulletCache) {
+    for (let i = 0; i < sections.length; i++) {
+        const section = sections.eq(i);
+        let bulletList = section.find('ul');
 
-    // Generate IDs for job positions
-    $('.job-details').each((index, section) => {
-        const company = $(section).find('.company-name').text().trim();
-        const position = $(section).find('.position-title').text().trim();
-        const id = `job-${index}-${company.replace(/\s+/g, '-').toLowerCase()}`;
-        positionIds.job.push(id);
-    });
+        if (bulletList.length === 0) {
+            section.append('<ul></ul>');
+            bulletList = section.find('ul');
+        }
 
-    // Generate IDs for projects
-    $('.project-details').each((index, section) => {
-        const project = $(section).find('.project-title').text().trim();
-        const id = `project-${index}-${project.replace(/\s+/g, '-').toLowerCase()}`;
-        positionIds.project.push(id);
-    });
+        let bulletPoints = bulletCache.getBulletsForSection(sectionType, targetBulletCount);
+        
+        if (fullTailoring && bulletList.find('li').length > 0) {
+            const existingBullets = bulletList.find('li')
+                .map((_, el) => $(el).text())
+                .get();
+                
+            bulletPoints = await generateBullets(
+                'tailor', existingBullets,
+                keywords, context, wordLimit
+            );
+            
+            // Add tailored bullets to cache
+            bulletPoints.forEach(bp => bulletCache.addBulletToSection(bp, sectionType));
+        }
 
-    // Generate IDs for education
-    $('.education-details').each((index, section) => {
-        const school = $(section).find('.school-name').text().trim();
-        const id = `education-${index}-${school.replace(/\s+/g, '-').toLowerCase()}`;
-        positionIds.education.push(id);
-    });
+        // Filter and shuffle bullets
+        bulletPoints = bulletPoints
+            .filter(bp => !bulletTracker.isUsed(bp) || 
+                        bulletTracker.canUseBulletInSection(bp, sectionType))
+            .slice(0, targetBulletCount);
 
-    return positionIds;
+        // Shuffle bullets with verb checking
+        bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, sectionType, verbTracker);
+
+        // Update bullet list
+        bulletList.empty();
+        bulletPoints.forEach(point => {
+            bulletTracker.addBullet(point, sectionType);
+            bulletList.append(`<li>${point}</li>`);
+        });
+    }
 }
 
-// Update adjustSectionBullets to use BulletCache and position IDs
-async function adjustSectionBullets($, selector, targetCount, sectionType, bulletTracker, keywords, context, bulletCache, positionIds) {
+// Update adjustSectionBullets to use BulletCache
+async function adjustSectionBullets($, selector, targetCount, sectionType, bulletTracker, keywords, context, bulletCache) {
     const sections = $(selector);
-    sections.each((index, section) => {
+    sections.each((_, section) => {
         const bulletList = $(section).find('ul');
         const bullets = bulletList.find('li');
         const currentCount = bullets.length;
-        const positionId = positionIds[sectionType][index] || `${sectionType}-${index}`;
 
         if (currentCount > targetCount) {
             // Remove excess bullets from the end
             bullets.slice(targetCount).remove();
         } else if (currentCount < targetCount) {
-            const cachedBullets = bulletCache.getBulletsForPosition(positionId, targetCount - currentCount);
+            const cachedBullets = bulletCache.getBulletsForSection(sectionType, targetCount - currentCount);
             const validBullets = cachedBullets
                 .filter(bp => !bulletTracker.isUsed(bp))
                 .slice(0, targetCount - currentCount);
 
             validBullets.forEach(bullet => {
-                bulletTracker.addBullet(bullet, positionId);
+                bulletTracker.addBullet(bullet, sectionType);
                 bulletList.append(`<li>${bullet}</li>`);
             });
         }
@@ -529,19 +454,20 @@ async function adjustSectionBullets($, selector, targetCount, sectionType, bulle
 
 async function ensureBulletRange(bulletPoints, usedBullets, generateFn, minCount, maxCount) {
     let attempts = 0;
+    const originalBullets = [...bulletPoints];
 
-    // Try to get more bullet points if we don't have enough
     while (bulletPoints.length < minCount && attempts < 3) {
-        try {
-            const newPoints = (await generateFn()).filter(bp => !usedBullets.has(bp));
-            bulletPoints = bulletPoints.concat(newPoints);
-        } catch (error) {
-            console.error('Error generating additional bullets:', error);
-        }
+        const newPoints = (await generateFn()).filter(bp => !usedBullets.has(bp));
+        bulletPoints = bulletPoints.concat(newPoints);
         attempts++;
     }
 
-    // Return what we have, up to maxCount
+    // If still below minCount, use originals instead of placeholders
+    while (bulletPoints.length < minCount) {
+        const recycledBullet = originalBullets[bulletPoints.length % originalBullets.length];
+        bulletPoints.push(recycledBullet || bulletPoints[0]); // Fallback to first bullet if needed
+    }
+
     return bulletPoints.slice(0, maxCount);
 }
 
@@ -763,7 +689,7 @@ async function adjustBulletPoints($, sections, currentBulletCount) {
     return currentBulletCount - 1;
 }
 
-// Main Resume Update Function
+// Main Resume Update Function (now much smaller)
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const sectionWordCounts = getSectionWordCounts($);
@@ -781,30 +707,8 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         keywords.join(', ') : 
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
 
-    // Generate general bullet points for each section type upfront
-    console.log("Generating initial bullet points for all section types...");
+    // Generate all bullets upfront
     const allBullets = await bulletCache.generateAllBullets($, keywords, 'resume section', 15);
-    
-    // If we failed to generate enough bullets for any section, we'll try a few more times
-    for (const sectionType of ['job', 'project', 'education']) {
-        if (!allBullets[sectionType] || allBullets[sectionType].length < MIN_BULLETS) {
-            console.log(`Not enough initial bullets for ${sectionType}, generating more...`);
-            try {
-                const moreBullets = await generateBullets(
-                    'generate', null, keywords, `for ${sectionType} experience`, 15
-                );
-                if (!allBullets[sectionType]) {
-                    allBullets[sectionType] = [];
-                }
-                allBullets[sectionType] = [...allBullets[sectionType], ...moreBullets];
-                
-                // Add to section pool
-                moreBullets.forEach(bp => bulletCache.addBulletToSection(bp, sectionType));
-            } catch (error) {
-                console.error(`Error generating additional bullets for ${sectionType}:`, error);
-            }
-        }
-    }
 
     const sections = [
         { selector: $('.job-details'), type: 'job', context: 'for a job experience', bullets: originalBullets.job },
@@ -812,23 +716,14 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         { selector: $('.education-details'), type: 'education', context: 'for education', bullets: originalBullets.education }
     ];
 
-    // Extract position IDs
-    const positionIds = generatePositionIds($);
-
     // Update each section with its specific context
     for (const section of sections) {
-        try {
-            console.log(`Updating section type: ${section.type} with ${section.selector.length} positions`);
-            
-            await updateResumeSection(
-                $, section.selector, keywordString, section.context,
-                fullTailoring, sectionWordCounts[section.type],
-                bulletTracker, section.type, section.bullets,
-                INITIAL_BULLET_COUNT, verbTracker, bulletCache, positionIds
-            );
-        } catch (error) {
-            console.error(`Error updating ${section.type} section:`, error);
-        }
+        await updateResumeSection(
+            $, section.selector, keywordString, section.context,
+            fullTailoring, sectionWordCounts[section.type],
+            bulletTracker, section.type, section.bullets,
+            INITIAL_BULLET_COUNT, verbTracker, bulletCache
+        );
     }
 
     // Check and adjust page length with smarter space management
@@ -836,121 +731,26 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     let attempts = 0;
 
     while (attempts < 3 && currentBulletCount >= MIN_BULLETS) {
-        try {
-            const { exceedsOnePage } = await convertHtmlToPdf($.html());
-            if (!exceedsOnePage) break;
+        const { exceedsOnePage } = await convertHtmlToPdf($.html());
+        if (!exceedsOnePage) break;
 
-            // Reduce bullets proportionally based on section importance
-            currentBulletCount--;
-            for (const section of sections) {
-                const adjustedCount = Math.max(
-                    MIN_BULLETS,
-                    Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8))
-                );
-                await adjustSectionBullets(
-                    $, section.selector, adjustedCount,
-                    section.type, bulletTracker, keywordString,
-                    section.context, bulletCache, positionIds
-                );
-            }
-        } catch (error) {
-            console.error('Error checking page length:', error);
+        // Reduce bullets proportionally based on section importance
+        currentBulletCount--;
+        for (const section of sections) {
+            const adjustedCount = Math.max(
+                MIN_BULLETS,
+                Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8))
+            );
+            await adjustSectionBullets(
+                $, section.selector, adjustedCount,
+                section.type, bulletTracker, keywordString,
+                section.context, bulletCache
+            );
         }
         attempts++;
     }
 
-    // Final check: verify each position has at least some bullet points
-    // This is a safety net in case earlier steps failed
-    console.log("Performing final check for bullet points...");
-    for (const section of sections) {
-        section.selector.each((index, element) => {
-            const $section = $(element);
-            const bulletList = $section.find('ul');
-            const bullets = bulletList.find('li');
-            
-            if (bullets.length === 0) {
-                console.log(`WARNING: Position ${index} in ${section.type} section has no bullets. Attempting emergency fix...`);
-                
-                // Get position name for logging
-                let positionName = "unknown";
-                if (section.type === 'job') {
-                    positionName = $section.find('.company-name').text().trim() || 
-                                   $section.find('.position-title').text().trim();
-                } else if (section.type === 'project') {
-                    positionName = $section.find('.project-title').text().trim();
-                } else {
-                    positionName = $section.find('.school-name').text().trim();
-                }
-                
-                console.log(`Fixing missing bullets for: ${positionName}`);
-                
-                // Get bullets from the section pool as emergency fallback
-                const emergencyBullets = bulletCache.getBulletsForSection(section.type, MIN_BULLETS);
-                if (emergencyBullets.length > 0) {
-                    // Create bullet list if needed
-                    if (bulletList.length === 0) {
-                        $section.append('<ul></ul>');
-                    }
-                    
-                    // Add bullets
-                    emergencyBullets.forEach(bullet => {
-                        $section.find('ul').append(`<li>${bullet}</li>`);
-                    });
-                    
-                    console.log(`Added ${emergencyBullets.length} emergency bullets to ${positionName}`);
-                } else {
-                    console.log(`No emergency bullets available for ${positionName}`);
-                }
-            }
-        });
-    }
-
     return $.html();
-}
-
-async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount, verbTracker, bulletCache, positionIds) {
-    for (let i = 0; i < sections.length; i++) {
-        const section = sections.eq(i);
-        let bulletList = section.find('ul');
-        const positionId = positionIds[sectionType][i] || `${sectionType}-${i}`;
-
-        if (bulletList.length === 0) {
-            section.append('<ul></ul>');
-            bulletList = section.find('ul');
-        }
-
-        let bulletPoints = bulletCache.getBulletsForPosition(positionId, targetBulletCount);
-        
-        if (fullTailoring && bulletList.find('li').length > 0) {
-            const existingBullets = bulletList.find('li')
-                .map((_, el) => $(el).text())
-                .get();
-                
-            bulletPoints = await generateBullets(
-                'tailor', existingBullets,
-                keywords, context, wordLimit
-            );
-            
-            // Add tailored bullets to position-specific cache
-            bulletPoints.forEach(bp => bulletCache.addBulletToPosition(bp, positionId));
-        }
-
-        // Filter and shuffle bullets
-        bulletPoints = bulletPoints
-            .filter(bp => !bulletTracker.isUsed(bp) || 
-                         bulletTracker.canUseBulletInSection(bp, positionId))
-            .slice(0, targetBulletCount);
-
-        // Shuffle bullets with verb checking
-        bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, sectionType, verbTracker);
-
-        // Update bullet list
-        bulletList.empty();
-        bulletPoints.forEach(point => {
-            bulletTracker.addBullet(point, positionId);
-            bulletList.append(`<li>${point}</li>`);
-        });
-    }
 }
 
 async function customizeResume(req, res) {
@@ -964,7 +764,26 @@ async function customizeResume(req, res) {
         console.log('Received keywords:', keywords);
         console.log('Full tailoring enabled:', fullTailoring);
 
+        // Validate HTML content
+        if (htmlContent.length < 100) {
+            console.error('HTML content too short, possibly invalid');
+            return res.status(400).send('Invalid HTML content: Content too short');
+        }
+
         const updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
+        
+        console.log('Resume HTML updated successfully');
+        
+        // Validate the updated HTML to ensure it has bullet points
+        const $ = cheerio.load(updatedHtmlContent);
+        const jobBullets = $('.job-details li').length;
+        const projectBullets = $('.project-details li').length;
+        const educationBullets = $('.education-details li').length;
+        
+        console.log(`Generated bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}, Education=${educationBullets}`);
+        
+        // Convert to PDF
+        console.log('Converting updated HTML to PDF');
         const { pdfBuffer, exceedsOnePage } = await convertHtmlToPdf(updatedHtmlContent);
 
         if (exceedsOnePage) {
@@ -974,6 +793,8 @@ async function customizeResume(req, res) {
         res.contentType('application/pdf');
         res.set('Content-Disposition', 'attachment; filename=customized_resume.pdf');
         res.send(Buffer.from(pdfBuffer));
+        
+        console.log('Resume PDF sent to client successfully');
 
     } catch (error) {
         console.error('Error processing resume:', error);
