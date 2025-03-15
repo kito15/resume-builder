@@ -233,7 +233,7 @@ ACTION VERB DIVERSITY REQUIREMENTS:
 4) Use concrete, measurable verbs that demonstrate clear impact${verbAvoidanceText}${mostUsedVerbsText}
 
 STRUCTURE (implicit, not explicit):
-- Begin with powerful, specific action verbs
+- Begin with powerful,specific action verbs
 - Include exact context (team size, project scope, timeline)
 - State measurable outcome with specific metrics
 - Integrate keywords naturally within achievement
@@ -582,12 +582,12 @@ async function convertHtmlToPdf(htmlContent) {
     const customCSS = `
         @page {
             size: Letter;
-            margin: 0.3in;
+            margin: 0.25in;
         }
         body {
             font-family: 'Calibri', 'Arial', sans-serif;
-            font-size: 12px;
-            line-height: 1.2;
+            font-size: 11pt;
+            line-height: 1.15;
             margin: 0;
             padding: 0;
             color: #000;
@@ -598,46 +598,47 @@ async function convertHtmlToPdf(htmlContent) {
         h1 {
             text-align: center;
             margin: 0 0 2px 0;
-            font-size: 24px;
+            font-size: 20pt;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: #000;
+            font-weight: bold;
         }
         
         .contact-info {
             text-align: center;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             width: 100%;
             display: flex;
             justify-content: center;
-            gap: 4px;
+            gap: 3px;
             align-items: center;
             color: #000;
+            font-size: 9pt;
         }
         
         /* Keep only the separator in gray */
         .contact-info > *:not(:last-child)::after {
             content: "|";
-            margin-left: 4px;
-            font-size: 11px;
+            margin-left: 3px;
             color: #333;
         }
         
         /* Section Styling */
         h2 {
             text-transform: uppercase;
-            border-bottom: 1px solid #000;
-            margin: 0 0 4px 0;
+            border-bottom: 1.25px solid #000;
+            margin: 8px 0 4px 0;
             padding: 0;
-            font-size: 14px;
+            font-size: 13pt;
             font-weight: bold;
-            letter-spacing: 0;
+            letter-spacing: 0.5px;
             color: #000;
         }
         
         /* Experience Section */
         .job-details, .project-details, .education-details {
-            margin-bottom: 6px;
+            margin-bottom: 5px;
         }
         
         .position-header {
@@ -651,7 +652,7 @@ async function convertHtmlToPdf(htmlContent) {
         
         .position-left {
             display: flex;
-            gap: 4px;
+            gap: 3px;
             align-items: baseline;
             flex: 1;
         }
@@ -659,27 +660,29 @@ async function convertHtmlToPdf(htmlContent) {
         .company-name {
             font-weight: bold;
             font-style: italic;
-            margin-right: 4px;
+            margin-right: 3px;
+            font-size: 11.5pt;
         }
         
         .location {
             font-style: normal;
             margin-left: auto;
-            padding-right: 4px;
+            padding-right: 3px;
         }
         
         /* Bullet Points */
         ul {
             margin: 0;
-            padding-left: 12px;
-            margin-bottom: 4px;
+            padding-left: 15px;
+            margin-bottom: 3px;
         }
         
         li {
             margin-bottom: 0;
             padding-left: 0;
-            line-height: 1.25;
+            line-height: 1.2;
             text-align: justify;
+            margin-top: 1px;
         }
         
         /* Links */
@@ -693,38 +696,57 @@ async function convertHtmlToPdf(htmlContent) {
             font-style: italic;
             white-space: nowrap;
             min-width: fit-content;
+            font-size: 10pt;
         }
         
         /* Skills Section */
         .skills-section {
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
         
         .skills-section p {
             margin: 1px 0;
-            line-height: 1.25;
+            line-height: 1.2;
         }
         
         /* Adjust spacing between sections */
         section {
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
         
         /* Project Section */
         .project-title {
             font-weight: bold;
             font-style: italic;
+            font-size: 11.5pt;
         }
         
         /* Education Section */
         .degree {
             font-style: italic;
+            font-weight: bold;
+            font-size: 11pt;
         }
         
         /* Position Title */
         .position-title {
             font-style: italic;
-            font-weight: normal;
+            font-weight: bold;
+            font-size: 11.5pt;
+        }
+        
+        /* Improved spacing for skills section */
+        .skills-section p strong {
+            font-weight: bold;
+            font-size: 10.5pt;
+        }
+        
+        /* Make section headings more prominent */
+        .section-heading {
+            font-size: 13pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 2px;
         }
     `;
 
@@ -744,10 +766,10 @@ async function convertHtmlToPdf(htmlContent) {
         printBackground: true,
         preferCSSPageSize: true,
         margin: {
-            top: '0.3in',
-            right: '0.3in',
-            bottom: '0.3in',
-            left: '0.3in'
+            top: '0.25in',
+            right: '0.25in',
+            bottom: '0.25in',
+            left: '0.25in'
         }
     });
 
