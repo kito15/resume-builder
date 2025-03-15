@@ -586,7 +586,7 @@ async function convertHtmlToPdf(htmlContent) {
         }
         body {
             font-family: 'Calibri', 'Arial', sans-serif;
-            font-size: 9.5pt;
+            font-size: 10pt;
             line-height: 1.15;
             margin: 0;
             padding: 0;
@@ -630,7 +630,7 @@ async function convertHtmlToPdf(htmlContent) {
             border-bottom: 1.25px solid #000;
             margin: 7px 0 3px 0;
             padding: 0;
-            font-size: 11pt;
+            font-size: 12pt;
             font-weight: bold;
             letter-spacing: 0.5px;
             color: #000;
@@ -638,7 +638,7 @@ async function convertHtmlToPdf(htmlContent) {
         
         /* Experience Section */
         .job-details, .project-details, .education-details {
-            margin-bottom: 3px;
+            margin-bottom: 4px;
         }
         
         .position-header {
@@ -661,7 +661,7 @@ async function convertHtmlToPdf(htmlContent) {
             font-weight: bold;
             font-style: italic;
             margin-right: 3px;
-            font-size: 10pt;
+            font-size: 10.5pt;
         }
         
         .location {
@@ -683,6 +683,7 @@ async function convertHtmlToPdf(htmlContent) {
             line-height: 1.2;
             text-align: justify;
             margin-top: 1px;
+            font-size: 9pt;
         }
         
         /* Links */
@@ -696,7 +697,7 @@ async function convertHtmlToPdf(htmlContent) {
             font-style: italic;
             white-space: nowrap;
             min-width: fit-content;
-            font-size: 8.5pt;
+            font-size: 9pt;
         }
         
         /* Skills Section */
@@ -711,42 +712,47 @@ async function convertHtmlToPdf(htmlContent) {
         
         /* Adjust spacing between sections */
         section {
-            margin-bottom: 4px;
+            margin-bottom: 5px;
         }
         
         /* Project Section */
         .project-title {
             font-weight: bold;
             font-style: italic;
-            font-size: 10pt;
+            font-size: 10.5pt;
         }
         
         /* Education Section */
         .degree {
             font-style: italic;
             font-weight: bold;
-            font-size: 9.5pt;
+            font-size: 10pt;
         }
         
         /* Position Title */
         .position-title {
             font-style: italic;
             font-weight: bold;
-            font-size: 10pt;
+            font-size: 10.5pt;
         }
         
         /* Improved spacing for skills section */
         .skills-section p strong {
             font-weight: bold;
-            font-size: 9.5pt;
+            font-size: 10pt;
         }
         
         /* Make section headings more prominent */
         .section-heading {
-            font-size: 11pt;
+            font-size: 12pt;
             font-weight: bold;
             text-transform: uppercase;
             margin-bottom: 2px;
+        }
+
+        /* Skills items should be slightly larger than bullet points */
+        .skills-section p {
+            font-size: 9.5pt;
         }
     `;
 
