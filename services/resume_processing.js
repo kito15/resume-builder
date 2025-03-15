@@ -276,10 +276,19 @@ CONTENT REQUIREMENTS:
 4) Keep within ${wordLimit} words unless preserving details requires more
 5) Maintain consistent date formatting and chronological ordering
 6) NO buzzwords, clichés, or generic corporate speak (avoid: "synergy", "thinking outside the box", etc.)
-7) Ensure each bullet in a section uses a DIFFERENT strong action verb
+7) CRITICAL: Use a DIFFERENT, UNIQUE action verb for EACH bullet point - NEVER repeat action verbs
+
+ACTION VERB VARIETY REQUIREMENT:
+- Use a wide range of powerful, specific action verbs - NEVER repeat the same verb
+- Instead of generic verbs (developed, created, managed), use more impactful alternatives:
+  * Technical: Architected, Engineered, Programmed, Coded, Integrated, Deployed, Optimized, Debugged
+  * Leadership: Spearheaded, Orchestrated, Championed, Directed, Guided, Mentored, Oversaw
+  * Achievement: Accelerated, Boosted, Streamlined, Enhanced, Amplified, Strengthened, Revitalized
+  * Analysis: Analyzed, Assessed, Evaluated, Diagnosed, Investigated, Identified, Researched
+  * Innovation: Pioneered, Conceptualized, Formulated, Redesigned, Transformed, Revolutionized
 
 STRUCTURE (implicit, not explicit):
-- Begin with powerful, specific action verb (e.g., "Engineered" not "Created", "Spearheaded" not "Led")
+- Begin with powerful, varied action verb (different for EACH bullet)
 - Weave in context with clear, concise language
 - Integrate keywords seamlessly without awkward placement
 - End with concrete, quantifiable results showing impact
@@ -290,26 +299,35 @@ YOUR RESPONSE FORMAT - STRICTLY REQUIRED:
 - Do not include ANY line numbers, bullet points (#, *, -), or annotations
 - Each bullet should be on its own line
 
-EXAMPLES OF CORRECT FORMAT:
->>Engineered distributed database system using AWS and Python, cutting query response time by 65% and improving scalability
+EXAMPLES OF CORRECT FORMAT WITH VARIED VERBS:
+>>Architected distributed database system using AWS and Python, cutting query response time by 65% and improving scalability
 >>Spearheaded agile development team of 5 engineers, delivering JavaScript applications 30% ahead of schedule
+>>Engineered responsive UI components with React Native, boosting mobile user engagement by 42%
+>>Implemented CI/CD pipeline utilizing GitHub Actions, reducing deployment errors by 78%
+>>Optimized MySQL database queries through indexing strategies, decreasing page load time by 35%
 
 EXAMPLES OF INCORRECT FORMAT:
 - "Engineered distributed database system" (missing ">>" prefix)
 - ">> Engineered distributed database system" (space after ">>")
 - "Here are some bullet points:" (explanatory text not allowed)
-- "1. >>Engineered distributed database system" (numbering not allowed)`;
+- "1. >>Engineered distributed database system" (numbering not allowed)
+- Using "Developed" multiple times across different bullets (verb repetition)`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
 
 INPUT BULLETS TO ENHANCE (integrate ALL keywords naturally):
-${(existingBullets || []).join('\n')}`;
+${(existingBullets || []).join('\n')}
+
+NOTE: When enhancing these bullets, ensure EACH bullet uses a DIFFERENT action verb. Check the ENTIRE set to avoid ANY repetition of verbs.`;
     } else {
         prompt = `${basePrompt}
 
 Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
-REMEMBER: EVERY BULLET MUST START WITH >> (no space after)`;
+REMEMBER: 
+1. EVERY BULLET MUST START WITH >> (no space after)
+2. EVERY BULLET MUST USE A DIFFERENT ACTION VERB - no repetition allowed
+3. Check the entire set to ensure no action verb is used more than once`;
     }
 
     try {
@@ -318,7 +336,7 @@ REMEMBER: EVERY BULLET MUST START WITH >> (no space after)`;
             {
                 system_instruction: {
                     parts: [{
-                        text: "You are a specialized resume optimization AI. Your ONLY task is to generate resume bullet points. You MUST format all bullet points with '>>' prefix (no space after). Do not include ANY other text."
+                        text: "You are a specialized resume optimization AI. Your ONLY task is to generate resume bullet points, each with a UNIQUE action verb (never repeating verbs). You MUST format all bullet points with '>>' prefix (no space after). Do not include ANY other text."
                     }]
                 },
                 contents: [{
@@ -370,13 +388,30 @@ REMEMBER: EVERY BULLET MUST START WITH >> (no space after)`;
                 console.log(`Added ${formattedBullets.length} secondary-extracted bullets`);
             }
         }
-        
-        // Clean up the bullets
-        return matched.map(bp =>
+
+        // Clean up the bullets and check for verb repetition
+        const processedBullets = matched.map(bp =>
             bp.replace(/^>>\s*/, '')
               .replace(/\*\*/g, '')
               .replace(/\s*\([^)]*\)$/, '') // Remove any trailing parenthesis and enclosed keywords
         );
+        
+        // Post-process to reduce verb repetition - analyze and log but don't filter yet
+        const verbCounts = {};
+        processedBullets.forEach(bullet => {
+            const firstWord = bullet.split(' ')[0].toLowerCase().replace(/[^a-z]/g, '');
+            verbCounts[firstWord] = (verbCounts[firstWord] || 0) + 1;
+        });
+        
+        const repeatedVerbs = Object.entries(verbCounts)
+            .filter(([_, count]) => count > 1)
+            .map(([verb, count]) => `${verb} (${count})`);
+            
+        if (repeatedVerbs.length > 0) {
+            console.log(`Warning: Detected repeated verbs: ${repeatedVerbs.join(', ')}`);
+        }
+        
+        return processedBullets;
     } catch (error) {
         console.error('Error generating bullets:', error.response?.data || error.message);
         return []; // Return empty array in case of error
