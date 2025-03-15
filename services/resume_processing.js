@@ -126,29 +126,54 @@ class SectionBulletTracker {
     }
 }
 
-// Add new class to track action verbs
+// Improve the ActionVerbTracker class to be more effective at preventing duplicate verbs
 class ActionVerbTracker {
     constructor() {
         this.usedVerbs = new Map(); // Maps section type to Set of used verbs
         this.globalVerbs = new Set(); // Tracks verbs used across all sections
+        this.verbSynonyms = new Map(); // Maps common verbs to their usage count
     }
 
     addVerb(verb, sectionType) {
-        verb = verb.toLowerCase();
+        verb = verb.toLowerCase().trim();
+        
+        // Skip empty or non-word verbs
+        if (!verb || !verb.match(/^[a-z]+$/)) return;
+        
         if (!this.usedVerbs.has(sectionType)) {
             this.usedVerbs.set(sectionType, new Set());
         }
         this.usedVerbs.get(sectionType).add(verb);
         this.globalVerbs.add(verb);
+        
+        // Track verb usage frequency
+        if (!this.verbSynonyms.has(verb)) {
+            this.verbSynonyms.set(verb, 1);
+        } else {
+            this.verbSynonyms.set(verb, this.verbSynonyms.get(verb) + 1);
+        }
     }
 
     isVerbUsedInSection(verb, sectionType) {
-        verb = verb.toLowerCase();
+        verb = verb.toLowerCase().trim();
         return this.usedVerbs.get(sectionType)?.has(verb) || false;
     }
 
     isVerbUsedGlobally(verb) {
-        return this.globalVerbs.has(verb.toLowerCase());
+        verb = verb.toLowerCase().trim();
+        return this.globalVerbs.has(verb);
+    }
+
+    getUsedVerbs() {
+        return Array.from(this.globalVerbs);
+    }
+
+    getMostUsedVerbs(limit = 10) {
+        // Return the most commonly used verbs to avoid
+        return Array.from(this.verbSynonyms.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, limit)
+            .map(entry => entry[0]);
     }
 
     clearSection(sectionType) {
@@ -161,107 +186,22 @@ function getFirstVerb(bulletText) {
     return bulletText.trim().split(/\s+/)[0].toLowerCase();
 }
 
-// Add function to shuffle bullets with verb checking
-function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
-    let attempts = 0;
-    const maxAttempts = 10;
-    
-    while (attempts < maxAttempts) {
-        // Shuffle the array
-        bullets = shuffleArray([...bullets]);
-        
-        // Check if the arrangement is valid
-        let isValid = true;
-        let previousVerb = '';
-        
-        for (let i = 0; i < bullets.length; i++) {
-            const currentVerb = getFirstVerb(bullets[i]);
-            
-            // Check if verb is same as previous bullet or already used as first verb in another section
-            if (currentVerb === previousVerb || 
-                (i === 0 && verbTracker.isVerbUsedGlobally(currentVerb))) {
-                isValid = false;
-                break;
-            }
-            
-            previousVerb = currentVerb;
-        }
-        
-        if (isValid) {
-            // Add first verb to tracker
-            if (bullets.length > 0) {
-                verbTracker.addVerb(getFirstVerb(bullets[0]), sectionType);
-            }
-            return bullets;
-        }
-        
-        attempts++;
-    }
-    
-    return bullets; // Return last shuffle if we couldn't find perfect arrangement
-}
-
-// Add BulletCache class for efficient bullet point management
-class BulletCache {
-    constructor() {
-        this.cache = new Map();
-        this.sectionPools = {
-            job: new Set(),
-            project: new Set(),
-            education: new Set()
-        };
-        this.targetBulletCounts = {
-            job: 7,
-            project: 6,
-            education: 5
-        };
-    }
-
-    async generateAllBullets($, keywords, context, wordLimit) {
-        const sections = ['job', 'project', 'education'];
-        const cacheKey = `${keywords.join(',')}_${context}`;
-
-        if (this.cache.has(cacheKey)) {
-            return this.cache.get(cacheKey);
-        }
-
-        const allBullets = {};
-        const promises = sections.map(async (section) => {
-            const targetCount = this.targetBulletCounts[section];
-            const bullets = await generateBullets(
-                'generate',
-                null,
-                keywords,
-                `for ${section} experience`,
-                wordLimit
-            );
-            allBullets[section] = bullets.slice(0, targetCount);
-            bullets.forEach(bullet => this.sectionPools[section].add(bullet));
-        });
-
-        await Promise.all(promises);
-        this.cache.set(cacheKey, allBullets);
-        return allBullets;
-    }
-
-    getBulletsForSection(section, count) {
-        return Array.from(this.sectionPools[section]).slice(0, count);
-    }
-
-    addBulletToSection(bullet, section) {
-        if (bullet && bullet.trim().length > 0) {
-            this.sectionPools[section].add(bullet);
-        }
-    }
-
-    clear() {
-        this.cache.clear();
-        Object.values(this.sectionPools).forEach(pool => pool.clear());
-    }
-}
-
-async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
+// Update the generateBullets function to emphasize verb diversity
+async function generateBullets(mode, existingBullets, keywords, context, wordLimit, verbTracker) {
     let prompt;
+    
+    // Get previously used verbs to avoid
+    const usedVerbs = verbTracker ? verbTracker.getUsedVerbs() : [];
+    const mostUsedVerbs = verbTracker ? verbTracker.getMostUsedVerbs(8) : [];
+    
+    const verbAvoidanceText = usedVerbs.length > 0 
+        ? `\nAVOID THESE PREVIOUSLY USED VERBS: ${usedVerbs.join(', ')}\n`
+        : '';
+        
+    const mostUsedVerbsText = mostUsedVerbs.length > 0
+        ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
+        : '';
+
     const basePrompt = `Expert resume writer: Transform bullets into compelling achievements with quantifiable results while naturally incorporating ALL keywords.
 
 CRITICAL FORMATTING REQUIREMENT:
@@ -276,19 +216,15 @@ CONTENT REQUIREMENTS:
 4) Keep within ${wordLimit} words unless preserving details requires more
 5) Maintain consistent date formatting and chronological ordering
 6) NO buzzwords, clichés, or generic corporate speak (avoid: "synergy", "thinking outside the box", etc.)
-7) CRITICAL: Use a DIFFERENT, UNIQUE action verb for EACH bullet point - NEVER repeat action verbs
 
-ACTION VERB VARIETY REQUIREMENT:
-- Use a wide range of powerful, specific action verbs - NEVER repeat the same verb
-- Instead of generic verbs (developed, created, managed), use more impactful alternatives:
-  * Technical: Architected, Engineered, Programmed, Coded, Integrated, Deployed, Optimized, Debugged
-  * Leadership: Spearheaded, Orchestrated, Championed, Directed, Guided, Mentored, Oversaw
-  * Achievement: Accelerated, Boosted, Streamlined, Enhanced, Amplified, Strengthened, Revitalized
-  * Analysis: Analyzed, Assessed, Evaluated, Diagnosed, Investigated, Identified, Researched
-  * Innovation: Pioneered, Conceptualized, Formulated, Redesigned, Transformed, Revolutionized
+ACTION VERB DIVERSITY REQUIREMENTS:
+1) EVERY bullet must begin with a DIFFERENT powerful action verb
+2) DO NOT repeat any action verbs within these bullets
+3) DO NOT use action verbs already used in other resume sections
+4) Use specific, impactful verbs that showcase transferable skills${verbAvoidanceText}${mostUsedVerbsText}
 
 STRUCTURE (implicit, not explicit):
-- Begin with powerful, varied action verb (different for EACH bullet)
+- Begin with powerful, specific action verb (e.g., "Engineered" not "Created", "Spearheaded" not "Led")
 - Weave in context with clear, concise language
 - Integrate keywords seamlessly without awkward placement
 - End with concrete, quantifiable results showing impact
@@ -299,35 +235,26 @@ YOUR RESPONSE FORMAT - STRICTLY REQUIRED:
 - Do not include ANY line numbers, bullet points (#, *, -), or annotations
 - Each bullet should be on its own line
 
-EXAMPLES OF CORRECT FORMAT WITH VARIED VERBS:
->>Architected distributed database system using AWS and Python, cutting query response time by 65% and improving scalability
+EXAMPLES OF CORRECT FORMAT:
+>>Engineered distributed database system using AWS and Python, cutting query response time by 65% and improving scalability
 >>Spearheaded agile development team of 5 engineers, delivering JavaScript applications 30% ahead of schedule
->>Engineered responsive UI components with React Native, boosting mobile user engagement by 42%
->>Implemented CI/CD pipeline utilizing GitHub Actions, reducing deployment errors by 78%
->>Optimized MySQL database queries through indexing strategies, decreasing page load time by 35%
 
 EXAMPLES OF INCORRECT FORMAT:
 - "Engineered distributed database system" (missing ">>" prefix)
 - ">> Engineered distributed database system" (space after ">>")
 - "Here are some bullet points:" (explanatory text not allowed)
-- "1. >>Engineered distributed database system" (numbering not allowed)
-- Using "Developed" multiple times across different bullets (verb repetition)`;
+- "1. >>Engineered distributed database system" (numbering not allowed)`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
 
 INPUT BULLETS TO ENHANCE (integrate ALL keywords naturally):
-${(existingBullets || []).join('\n')}
-
-NOTE: When enhancing these bullets, ensure EACH bullet uses a DIFFERENT action verb. Check the ENTIRE set to avoid ANY repetition of verbs.`;
+${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `${basePrompt}
 
 Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
-REMEMBER: 
-1. EVERY BULLET MUST START WITH >> (no space after)
-2. EVERY BULLET MUST USE A DIFFERENT ACTION VERB - no repetition allowed
-3. Check the entire set to ensure no action verb is used more than once`;
+REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION VERBS`;
     }
 
     try {
@@ -336,7 +263,7 @@ REMEMBER:
             {
                 system_instruction: {
                     parts: [{
-                        text: "You are a specialized resume optimization AI. Your ONLY task is to generate resume bullet points, each with a UNIQUE action verb (never repeating verbs). You MUST format all bullet points with '>>' prefix (no space after). Do not include ANY other text."
+                        text: "You are a specialized resume optimization AI. Your ONLY task is to generate resume bullet points. You MUST format all bullet points with '>>' prefix (no space after). Do not include ANY other text. Use a DIFFERENT action verb for each bullet point."
                     }]
                 },
                 contents: [{
@@ -388,36 +315,143 @@ REMEMBER:
                 console.log(`Added ${formattedBullets.length} secondary-extracted bullets`);
             }
         }
-
-        // Clean up the bullets and check for verb repetition
-        const processedBullets = matched.map(bp =>
+        
+        // Clean up the bullets
+        return matched.map(bp =>
             bp.replace(/^>>\s*/, '')
               .replace(/\*\*/g, '')
               .replace(/\s*\([^)]*\)$/, '') // Remove any trailing parenthesis and enclosed keywords
         );
-        
-        // Post-process to reduce verb repetition - analyze and log but don't filter yet
-        const verbCounts = {};
-        processedBullets.forEach(bullet => {
-            const firstWord = bullet.split(' ')[0].toLowerCase().replace(/[^a-z]/g, '');
-            verbCounts[firstWord] = (verbCounts[firstWord] || 0) + 1;
-        });
-        
-        const repeatedVerbs = Object.entries(verbCounts)
-            .filter(([_, count]) => count > 1)
-            .map(([verb, count]) => `${verb} (${count})`);
-            
-        if (repeatedVerbs.length > 0) {
-            console.log(`Warning: Detected repeated verbs: ${repeatedVerbs.join(', ')}`);
-        }
-        
-        return processedBullets;
     } catch (error) {
         console.error('Error generating bullets:', error.response?.data || error.message);
         return []; // Return empty array in case of error
     }
 }
 
+// Add function to shuffle bullets with verb checking
+function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
+    let attempts = 0;
+    const maxAttempts = 15; // Increased attempts to find better verb arrangements
+    
+    while (attempts < maxAttempts) {
+        // Shuffle the array
+        bullets = shuffleArray([...bullets]);
+        
+        // Check if the arrangement is valid
+        let isValid = true;
+        let previousVerbs = new Set();
+        
+        for (let i = 0; i < bullets.length; i++) {
+            const currentVerb = getFirstVerb(bullets[i]);
+            
+            // Skip empty bullets
+            if (!currentVerb) continue;
+            
+            // Check if verb is same as any previous bullet or already used as first verb globally
+            if (previousVerbs.has(currentVerb) || 
+                (verbTracker.isVerbUsedGlobally(currentVerb) && i === 0)) {
+                isValid = false;
+                break;
+            }
+            
+            previousVerbs.add(currentVerb);
+        }
+        
+        if (isValid) {
+            // Add first verb to tracker
+            if (bullets.length > 0) {
+                verbTracker.addVerb(getFirstVerb(bullets[0]), sectionType);
+            }
+            return bullets;
+        }
+        
+        attempts++;
+    }
+    
+    // If we couldn't find a perfect arrangement, at least ensure the first verb is unique
+    const sortedBullets = [...bullets].sort((a, b) => {
+        const verbA = getFirstVerb(a);
+        const verbB = getFirstVerb(b);
+        
+        // Put bullets with unused verbs at the beginning
+        if (!verbTracker.isVerbUsedGlobally(verbA) && verbTracker.isVerbUsedGlobally(verbB)) {
+            return -1;
+        }
+        if (verbTracker.isVerbUsedGlobally(verbA) && !verbTracker.isVerbUsedGlobally(verbB)) {
+            return 1;
+        }
+        return 0;
+    });
+    
+    // Add the first verb to the tracker
+    if (sortedBullets.length > 0) {
+        verbTracker.addVerb(getFirstVerb(sortedBullets[0]), sectionType);
+    }
+    
+    return sortedBullets;
+}
+
+// Add BulletCache class for efficient bullet point management
+class BulletCache {
+    constructor() {
+        this.cache = new Map();
+        this.sectionPools = {
+            job: new Set(),
+            project: new Set(),
+            education: new Set()
+        };
+        this.targetBulletCounts = {
+            job: 7,
+            project: 6,
+            education: 5
+        };
+    }
+
+    async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
+        const sections = ['job', 'project', 'education'];
+        const cacheKey = `${keywords.join(',')}_${context}`;
+
+        if (this.cache.has(cacheKey)) {
+            return this.cache.get(cacheKey);
+        }
+
+        const allBullets = {};
+        const promises = sections.map(async (section) => {
+            const targetCount = this.targetBulletCounts[section];
+            const bullets = await generateBullets(
+                'generate',
+                null,
+                keywords,
+                `for ${section} experience`,
+                wordLimit,
+                verbTracker
+            );
+            allBullets[section] = bullets.slice(0, targetCount);
+            bullets.forEach(bullet => this.sectionPools[section].add(bullet));
+        });
+
+        await Promise.all(promises);
+        this.cache.set(cacheKey, allBullets);
+        return allBullets;
+    }
+
+    getBulletsForSection(section, count) {
+        return Array.from(this.sectionPools[section]).slice(0, count);
+    }
+
+    addBulletToSection(bullet, section) {
+        if (bullet && bullet.trim().length > 0) {
+            this.sectionPools[section].add(bullet);
+        }
+    }
+
+    clear() {
+        this.cache.clear();
+        Object.values(this.sectionPools).forEach(pool => pool.clear());
+    }
+}
+
+// Update updateResumeSection to pass verbTracker to generateBullets
 async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount, verbTracker, bulletCache) {
     for (let i = 0; i < sections.length; i++) {
         const section = sections.eq(i);
@@ -437,7 +471,7 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                 
             bulletPoints = await generateBullets(
                 'tailor', existingBullets,
-                keywords, context, wordLimit
+                keywords, context, wordLimit, verbTracker
             );
             
             // Add tailored bullets to cache
@@ -457,6 +491,8 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
         bulletList.empty();
         bulletPoints.forEach(point => {
             bulletTracker.addBullet(point, sectionType);
+            // Also add the point's action verb to the verb tracker
+            verbTracker.addVerb(getFirstVerb(point), sectionType);
             bulletList.append(`<li>${point}</li>`);
         });
     }
@@ -724,7 +760,7 @@ async function adjustBulletPoints($, sections, currentBulletCount) {
     return currentBulletCount - 1;
 }
 
-// Main Resume Update Function (now much smaller)
+// Update the updateResume function to pass verbTracker to generateAllBullets
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const sectionWordCounts = getSectionWordCounts($);
@@ -743,7 +779,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
 
     // Generate all bullets upfront
-    const allBullets = await bulletCache.generateAllBullets($, keywords, 'resume section', 15);
+    const allBullets = await bulletCache.generateAllBullets($, keywords, 'resume section', 15, verbTracker);
 
     const sections = [
         { selector: $('.job-details'), type: 'job', context: 'for a job experience', bullets: originalBullets.job },
