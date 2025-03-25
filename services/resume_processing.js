@@ -209,6 +209,21 @@ Every bullet point you generate MUST begin with exactly ">>" (two greater-than s
 For example: ">>Developed..." not ">> Developed..." and not "Developed...".
 If you don't format bullets with ">>" prefix, they will be completely discarded.
 
+LOGICAL CONSISTENCY REQUIREMENTS:
+1) Each bullet MUST maintain logical consistency between:
+   - The technology/tools mentioned
+   - The impact/results described
+   - The context of the achievement
+2) DO NOT mix unrelated technologies or tools in the same bullet
+   BAD: "Used SQL Server to improve React component performance"
+   GOOD: "Optimized SQL Server queries, reducing database response time by 40%"
+3) Ensure cause-and-effect relationships make sense
+   BAD: "Spearheaded creation of Salesforce flows using Microsoft SQL Server"
+   GOOD: "Developed 10+ Salesforce automation flows, reducing manual data entry time by 40%"
+4) Keep technologies and tools within their typical use cases
+   BAD: "Used Python to improve Photoshop rendering speed"
+   GOOD: "Developed Python scripts to automate image processing, handling 500+ files daily"
+
 CONTENT REQUIREMENTS:
 1) EVERY bullet point MUST include at least one specific metric (%, $, time saved, team size, etc.)
 2) Preserve EXACT numbers from original bullets (e.g., "increased efficiency by 15%" must stay exactly as "15%")
@@ -233,14 +248,6 @@ CRITICAL MEANING PRESERVATION:
 - If a bullet describes managing 3 people, do not change it to 4 people
 - The facts, scope, and impact must remain identical to the original
 
-LOGICAL CONSISTENCY REQUIREMENTS:
-1) EVERY bullet point MUST maintain logical consistency between technologies, tools, and outcomes
-2) DO NOT combine unrelated or incompatible technologies (e.g., "using Salesforce flows with SQL Server")
-3) Only combine technologies that are commonly used together and make sense in the context
-4) Ensure the tools and technologies mentioned align with the actual achievement described
-5) If mentioning multiple technologies, they must have a clear, logical relationship to each other
-6) The impact or outcome must be directly achievable using the mentioned technologies
-
 ACTION VERB DIVERSITY REQUIREMENTS:
 1) EVERY bullet must begin with a DIFFERENT specific action verb
 2) DO NOT repeat any action verbs within these bullets
@@ -248,7 +255,7 @@ ACTION VERB DIVERSITY REQUIREMENTS:
 4) Use concrete, measurable verbs that demonstrate clear impact${verbAvoidanceText}${mostUsedVerbsText}
 
 STRUCTURE (implicit, not explicit):
-- Begin with powerful,specific action verbs
+- Begin with powerful, specific action verb
 - Include exact context (team size, project scope, timeline)
 - State measurable outcome with specific metrics
 - Integrate keywords naturally within achievement
@@ -259,15 +266,17 @@ YOUR RESPONSE FORMAT - STRICTLY REQUIRED:
 - Do not include ANY line numbers, bullet points (#, *, -), or annotations
 - Each bullet should be on its own line
 
-EXAMPLES OF CORRECT FORMAT:
->>Automated deployment pipeline for 3 microservices, reducing build time from 15 minutes to 4 minutes and eliminating 80% of manual errors
->>Redesigned database architecture for 8 daily users, cutting query latency by 25% and server costs by $2k annually
+EXAMPLES OF CORRECT FORMAT AND LOGICAL CONSISTENCY:
+>>Optimized PostgreSQL database queries for customer portal, reducing average response time by 45% and server load by 30%
+>>Developed automated testing framework using Jest, increasing test coverage from 65% to 95% and reducing QA time by 8 hours weekly
 
-EXAMPLES OF INCORRECT FORMAT:
+EXAMPLES OF INCORRECT FORMAT OR LOGIC:
 - "Automated deployment pipeline" (missing ">>" prefix)
 - ">> Automated deployment" (space after ">>")
 - "Here are some bullet points:" (explanatory text not allowed)
-- "1. >>Automated deployment" (numbering not allowed)`;
+- "1. >>Automated deployment" (numbering not allowed)
+- ">>Used Java to improve Photoshop performance" (illogical technology combination)
+- ">>Created Excel macros using MongoDB" (incompatible tools)`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
