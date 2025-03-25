@@ -233,6 +233,14 @@ CRITICAL MEANING PRESERVATION:
 - If a bullet describes managing 3 people, do not change it to 4 people
 - The facts, scope, and impact must remain identical to the original
 
+LOGICAL CONSISTENCY REQUIREMENTS:
+1) EVERY bullet point MUST maintain logical consistency between technologies, tools, and outcomes
+2) DO NOT combine unrelated or incompatible technologies (e.g., "using Salesforce flows with SQL Server")
+3) Only combine technologies that are commonly used together and make sense in the context
+4) Ensure the tools and technologies mentioned align with the actual achievement described
+5) If mentioning multiple technologies, they must have a clear, logical relationship to each other
+6) The impact or outcome must be directly achievable using the mentioned technologies
+
 ACTION VERB DIVERSITY REQUIREMENTS:
 1) EVERY bullet must begin with a DIFFERENT specific action verb
 2) DO NOT repeat any action verbs within these bullets
