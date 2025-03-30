@@ -209,44 +209,65 @@ Every bullet point you generate MUST begin with exactly ">>" (two greater-than s
 For example: ">>Developed..." not ">> Developed..." and not "Developed...".
 If you don't format bullets with ">>" prefix, they will be completely discarded.
 
-LOGICAL CONSISTENCY REQUIREMENTS:
-1) Each bullet MUST maintain logical consistency between:
-   - The technology/tools mentioned
-   - The impact/results described
-   - The context of the achievement
-2) DO NOT mix unrelated technologies or tools in the same bullet
-   BAD: "Used SQL Server to improve React component performance"
-   GOOD: "Optimized SQL Server queries, reducing database response time by 40%"
-3) Ensure cause-and-effect relationships make sense
-   BAD: "Spearheaded creation of Salesforce flows using Microsoft SQL Server"
-   GOOD: "Developed 10+ Salesforce automation flows, reducing manual data entry time by 40%"
-4) Keep technologies and tools within their typical use cases
-   BAD: "Used Python to improve Photoshop rendering speed"
-   GOOD: "Developed Python scripts to automate image processing, handling 500+ files daily"
-5) CRITICAL: Never combine technologies that don't naturally work together
-   BAD: "Built React components using Salesforce cloud functions"
-   GOOD: "Built React components for customer portal, reducing page load time by 40%"
-6) Each technology must be used in its proper context and role
-   BAD: "Used API Gateway to create Salesforce flows"
-   GOOD: "Created API Gateway endpoints that integrated with existing Salesforce workflows"
+KEYWORD INTEGRATION REQUIREMENTS:
+1) Distribute keywords naturally across ALL bullets - do not force multiple keywords into a single bullet
+2) Each bullet should contain only keywords that make logical sense together
+3) Ensure EVERY keyword from ${keywords} is used at least once across all bullets
+4) Keywords should flow naturally within the context of each achievement
+5) If a keyword doesn't fit naturally with the original bullet's meaning, save it for a more appropriate bullet
+6) Never sacrifice meaning or technical accuracy to force in keywords
+
+TECHNOLOGY CONSISTENCY REQUIREMENTS:
+1) Each bullet MUST maintain strict logical consistency between:
+   - Technologies/tools mentioned
+   - The specific task or process described
+   - The impact/results achieved
+2) NEVER combine technologies that don't typically integrate in real-world scenarios
+   BAD: "Used MongoDB to optimize Salesforce workflows"
+   BAD: "Integrated API Gateway with Excel macros"
+   GOOD: "Built REST APIs with API Gateway and Lambda for microservices architecture"
+   GOOD: "Developed Salesforce automation flows integrated with custom Apex triggers"
+3) Technology stacks mentioned must reflect real-world architectures:
+   BAD: "Used React for database optimization"
+   BAD: "Applied machine learning to improve CSS styling"
+   GOOD: "Built React components with Redux, reducing state management complexity by 40%"
+   GOOD: "Optimized PostgreSQL queries, cutting response time by 50% for high-traffic endpoints"
+
+CRITICAL MEANING PRESERVATION:
+1) The original bullet's core meaning is SACRED - preserve it exactly
+2) Do NOT change or embellish:
+   - Scope of responsibility
+   - Team sizes
+   - Project impact
+   - Timeline/duration
+   - Technical context
+3) Only enhance:
+   - Specificity of metrics
+   - Clarity of achievement
+   - Action verb strength
+   - Natural keyword integration
+4) If unsure about preserving meaning while adding a keyword, prioritize meaning
 
 NATURAL LANGUAGE REQUIREMENTS:
-1) Write in a NATURAL, HUMAN voice that someone would actually put on their resume
-2) Avoid overly formal or flowery language that sounds thesaurus-generated
-3) DO NOT use uncommon, pretentious action verbs like "Championed," "Catalyzed," "Spearheaded," or "Architected"
-4) Use natural-sounding verbs like "Built," "Created," "Led," "Improved," "Reduced," "Increased," "Managed"
-5) Vary sentence structure to avoid repetitive patterns (don't always use "verb X, resulting in Y")
-6) Connect metrics naturally to accomplishments - avoid awkward phrases like "curtailing bugs" or "elevating satisfaction"
+1) Every bullet must sound like it was written by a human
+2) Avoid awkward combinations of keywords or technologies
+3) Use natural transitions and connections
+4) BAD (unnatural keyword stuffing):
+   "Leveraged React, Node.js, and MongoDB while implementing Azure DevOps and Kubernetes to optimize Salesforce integration"
+5) GOOD (natural keyword usage):
+   "Built React frontend components that reduced page load time by 40%"
+   "Designed MongoDB schema optimizations, cutting query time by 50%"
+6) If multiple technologies are mentioned, they must have a clear, logical relationship
 
-EXAMPLES OF NATURAL VS. AI-SOUNDING BULLETS:
-NATURAL: >>Built a React dashboard that reduced data lookup time by 40% for a team of 6 developers
-AI-SOUNDING: >>Architected a sophisticated React-based visualization dashboard, elevating efficiency metrics by 40% for developer teams
+EXAMPLES OF NATURAL VS. FORCED KEYWORD INTEGRATION:
+NATURAL: >>Developed REST APIs using Node.js and Express, handling 1M+ daily requests
+FORCED: >>Developed REST APIs using Node.js, Express, React, and Kubernetes while managing Salesforce integration
 
-NATURAL: >>Reduced database query time by 35% by optimizing SQL indexes on customer order tables
-AI-SOUNDING: >>Engineered performance enhancements to database architecture, slashing query execution time by 35%
+NATURAL: >>Built automated CI/CD pipeline with Jenkins, reducing deployment time by 65%
+FORCED: >>Built Jenkins pipeline with React testing, Salesforce deployment, and MongoDB optimization
 
-NATURAL: >>Led migration of 5 legacy systems to AWS cloud infrastructure, saving $45K in annual hosting costs
-AI-SOUNDING: >>Spearheaded the strategic migration initiative of legacy systems to AWS cloud infrastructure, yielding $45K cost reduction
+NATURAL: >>Optimized PostgreSQL queries for customer data service, reducing response time by 45%
+FORCED: >>Optimized database performance using PostgreSQL, MongoDB, and Redis while implementing React components
 
 CONTENT REQUIREMENTS:
 1) EVERY bullet point MUST include at least one specific metric (%, $, time saved, team size, etc.)
@@ -257,30 +278,13 @@ CONTENT REQUIREMENTS:
    - Team/user/customer size in exact numbers
    - Project duration in months/years
    - Resource savings in specific units
-4) Keep within ${wordLimit} words unless preserving metrics requires more
-5) Maintain consistent date formatting and chronological ordering
-6) NO vague descriptors - replace with specifics:
+4) Integrate ALL keywords (${keywords}) naturally into the flow
+5) Keep within ${wordLimit} words unless preserving metrics requires more
+6) Maintain consistent date formatting and chronological ordering
+7) NO vague descriptors - replace with specifics:
    Instead of "significantly improved" → "improved by 15%"
    Instead of "large team" → "team of 5 engineers"
    Instead of "multiple clients" → "4 enterprise clients"
-
-KEYWORD INTEGRATION REQUIREMENTS:
-1) DO NOT try to force ALL keywords into EVERY bullet point
-2) DISTRIBUTE the keywords (${keywords}) naturally across all bullet points
-3) Each bullet should contain only 1-2 keywords where they make logical sense
-4) ALL keywords must be used somewhere in the full set of bullets
-5) PRIORITIZE PRESERVING THE MEANING of the original bullet over forcing in keywords
-6) Only use keywords where they logically fit the context of that specific achievement
-7) If a keyword doesn't naturally fit with a bullet, use it in a different bullet
-8) NEVER sacrifice logical consistency or natural language just to include a keyword
-
-CRITICAL MEANING PRESERVATION:
-- You MUST preserve the exact meaning and core achievements from the original bullets
-- Do NOT change or embellish the fundamental accomplishments described
-- Only enhance the format and specificity while keeping the same exact meaning
-- If a bullet describes managing 3 people, do not change it to 4 people
-- The facts, scope, and impact must remain identical to the original
-- NEVER add technologies or skills that weren't mentioned in the original bullet
 
 XYZ FORMULA GUIDANCE:
 - Follow the XYZ formula: "Accomplished [X] as measured by [Y], by doing [Z]"
@@ -317,39 +321,17 @@ EXAMPLES OF INCORRECT FORMAT OR LOGIC:
 - "Here are some bullet points:" (explanatory text not allowed)
 - "1. >>Automated deployment" (numbering not allowed)
 - ">>Used Java to improve Photoshop performance" (illogical technology combination)
-- ">>Created Excel macros using MongoDB" (incompatible tools)
-- ">>Guided the creation of Salesforce flows using API Gateway" (incompatible technologies)`;
+- ">>Created Excel macros using MongoDB" (incompatible tools)`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
 
-INPUT BULLETS TO ENHANCE:
-${(existingBullets || []).join('\n')}
-
-ADDITIONAL TAILORING INSTRUCTIONS:
-1) Your PRIMARY goal is to PRESERVE THE EXACT MEANING of each original bullet point
-2) DO NOT add technologies or skills that weren't in the original bullet point
-3) DISTRIBUTE the keywords (${keywords}) across different bullets, don't force them all into each bullet
-4) Only add a keyword to a bullet if it fits NATURALLY with the existing content
-5) If a keyword doesn't logically fit with any bullet, prioritize preserving the original meaning
-6) Focus on enhancing FORMAT and METRICS while keeping the same exact achievements
-7) Maintain technological consistency - don't combine unrelated technologies
-8) When adding keywords, ensure they are used in their proper technological context`;
+INPUT BULLETS TO ENHANCE (integrate keywords naturally across ALL bullets):
+${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `${basePrompt}
 
 Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
-
-ADDITIONAL GENERATION INSTRUCTIONS:
-1) DISTRIBUTE the keywords (${keywords}) naturally across all bullets - don't force all keywords into each bullet
-2) Each bullet should contain 1-2 keywords where they make LOGICAL sense
-3) NEVER combine technologies that don't naturally work together (e.g., "Used React with Salesforce flows")
-4) Ensure ALL technologies are used in their proper context and role
-5) Focus on creating REALISTIC, specific accomplishments with concrete metrics
-6) AVOID generic, vague, or clichéd statements - be specific and measurable
-7) Maintain technological consistency within each bullet point
-8) When using keywords like specific technologies, ensure they are used CORRECTLY
-
 REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION VERBS`;
     }
 
@@ -359,7 +341,7 @@ REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION
             {
                 system_instruction: {
                     parts: [{
-                        text: "You are a specialized resume optimization AI. Your ONLY task is to generate resume bullet points. You MUST format all bullet points with '>>' prefix (no space after). Do not include ANY other text. Use a DIFFERENT action verb for each bullet point. Distribute keywords naturally across all bullets rather than forcing them all into each bullet. Maintain strict technological consistency - never combine unrelated technologies in the same bullet point."
+                        text: "You are a specialized resume optimization AI. Your ONLY task is to generate resume bullet points. You MUST format all bullet points with '>>' prefix (no space after). Do not include ANY other text. Use a DIFFERENT action verb for each bullet point."
                     }]
                 },
                 contents: [{
@@ -368,9 +350,9 @@ REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION
                     }]
                 }],
                 generationConfig: {
-                    temperature: 0.35, // Lower temperature for more logical consistency
+                    temperature: 0.4, // Lower temperature for more predictable formatting
                     maxOutputTokens: 2000,
-                    topP: 0.85,
+                    topP: 0.9,
                     topK: 40
                 },
                 safetySettings: [{
