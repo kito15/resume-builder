@@ -208,6 +208,19 @@ CRITICAL FORMATTING REQUIREMENT:
 Every bullet point you generate MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
 For example: ">>Developed..." not ">> Developed..." and not "Developed...".
 
+ACTION VERB REQUIREMENTS (HIGHEST PRIORITY):
+1) Each bullet MUST start with a DIFFERENT professional action verb
+2) STRICTLY PROHIBITED VERBS (DO NOT USE THESE UNDER ANY CIRCUMSTANCES):
+   - WEAK VERBS: Built, Drove, Examined, Helped, Assisted, Used, Utilized, Employed, Worked, Handled, Managed, Did, Made, Created, Participated, Involved
+   - OVERLY COMPLEX VERBS: Bolstered, Fortified, Orchestrated, Conceived, Instituted, Spearheaded, Fashioned, Aided, Hardened, Shaped, Piloted, Crafted, Enriched, Championed, Fostered
+   - UNNECESSARILY GRANDIOSE VERBS: Accelerated, Revolutionized, Catalyzed, Disrupted, Transformed, Pioneered, Masterminded, Architected${verbAvoidanceText}${mostUsedVerbsText}
+3) USE THESE SIMPLE, PROFESSIONAL VERBS INSTEAD:
+   - Improved, Increased, Reduced, Decreased, Generated
+   - Developed, Designed, Implemented, Established, Launched
+   - Led, Directed, Coordinated, Supervised, Guided
+   - Analyzed, Evaluated, Solved, Resolved, Fixed
+4) Always choose straightforward, widely-used professional verbs that clearly communicate achievements
+
 KEYWORD DISTRIBUTION REQUIREMENTS:
 1) MANDATORY: Distribute keywords evenly across ALL bullets - never concentrate multiple keywords in one bullet
 2) Each bullet should contain only 1-2 keywords that are contextually relevant to that specific achievement
@@ -220,11 +233,7 @@ TECHNOLOGY LOGICAL CONSISTENCY REQUIREMENTS:
 1) Only combine technologies that work together in real professional settings
 2) AVOID ILLOGICAL COMBINATIONS:
    WRONG: "Used MongoDB to optimize Salesforce workflows"
-   WRONG: "Integrated API Gateway with Excel macros" 
-   CORRECT: "Deployed REST APIs with Node.js and Express, handling 1M+ daily requests"
-3) Technology mentions must reflect actual professional usage:
-   WRONG: "Used React for database optimization"
-   CORRECT: "Redesigned React components with Redux, reducing state management complexity by 40%"
+   CORRECT: "Modified database queries in MongoDB, reducing API response times by 40%"
 
 STAR METHOD REQUIREMENTS:
 1) Structure each bullet to include elements of the STAR method:
@@ -249,19 +258,6 @@ MEANING PRESERVATION PRIORITY:
 WORD LIMIT ADHERENCE:
 1) Each bullet MUST stay within ${wordLimit} words
 2) Never sacrifice metrics or core meaning to meet word limit
-3) Prioritize conciseness while maintaining STAR elements
-
-ACTION VERB REQUIREMENTS (EXTREMELY IMPORTANT):
-1) Each bullet MUST start with a different professional action verb
-2) STRICTLY PROHIBITED VERBS: 
-   - WEAK VERBS: Built, Drove, Examined, Helped, Assisted, Used, Utilized, Employed, Worked, Handled, Managed, Did, Made, Created, Participated, Involved
-   - ARTIFICIAL VERBS: Bolstered, Fortified, Orchestrated, Conceived, Instituted, Spearheaded, Fashioned, Aided, Hardened, Shaped, Piloted, Crafted, Enriched, Championed, Fostered${verbAvoidanceText}${mostUsedVerbsText}
-3) Use strong, specific action verbs that demonstrate impact:
-   - Accelerated, Achieved, Automated, Transformed, Streamlined
-   - Reduced, Improved, Increased, Decreased, Enhanced
-   - Deployed, Implemented, Developed, Engineered, Programmed
-   - Analyzed, Resolved, Troubleshot, Diagnosed, Fixed
-4) Avoid verbose or theatrical-sounding verbs - use direct, impactful professional language
 
 INPUT BULLETS TO ENHANCE (integrate keywords naturally across ALL bullets):
 ${(existingBullets || []).join('\n')}`;
