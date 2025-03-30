@@ -202,54 +202,88 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `Expert resume writer: Transform bullets into specific, measurable achievements with strategic keyword integration.
+    const basePrompt = `Expert resume writer: Transform bullets into specific, measurable achievements with concrete numbers and metrics.
 
 CRITICAL FORMATTING REQUIREMENT:
-Every bullet point MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
+Every bullet point you generate MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
 For example: ">>Developed..." not ">> Developed..." and not "Developed...".
+If you don't format bullets with ">>" prefix, they will be completely discarded.
 
-KEYWORD INTEGRATION STRATEGY:
+KEYWORD INTEGRATION REQUIREMENTS:
 1) Distribute keywords naturally across ALL bullets - never concentrate multiple keywords in one bullet
-2) Each bullet should only contain keywords that have logical relationships
-3) Ensure EVERY keyword from ${keywords} appears at least once 
-4) Incorporate keywords as part of natural sentence flow
-5) If a keyword doesn't fit a bullet's context, save it for a more appropriate bullet
-6) Avoid listing technologies (e.g., "Used HTML, CSS, JavaScript") - weave each into specific contexts
+2) Each bullet should use only keywords that make logical sense in that specific context
+3) Ensure EVERY keyword from ${keywords} is used at least once across all bullets
+4) Keywords should flow within the narrative of each achievement - never appear list-like (e.g., "using HTML, CSS, JavaScript")
+5) If a keyword doesn't fit naturally with a bullet's original meaning, save it for a more appropriate bullet
+6) Never sacrifice the original meaning to force in keywords
+7) Each bullet must stay within ${wordLimit} words unless preserving essential metrics requires more
 
 TECHNOLOGY CONSISTENCY REQUIREMENTS:
-1) Only pair technologies that would realistically be used together
-2) Technologies mentioned must align with the specific task described
-3) Maintain real-world technical accuracy in all relationships
-   BAD: "Used MongoDB to manage WordPress themes"
-   GOOD: "Optimized MongoDB queries, reducing API response times by 40%"
+1) Only combine technologies that naturally work together in real-world scenarios
+2) NEVER pair incompatible technologies or concepts in the same bullet
+   BAD: "Used MongoDB to optimize Salesforce workflows"
+   GOOD: "Built REST APIs with Node.js and Express, handling 1M+ daily requests"
+3) Technology references must reflect actual professional usage patterns:
+   BAD: "Used React for database optimization"
+   GOOD: "Developed React components with Redux state management, reducing render times by 40%"
 
 MEANING PRESERVATION:
-1) The original bullet's core meaning must be preserved exactly
-2) Do not alter:
+1) The original bullet's core meaning MUST be preserved exactly
+2) DO NOT alter or embellish:
    - Scope of responsibility
-   - Team size
+   - Team sizes
    - Project impact
+   - Timeline/duration
    - Technical context
-3) When adding keywords, ensure they support rather than change the original meaning
+3) Only enhance with:
+   - Specific metrics where missing
+   - Clearer achievement language
+   - Natural keyword integration
+
+ACTION VERB REQUIREMENTS:
+1) Begin each bullet with a different, natural-sounding action verb
+2) Use verbs that real professionals use on resumes
+3) AVOID overly formal, theatrical, or exaggerated verbs like:
+   - Orchestrated, Spearheaded, Championed
+   - Revolutionized, Transformed, Overhauled
+   - Bolstered, Fortified, Catalyzed
+4) Instead use clear, direct verbs like:
+   - Developed, Created, Built, Designed
+   - Improved, Increased, Reduced, Streamlined
+   - Managed, Led, Coordinated, Implemented${verbAvoidanceText}${mostUsedVerbsText}
 
 NATURAL LANGUAGE REQUIREMENTS:
-1) Each bullet must read as if written by a human professional
-2) Integrate keywords as if they were part of the original text
-3) Avoid awkward phrasing or forced keyword placement
-4) BAD: "Developed website using HTML, CSS, JavaScript, React, and Node.js"
-5) GOOD: "Engineered responsive UI components with React, reducing load time by 30%"
+1) Every bullet must sound like it was written by a professional human
+2) Integrate keywords as if they were part of the original content
+3) BAD (awkward keyword insertion):
+   "Developed applications using Java, Python, and React while implementing cloud solutions"
+4) GOOD (natural integration):
+   "Developed Java microservices with Python data processing modules, reducing API response times by 35%"
+   "Built responsive UI components with React, improving user engagement metrics by 28%"
 
 CONTENT REQUIREMENTS:
-1) Every bullet MUST include at least one specific metric
-2) Preserve exact numbers from original bullets
-3) Add metrics where missing (%, $, time saved, etc.)
-4) Keep within ${wordLimit} words unless necessary for clarity
-5) Begin each bullet with a strong, unique action verb${verbAvoidanceText}${mostUsedVerbsText}
+1) Every bullet MUST include at least one specific metric (%, $, time saved)
+2) Preserve EXACT numbers from original bullets
+3) Add concrete metrics where missing
+4) Keep professional tone throughout
 
-RESPONSE FORMAT:
+YOUR RESPONSE FORMAT:
 - Output ONLY bullet points, each starting with ">>"
-- No explanations, line numbers, or annotations
-- Each bullet on its own line`;
+- No explanations before or after bullets
+- No line numbers or annotations
+- Each bullet on its own line
+
+EXAMPLES OF CORRECT FORMAT AND LOGICAL CONSISTENCY:
+>>Optimized PostgreSQL database queries for customer portal, reducing average response time by 45% and server load by 30%
+>>Developed automated testing framework using Jest, increasing test coverage from 65% to 95% and reducing QA time by 8 hours weekly
+
+EXAMPLES OF INCORRECT FORMAT OR LOGIC:
+- "Automated deployment pipeline" (missing ">>" prefix)
+- ">> Automated deployment" (space after ">>")
+- "Here are some bullet points:" (explanatory text not allowed)
+- "1. >>Automated deployment" (numbering not allowed)
+- ">>Used Java to improve Photoshop performance" (illogical technology combination)
+- ">>Created Excel macros using MongoDB" (incompatible tools)`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
