@@ -210,12 +210,17 @@ For example: ">>Developed..." not ">> Developed..." and not "Developed...".
 If you don't format bullets with ">>" prefix, they will be completely discarded.
 
 KEYWORD INTEGRATION REQUIREMENTS:
-1) Distribute keywords naturally across ALL bullets - do not force multiple keywords into a single bullet
-2) Each bullet should contain only keywords that make logical sense together
-3) Ensure EVERY keyword from ${keywords} is used at least once across all bullets
-4) Keywords should flow naturally within the context of each achievement
-5) If a keyword doesn't fit naturally with the original bullet's meaning, save it for a more appropriate bullet
-6) Never sacrifice meaning or technical accuracy to force in keywords
+1) Distribute keywords naturally across ALL bullets - never concentrate multiple keywords in one bullet
+2) Each keyword must appear in a context where it logically belongs
+3) Ensure EVERY keyword from ${keywords} is used at least once throughout all bullets
+4) Weave keywords seamlessly into the narrative - never insert them as comma-separated lists
+5) BAD: "Developed applications using HTML, CSS, JavaScript and React"
+   GOOD: "Developed responsive interfaces with JavaScript and React components that reduced load times by 40%"
+   GOOD: "Created pixel-perfect implementations of designs using CSS, improving cross-browser consistency by 35%"
+6) If a keyword doesn't fit naturally with a bullet's core meaning, save it for another bullet where it belongs
+7) Stay within the ${wordLimit} word limit per bullet while maintaining natural language flow
+8) Preserve the original intent, scope, and meaning of each bullet point
+9) Keywords should enhance, not override, the original achievement being described
 
 TECHNOLOGY CONSISTENCY REQUIREMENTS:
 1) Each bullet MUST maintain strict logical consistency between:
