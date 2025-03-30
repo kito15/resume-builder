@@ -202,84 +202,61 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `Expert resume writer: Transform bullets into specific, measurable achievements while naturally incorporating required keywords.
+    const basePrompt = `Expert resume writer: Transform bullets into specific, measurable achievements with concrete numbers and metrics.
 
-KEYWORD DISTRIBUTION RULES:
-1) CRITICAL: Spread keywords (${keywords}) across ALL bullets - never cluster multiple keywords in one bullet
-2) Each bullet should use only keywords that make logical sense together
-3) Keywords must flow naturally within achievements - never list them
-4) BAD: "Used HTML, CSS, and JavaScript to build websites"
-5) GOOD: "Built responsive landing pages with CSS Grid, improving mobile conversion rates by 25%"
+CRITICAL FORMATTING REQUIREMENT:
+Every bullet point you generate MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
+For example: ">>Developed..." not ">> Developed..." and not "Developed...".
 
-ACTION VERB REQUIREMENTS:
-1) Start each bullet with a clear, professional action verb
-2) STRICTLY AVOID these artificial-sounding verbs:
-   - Bolstered, Fortified, Orchestrated, Conceived
-   - Instituted, Spearheaded, Fashioned, Fostered
-   - Any verbs listed in ${verbAvoidanceText}
-   - Any verbs listed in ${mostUsedVerbsText}
-3) Use natural, impactful verbs that real professionals use:
-   GOOD: Built, Developed, Improved, Created, Implemented
-   GOOD: Designed, Launched, Reduced, Increased, Streamlined
-4) Each bullet must use a unique action verb
+KEYWORD DISTRIBUTION REQUIREMENTS:
+1) MANDATORY: Distribute keywords evenly across ALL bullets - never concentrate multiple keywords in one bullet
+2) Each bullet should contain only 1-2 keywords that are contextually relevant to that specific achievement
+3) Every keyword from ${keywords} MUST be used at least once across all bullets
+4) Keywords should flow within sentences as if originally written that way
+5) NEVER list keywords together like "Used HTML, CSS, JavaScript to build..."
+6) If a keyword doesn't fit naturally with a bullet, save it for a more appropriate one
 
-TECHNOLOGY PAIRING RULES:
-1) Only combine technologies that work together in real projects:
-   GOOD: "Built React components with Redux for state management"
-   BAD: "Used MongoDB to optimize CSS animations"
+TECHNOLOGY LOGICAL CONSISTENCY REQUIREMENTS:
+1) Only combine technologies that work together in real professional settings
+2) AVOID ILLOGICAL COMBINATIONS:
+   WRONG: "Used MongoDB to optimize Salesforce workflows"
+   WRONG: "Integrated API Gateway with Excel macros" 
+   CORRECT: "Developed REST APIs with Node.js and Express, handling 1M+ daily requests"
+3) Technology mentions must reflect actual professional usage:
+   WRONG: "Used React for database optimization"
+   CORRECT: "Built React components with Redux, reducing state management complexity by 40%"
 
-2) Technology mentions must reflect real-world architecture:
-   GOOD: "Developed Node.js microservices with MongoDB, handling 50K daily requests"
-   BAD: "Used Python to enhance HTML performance"
+MEANING PRESERVATION PRIORITY:
+1) The original bullet's core meaning is SACRED - never alter:
+   - Scope of responsibility
+   - Team sizes mentioned
+   - Project impacts
+   - Timelines/durations
+   - Technical contexts
+2) Only enhance with metrics and natural keyword integration
 
-BULLET POINT REQUIREMENTS:
-1) Begin EVERY bullet with ">>" (no space after)
-2) Include at least one specific metric (%, $, time saved, etc.)
-3) Keep within ${wordLimit} words
-4) Maintain the original bullet's:
-   - Core meaning
-   - Scope of work
-   - Project impact
-   - Timeline
-   - Technical accuracy
+WORD LIMIT ADHERENCE:
+1) Each bullet MUST stay within ${wordLimit} words
+2) Never sacrifice metrics or core meaning to meet word limit
+3) Prioritize conciseness with specific action + result + method format
 
-NATURAL LANGUAGE RULES:
-1) Write like a human professional
-2) Avoid awkward keyword combinations
-3) Connect ideas smoothly
-4) BAD (forced keywords):
-   "Leveraged React while implementing Azure and optimizing MongoDB"
-5) GOOD (natural flow):
-   "Built React dashboard that reduced data lookup time by 40%"
-   "Optimized MongoDB queries, cutting API response time by 50%"
+ACTION VERB REQUIREMENTS (EXTREMELY IMPORTANT):
+1) Each bullet MUST start with a different professional action verb
+2) STRICTLY PROHIBITED VERBS: Bolstered, Fortified, Orchestrated, Conceived, Instituted, Spearheaded, Fashioned, Aided, Hardened, Shaped, Piloted, Crafted, Enriched, Fostered${verbAvoidanceText}${mostUsedVerbsText}
+3) Use natural, commonly used professional verbs like:
+   - Developed, Built, Created, Designed, Implemented
+   - Reduced, Improved, Increased, Decreased, Streamlined
+   - Managed, Led, Coordinated, Directed, Supervised
+   - Analyzed, Evaluated, Assessed, Researched, Investigated
+4) Avoid verbose or theatrical-sounding verbs - use direct, common professional language
 
 METRICS REQUIREMENTS:
-1) Keep existing metrics exactly as written
-2) Add specific metrics where missing:
-   - Exact percentages for improvements
-   - Dollar amounts for revenue/savings
-   - Team/user/customer counts
-   - Time periods in months/years
-3) Replace vague terms with specifics:
-   Instead of "major improvement" → "40% improvement"
-   Instead of "large-scale" → "serving 100K+ users"
+1) EVERY bullet MUST include at least one specific metric (%, $, time saved, etc.)
+2) Preserve EXACT numbers from original bullets
+3) Add concrete metrics where missing (specific %, $, numbers)
 
-FORMAT REQUIREMENTS:
-1) ONLY output bullet points
-2) Each bullet MUST start with ">>"
-3) No explanations or annotations
-4) No numbering or bullet symbols
-5) One bullet per line
-
-EXAMPLES OF GOOD BULLETS:
->>Built automated CI/CD pipeline using Jenkins, reducing deployment time from 4 hours to 30 minutes
->>Developed REST APIs with Node.js that processed 2M+ requests daily
->>Improved database query performance by 60% through MongoDB index optimization
-
-EXAMPLES OF BAD BULLETS:
->>Bolstered efficiency using HTML, CSS, and JavaScript (artificial verb, listed keywords)
->>Orchestrated implementation of various technologies (vague, artificial verb)
->>Leveraged React, Node.js, MongoDB while utilizing Azure (forced keyword stuffing)`;
+INPUT BULLETS TO ENHANCE (integrate keywords naturally across ALL bullets):
+${(existingBullets || []).join('\n')}`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
@@ -289,8 +266,8 @@ ${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `${basePrompt}
 
-Generate 15 achievement-focused bullets ${context} with concrete metrics and natural action verbs.
-REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE, NATURAL ACTION VERBS`;
+Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
+REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION VERBS`;
     }
 
     try {
