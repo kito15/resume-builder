@@ -223,6 +223,22 @@ LOGICAL CONSISTENCY REQUIREMENTS:
 4) Keep technologies and tools within their typical use cases
    BAD: "Used Python to improve Photoshop rendering speed"
    GOOD: "Developed Python scripts to automate image processing, handling 500+ files daily"
+5) Technology pairings must be realistic and used in their typical contexts
+   BAD: "Integrated API Gateway with Salesforce to optimize Excel macros"
+   GOOD: "Built API Gateway endpoints that integrated with Salesforce, reducing manual data entry by 35%"
+
+KEYWORD INTEGRATION GUIDELINES:
+1) DO NOT force all keywords into EVERY bullet point - distribute them naturally across ALL bullets
+2) Each bullet should contain 1-3 keywords maximum, focused on related technologies
+3) Group related technologies/keywords in the same bullet points
+4) When integrating keywords, ONLY use them where they logically fit with the experience/achievement
+5) PRESERVE THE ORIGINAL MEANING of the bullet first, then find natural places to incorporate keywords
+6) If a keyword doesn't fit naturally in the context, save it for another bullet where it makes more sense
+
+EXAMPLES OF GOOD VS. BAD KEYWORD INTEGRATION:
+BAD (forced keywords): ">>Developed React frontend components while using Python for database optimization and implemented API Gateway integrations for Salesforce connections"
+GOOD (natural distribution): ">>Developed React frontend components that improved dashboard load time by 35% for 3,000+ daily users"
+GOOD (natural distribution): ">>Optimized Python data processing scripts, reducing report generation time from 4 hours to 15 minutes"
 
 NATURAL LANGUAGE REQUIREMENTS:
 1) Write in a NATURAL, HUMAN voice that someone would actually put on their resume
@@ -242,28 +258,6 @@ AI-SOUNDING: >>Engineered performance enhancements to database architecture, sla
 NATURAL: >>Led migration of 5 legacy systems to AWS cloud infrastructure, saving $45K in annual hosting costs
 AI-SOUNDING: >>Spearheaded the strategic migration initiative of legacy systems to AWS cloud infrastructure, yielding $45K cost reduction
 
-KEYWORD INTEGRATION REQUIREMENTS:
-1) You MUST incorporate ALL keywords (${keywords}) into the final set of bullets
-2) Distribute keywords across bullets rather than cramming multiple keywords into one bullet
-3) Only include keywords where they make logical sense for that specific achievement
-4) Do NOT change the meaning of the original bullet just to insert a keyword
-5) When deciding where to place a keyword, consider:
-   - The technical context where the keyword would naturally appear
-   - The industry/domain relevance to the specific achievement
-   - The compatibility with other technologies mentioned
-6) Techniques for natural keyword integration:
-   - Include as part of tools/technologies used: "Built RESTful APIs using Node.js and Express"
-   - Mention as skills applied: "Applied data analysis techniques with Python to identify..."
-   - Reference as part of the context: "Led a team using Agile methodologies to deliver..."
-   
-EXAMPLES OF GOOD KEYWORD INTEGRATION:
-NATURAL: >>Optimized MySQL database queries, reducing API response time by 45% and improving overall system performance
-NATURAL: >>Implemented CI/CD pipeline using Jenkins, decreasing deployment time from 2 hours to 15 minutes for a team of 8 developers
-
-EXAMPLES OF POOR KEYWORD INTEGRATION:
-FORCED: >>Used Java, C++, Python, React and Docker to create a simple website (too many unrelated technologies)
-FORCED: >>Leveraged machine learning algorithms for a basic data entry form (technology doesn't match the task)
-
 CONTENT REQUIREMENTS:
 1) EVERY bullet point MUST include at least one specific metric (%, $, time saved, team size, etc.)
 2) Preserve EXACT numbers from original bullets (e.g., "increased efficiency by 15%" must stay exactly as "15%")
@@ -273,11 +267,10 @@ CONTENT REQUIREMENTS:
    - Team/user/customer size in exact numbers
    - Project duration in months/years
    - Resource savings in specific units
-4) Integrate ALL keywords (${keywords}) naturally into the full set of bullets - NEVER force keywords if they don't fit
-5) PRIORITIZE preserving the original meaning over keyword integration
-6) Keep within ${wordLimit} words unless preserving metrics requires more
-7) Maintain consistent date formatting and chronological ordering
-8) NO vague descriptors - replace with specifics:
+4) Distribute keywords (${keywords}) naturally across ALL bullets - don't force all keywords into each bullet
+5) Keep within ${wordLimit} words unless preserving metrics requires more
+6) Maintain consistent date formatting and chronological ordering
+7) NO vague descriptors - replace with specifics:
    Instead of "significantly improved" → "improved by 15%"
    Instead of "large team" → "team of 5 engineers"
    Instead of "multiple clients" → "4 enterprise clients"
@@ -288,7 +281,7 @@ CRITICAL MEANING PRESERVATION:
 - Only enhance the format and specificity while keeping the same exact meaning
 - If a bullet describes managing 3 people, do not change it to 4 people
 - The facts, scope, and impact must remain identical to the original
-- If a keyword cannot be integrated without changing the meaning, DO NOT include it in that bullet
+- NEVER add technologies or tools that weren't in the original bullet unless absolutely necessary for keyword integration
 
 XYZ FORMULA GUIDANCE:
 - Follow the XYZ formula: "Accomplished [X] as measured by [Y], by doing [Z]"
