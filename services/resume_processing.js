@@ -250,7 +250,7 @@ ACTION VERB REQUIREMENTS:
 4) Instead use clear, direct verbs like:
    - Developed, Created, Built, Designed
    - Improved, Increased, Reduced, Streamlined
-   - Managed, Led, Coordinated, Implemented${verbAvoidanceText}${mostUsedVerbsText}
+   - Managed, Led, Coordinated, Implemented
 
 NATURAL LANGUAGE REQUIREMENTS:
 1) Every bullet must sound like it was written by a professional human
@@ -271,19 +271,7 @@ YOUR RESPONSE FORMAT:
 - Output ONLY bullet points, each starting with ">>"
 - No explanations before or after bullets
 - No line numbers or annotations
-- Each bullet on its own line
-
-EXAMPLES OF CORRECT FORMAT AND LOGICAL CONSISTENCY:
->>Optimized PostgreSQL database queries for customer portal, reducing average response time by 45% and server load by 30%
->>Developed automated testing framework using Jest, increasing test coverage from 65% to 95% and reducing QA time by 8 hours weekly
-
-EXAMPLES OF INCORRECT FORMAT OR LOGIC:
-- "Automated deployment pipeline" (missing ">>" prefix)
-- ">> Automated deployment" (space after ">>")
-- "Here are some bullet points:" (explanatory text not allowed)
-- "1. >>Automated deployment" (numbering not allowed)
-- ">>Used Java to improve Photoshop performance" (illogical technology combination)
-- ">>Created Excel macros using MongoDB" (incompatible tools)`;
+- Each bullet on its own line`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
