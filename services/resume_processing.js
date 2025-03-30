@@ -204,6 +204,13 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
 
     const basePrompt = `Expert resume editor: Integrate keywords naturally into existing bullet points while preserving meaning.
 
+CRITICAL ACTION VERB REQUIREMENT:
+1) NEVER use artificial-sounding verbs - these will be REJECTED:
+   - PROHIBITED VERBS: "Bolstered," "Fortified," "Orchestrated," "Conceived," "Instituted," "Spearheaded," "Fashioned," "Fostered"${verbAvoidanceText}${mostUsedVerbsText}
+2) Use ONLY natural, everyday verbs that real professionals actually use
+3) GOOD VERBS: "Built," "Created," "Developed," "Improved," "Reduced," "Increased," "Managed," "Led"
+4) Each bullet MUST start with a DIFFERENT verb
+
 CRITICAL FORMATTING REQUIREMENT:
 Every bullet point MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
 
@@ -240,12 +247,6 @@ NATURAL LANGUAGE REQUIREMENTS:
 3) Maintain professional, industry-standard language
 4) BAD: "Leveraged React, Node.js, MongoDB while implementing Azure, DevOps, Kubernetes"
    GOOD: "Built React components that reduced page load time by 40% for enterprise dashboard"
-
-ACTION VERB REQUIREMENTS:
-1) Begin each bullet with a DIFFERENT, natural-sounding action verb
-2) AVOID artificial-sounding verbs like "Bolstered," "Fortified," "Orchestrated," "Conceived," "Instituted," "Spearheaded"${verbAvoidanceText}${mostUsedVerbsText}
-3) Use direct, impactful verbs that real professionals use on resumes
-4) Prioritize clarity and authenticity over vocabulary impressiveness
 
 WORD LIMIT:
 Keep each bullet within ${wordLimit} words unless preserving metrics requires more
