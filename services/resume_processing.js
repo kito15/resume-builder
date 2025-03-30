@@ -224,6 +224,24 @@ LOGICAL CONSISTENCY REQUIREMENTS:
    BAD: "Used Python to improve Photoshop rendering speed"
    GOOD: "Developed Python scripts to automate image processing, handling 500+ files daily"
 
+NATURAL LANGUAGE REQUIREMENTS:
+1) Write in a NATURAL, HUMAN voice that someone would actually put on their resume
+2) Avoid overly formal or flowery language that sounds thesaurus-generated
+3) DO NOT use uncommon, pretentious action verbs like "Championed," "Catalyzed," "Spearheaded," or "Architected"
+4) Use natural-sounding verbs like "Built," "Created," "Led," "Improved," "Reduced," "Increased," "Managed"
+5) Vary sentence structure to avoid repetitive patterns (don't always use "verb X, resulting in Y")
+6) Connect metrics naturally to accomplishments - avoid awkward phrases like "curtailing bugs" or "elevating satisfaction"
+
+EXAMPLES OF NATURAL VS. AI-SOUNDING BULLETS:
+NATURAL: >>Built a React dashboard that reduced data lookup time by 40% for a team of 6 developers
+AI-SOUNDING: >>Architected a sophisticated React-based visualization dashboard, elevating efficiency metrics by 40% for developer teams
+
+NATURAL: >>Reduced database query time by 35% by optimizing SQL indexes on customer order tables
+AI-SOUNDING: >>Engineered performance enhancements to database architecture, slashing query execution time by 35%
+
+NATURAL: >>Led migration of 5 legacy systems to AWS cloud infrastructure, saving $45K in annual hosting costs
+AI-SOUNDING: >>Spearheaded the strategic migration initiative of legacy systems to AWS cloud infrastructure, yielding $45K cost reduction
+
 CONTENT REQUIREMENTS:
 1) EVERY bullet point MUST include at least one specific metric (%, $, time saved, team size, etc.)
 2) Preserve EXACT numbers from original bullets (e.g., "increased efficiency by 15%" must stay exactly as "15%")
@@ -248,11 +266,18 @@ CRITICAL MEANING PRESERVATION:
 - If a bullet describes managing 3 people, do not change it to 4 people
 - The facts, scope, and impact must remain identical to the original
 
+XYZ FORMULA GUIDANCE:
+- Follow the XYZ formula: "Accomplished [X] as measured by [Y], by doing [Z]"
+- Or use the STAR method: Situation, Task, Action, Result
+- Present these naturally - not in a rigid or formulaic way
+- Example: "Reduced server response time by 45% by implementing Redis caching for high-traffic API endpoints"
+
 ACTION VERB DIVERSITY REQUIREMENTS:
 1) EVERY bullet must begin with a DIFFERENT specific action verb
 2) DO NOT repeat any action verbs within these bullets
 3) DO NOT use action verbs already used in other resume sections
 4) Use concrete, measurable verbs that demonstrate clear impact${verbAvoidanceText}${mostUsedVerbsText}
+5) Stick to COMMON, NATURAL verbs that real people use on resumes - avoid thesaurus-hunting
 
 STRUCTURE (implicit, not explicit):
 - Begin with powerful, specific action verb
