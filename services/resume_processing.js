@@ -204,14 +204,37 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
 
     const basePrompt = `Expert resume editor: Integrate keywords naturally into existing bullet points while preserving meaning.
 
-CRITICAL ACTION VERB REQUIREMENT:
-1) NEVER use artificial-sounding verbs - these will be REJECTED:
-   - PROHIBITED VERBS: "Bolstered," "Fortified," "Orchestrated," "Conceived," "Instituted," "Spearheaded," "Fashioned," "Fostered"${verbAvoidanceText}${mostUsedVerbsText}
-2) Use ONLY natural, everyday verbs that real professionals actually use
-3) GOOD VERBS: "Built," "Created," "Developed," "Improved," "Reduced," "Increased," "Managed," "Led"
-4) Each bullet MUST start with a DIFFERENT verb
+CRITICAL ACTION VERB REQUIREMENTS:
+1) STRICTLY AVOID THESE ARTIFICIAL-SOUNDING VERBS: 
+   Bolstered, Fortified, Orchestrated, Conceived, Instituted, Spearheaded, Fashioned, Fostered, 
+   Galvanized, Leveraged, Optimized, Pioneered, Revolutionized, Streamlined, Synergized
+   
+2) USE THESE PROFESSIONAL ALTERNATIVES INSTEAD:
+   Led, Managed, Developed, Built, Created, Designed, Improved, Increased, Reduced, Automated,
+   Implemented, Integrated, Optimized, Resolved, Trained, Expanded, Maintained
 
-CRITICAL FORMATTING REQUIREMENT:
+3) Action verb rules:
+   - MUST use different verb for each bullet
+   - MUST sound like natural human writing
+   - MUST use verbs actually found in real tech resumes
+   - NO thesaurus-style replacements
+   - NO marketing jargon
+   - NO forced "impressive" verbs
+
+EXAMPLES OF BAD/GOOD VERBS:
+BAD: "Bolstered React component performance"
+GOOD: "Improved React component performance by 40%"
+
+BAD: "Orchestrated CI/CD pipeline implementation"
+GOOD: "Created CI/CD pipeline that reduced deployments by 30%"
+
+BAD: "Spearheaded cross-functional initiative"
+GOOD: "Led 4-person team in feature development"
+
+BAD: "Fostered Agile development practices"
+GOOD: "Implemented Agile processes across 3 teams"
+
+CRITICAL FORMATTING REQUIREMENTS:
 Every bullet point MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
 
 KEYWORD INTEGRATION REQUIREMENTS:
