@@ -202,76 +202,64 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `Expert resume writer: Transform bullets into specific, measurable achievements with concrete numbers and metrics.
+    const basePrompt = `Expert resume editor: Integrate keywords naturally into existing bullet points while preserving meaning.
 
 CRITICAL FORMATTING REQUIREMENT:
-Every bullet point you generate MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
-For example: ">>Developed..." not ">> Developed..." and not "Developed...".
-If you don't format bullets with ">>" prefix, they will be completely discarded.
+Every bullet point MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
 
 KEYWORD INTEGRATION REQUIREMENTS:
-1) Distribute keywords naturally across ALL bullets - never concentrate multiple keywords in one bullet
-2) Each bullet should use only keywords that make logical sense in that specific context
-3) Ensure EVERY keyword from ${keywords} is used at least once across all bullets
-4) Keywords should flow within the narrative of each achievement - never appear list-like (e.g., "using HTML, CSS, JavaScript")
-5) If a keyword doesn't fit naturally with a bullet's original meaning, save it for a more appropriate bullet
-6) Never sacrifice the original meaning to force in keywords
-7) Each bullet must stay within ${wordLimit} words unless preserving essential metrics requires more
+1) Distribute keywords ACROSS ALL bullets - never concentrate multiple keywords in one bullet
+2) Each bullet should only contain keywords that logically belong together
+3) EVERY keyword from ${keywords} must appear at least once
+4) Keywords should flow within the narrative, not as comma-separated lists
+5) BAD: "Developed applications using HTML, CSS, JavaScript, and Python"
+   GOOD: "Developed responsive web interfaces with HTML and CSS that reduced load time by 30%"
+   GOOD: "Built JavaScript modules for data visualization that improved user engagement by 25%"
+6) If a keyword doesn't fit naturally with a bullet's core meaning, save it for another bullet
 
 TECHNOLOGY CONSISTENCY REQUIREMENTS:
-1) Only combine technologies that naturally work together in real-world scenarios
-2) NEVER pair incompatible technologies or concepts in the same bullet
+1) Only combine technologies that logically work together in real-world scenarios
+2) Maintain strict technical accuracy in all relationships between:
+   - Technologies/tools mentioned
+   - The specific task described
+   - The impact achieved
+3) AVOID ILLOGICAL COMBINATIONS:
    BAD: "Used MongoDB to optimize Salesforce workflows"
-   GOOD: "Built REST APIs with Node.js and Express, handling 1M+ daily requests"
-3) Technology references must reflect actual professional usage patterns:
-   BAD: "Used React for database optimization"
-   GOOD: "Developed React components with Redux state management, reducing render times by 40%"
+   BAD: "Integrated API Gateway with Excel macros"
+   GOOD: "Built REST APIs with API Gateway and Lambda, handling 2M+ daily requests"
+   GOOD: "Automated Salesforce workflows with Apex triggers, reducing manual tasks by 40%"
 
 MEANING PRESERVATION:
-1) The original bullet's core meaning MUST be preserved exactly
-2) DO NOT alter or embellish:
-   - Scope of responsibility
-   - Team sizes
-   - Project impact
-   - Timeline/duration
-   - Technical context
-3) Only enhance with:
-   - Specific metrics where missing
-   - Clearer achievement language
-   - Natural keyword integration
-
-ACTION VERB REQUIREMENTS:
-1) Begin each bullet with a different, natural-sounding action verb
-2) Use verbs that real professionals use on resumes
-3) AVOID overly formal, theatrical, or exaggerated verbs like:
-   - Orchestrated, Spearheaded, Championed
-   - Revolutionized, Transformed, Overhauled
-   - Bolstered, Fortified, Catalyzed
-4) Instead use clear, direct verbs like:
-   - Developed, Created, Built, Designed
-   - Improved, Increased, Reduced, Streamlined
-   - Managed, Led, Coordinated, Implemented
+1) The original bullet's core meaning must be preserved exactly
+2) DO NOT change or embellish scope, team size, impact, timeline, or technical context
+3) Only enhance specificity, clarity, and natural keyword integration
 
 NATURAL LANGUAGE REQUIREMENTS:
-1) Every bullet must sound like it was written by a professional human
-2) Integrate keywords as if they were part of the original content
-3) BAD (awkward keyword insertion):
-   "Developed applications using Java, Python, and React while implementing cloud solutions"
-4) GOOD (natural integration):
-   "Developed Java microservices with Python data processing modules, reducing API response times by 35%"
-   "Built responsive UI components with React, improving user engagement metrics by 28%"
+1) Each bullet must read as if written by a human professional
+2) Keywords should blend seamlessly into the narrative
+3) Maintain professional, industry-standard language
+4) BAD: "Leveraged React, Node.js, MongoDB while implementing Azure, DevOps, Kubernetes"
+   GOOD: "Built React components that reduced page load time by 40% for enterprise dashboard"
 
-CONTENT REQUIREMENTS:
-1) Every bullet MUST include at least one specific metric (%, $, time saved)
-2) Preserve EXACT numbers from original bullets
-3) Add concrete metrics where missing
-4) Keep professional tone throughout
+ACTION VERB REQUIREMENTS:
+1) Begin each bullet with a DIFFERENT, natural-sounding action verb
+2) AVOID artificial-sounding verbs like "Bolstered," "Fortified," "Orchestrated," "Conceived," "Instituted," "Spearheaded"${verbAvoidanceText}${mostUsedVerbsText}
+3) Use direct, impactful verbs that real professionals use on resumes
+4) Prioritize clarity and authenticity over vocabulary impressiveness
 
-YOUR RESPONSE FORMAT:
+WORD LIMIT:
+Keep each bullet within ${wordLimit} words unless preserving metrics requires more
+
+FORMAT REQUIREMENTS:
 - Output ONLY bullet points, each starting with ">>"
 - No explanations before or after bullets
-- No line numbers or annotations
-- Each bullet on its own line`;
+- No line numbers or additional formatting
+- One bullet per line
+
+EXAMPLES OF NATURAL KEYWORD INTEGRATION:
+>>Developed REST APIs using Node.js that processed 500K+ daily transactions for e-commerce platform
+>>Improved database query performance by 45% through PostgreSQL optimization for high-traffic customer portal
+>>Created automated testing framework with Jest that increased code coverage from 65% to 95%`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
