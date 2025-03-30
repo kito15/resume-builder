@@ -202,131 +202,54 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `Expert resume writer: Transform bullets into specific, measurable achievements with concrete numbers and metrics.
+    const basePrompt = `Expert resume writer: Transform bullets into specific, measurable achievements with strategic keyword integration.
 
 CRITICAL FORMATTING REQUIREMENT:
-Every bullet point you generate MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
+Every bullet point MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
 For example: ">>Developed..." not ">> Developed..." and not "Developed...".
-If you don't format bullets with ">>" prefix, they will be completely discarded.
 
-KEYWORD INTEGRATION REQUIREMENTS:
+KEYWORD INTEGRATION STRATEGY:
 1) Distribute keywords naturally across ALL bullets - never concentrate multiple keywords in one bullet
-2) Each keyword must appear in a context where it logically belongs
-3) Ensure EVERY keyword from ${keywords} is used at least once throughout all bullets
-4) Weave keywords seamlessly into the narrative - never insert them as comma-separated lists
-5) BAD: "Developed applications using HTML, CSS, JavaScript and React"
-   GOOD: "Developed responsive interfaces with JavaScript and React components that reduced load times by 40%"
-   GOOD: "Created pixel-perfect implementations of designs using CSS, improving cross-browser consistency by 35%"
-6) If a keyword doesn't fit naturally with a bullet's core meaning, save it for another bullet where it belongs
-7) Stay within the ${wordLimit} word limit per bullet while maintaining natural language flow
-8) Preserve the original intent, scope, and meaning of each bullet point
-9) Keywords should enhance, not override, the original achievement being described
+2) Each bullet should only contain keywords that have logical relationships
+3) Ensure EVERY keyword from ${keywords} appears at least once 
+4) Incorporate keywords as part of natural sentence flow
+5) If a keyword doesn't fit a bullet's context, save it for a more appropriate bullet
+6) Avoid listing technologies (e.g., "Used HTML, CSS, JavaScript") - weave each into specific contexts
 
 TECHNOLOGY CONSISTENCY REQUIREMENTS:
-1) Each bullet MUST maintain strict logical consistency between:
-   - Technologies/tools mentioned
-   - The specific task or process described
-   - The impact/results achieved
-2) NEVER combine technologies that don't typically integrate in real-world scenarios
-   BAD: "Used MongoDB to optimize Salesforce workflows"
-   BAD: "Integrated API Gateway with Excel macros"
-   GOOD: "Built REST APIs with API Gateway and Lambda for microservices architecture"
-   GOOD: "Developed Salesforce automation flows integrated with custom Apex triggers"
-3) Technology stacks mentioned must reflect real-world architectures:
-   BAD: "Used React for database optimization"
-   BAD: "Applied machine learning to improve CSS styling"
-   GOOD: "Built React components with Redux, reducing state management complexity by 40%"
-   GOOD: "Optimized PostgreSQL queries, cutting response time by 50% for high-traffic endpoints"
+1) Only pair technologies that would realistically be used together
+2) Technologies mentioned must align with the specific task described
+3) Maintain real-world technical accuracy in all relationships
+   BAD: "Used MongoDB to manage WordPress themes"
+   GOOD: "Optimized MongoDB queries, reducing API response times by 40%"
 
-CRITICAL MEANING PRESERVATION:
-1) The original bullet's core meaning is SACRED - preserve it exactly
-2) Do NOT change or embellish:
+MEANING PRESERVATION:
+1) The original bullet's core meaning must be preserved exactly
+2) Do not alter:
    - Scope of responsibility
-   - Team sizes
+   - Team size
    - Project impact
-   - Timeline/duration
    - Technical context
-3) Only enhance:
-   - Specificity of metrics
-   - Clarity of achievement
-   - Action verb strength
-   - Natural keyword integration
-4) If unsure about preserving meaning while adding a keyword, prioritize meaning
+3) When adding keywords, ensure they support rather than change the original meaning
 
 NATURAL LANGUAGE REQUIREMENTS:
-1) Every bullet must sound like it was written by a human
-2) Avoid awkward combinations of keywords or technologies
-3) Use natural transitions and connections
-4) BAD (unnatural keyword stuffing):
-   "Leveraged React, Node.js, and MongoDB while implementing Azure DevOps and Kubernetes to optimize Salesforce integration"
-5) GOOD (natural keyword usage):
-   "Built React frontend components that reduced page load time by 40%"
-   "Designed MongoDB schema optimizations, cutting query time by 50%"
-6) If multiple technologies are mentioned, they must have a clear, logical relationship
-
-EXAMPLES OF NATURAL VS. FORCED KEYWORD INTEGRATION:
-NATURAL: >>Developed REST APIs using Node.js and Express, handling 1M+ daily requests
-FORCED: >>Developed REST APIs using Node.js, Express, React, and Kubernetes while managing Salesforce integration
-
-NATURAL: >>Built automated CI/CD pipeline with Jenkins, reducing deployment time by 65%
-FORCED: >>Built Jenkins pipeline with React testing, Salesforce deployment, and MongoDB optimization
-
-NATURAL: >>Optimized PostgreSQL queries for customer data service, reducing response time by 45%
-FORCED: >>Optimized database performance using PostgreSQL, MongoDB, and Redis while implementing React components
+1) Each bullet must read as if written by a human professional
+2) Integrate keywords as if they were part of the original text
+3) Avoid awkward phrasing or forced keyword placement
+4) BAD: "Developed website using HTML, CSS, JavaScript, React, and Node.js"
+5) GOOD: "Engineered responsive UI components with React, reducing load time by 30%"
 
 CONTENT REQUIREMENTS:
-1) EVERY bullet point MUST include at least one specific metric (%, $, time saved, team size, etc.)
-2) Preserve EXACT numbers from original bullets (e.g., "increased efficiency by 15%" must stay exactly as "15%")
-3) Add concrete metrics where missing - specify exact numbers for:
-   - Revenue/cost impact in dollars
-   - Time/efficiency improvements as percentages
-   - Team/user/customer size in exact numbers
-   - Project duration in months/years
-   - Resource savings in specific units
-4) Integrate ALL keywords (${keywords}) naturally into the flow
-5) Keep within ${wordLimit} words unless preserving metrics requires more
-6) Maintain consistent date formatting and chronological ordering
-7) NO vague descriptors - replace with specifics:
-   Instead of "significantly improved" → "improved by 15%"
-   Instead of "large team" → "team of 5 engineers"
-   Instead of "multiple clients" → "4 enterprise clients"
+1) Every bullet MUST include at least one specific metric
+2) Preserve exact numbers from original bullets
+3) Add metrics where missing (%, $, time saved, etc.)
+4) Keep within ${wordLimit} words unless necessary for clarity
+5) Begin each bullet with a strong, unique action verb${verbAvoidanceText}${mostUsedVerbsText}
 
-XYZ FORMULA GUIDANCE:
-- Follow the XYZ formula: "Accomplished [X] as measured by [Y], by doing [Z]"
-- Or use the STAR method: Situation, Task, Action, Result
-- Present these naturally - not in a rigid or formulaic way
-- Example: "Reduced server response time by 45% by implementing Redis caching for high-traffic API endpoints"
-
-ACTION VERB DIVERSITY REQUIREMENTS:
-1) EVERY bullet must begin with a DIFFERENT specific action verb
-2) DO NOT repeat any action verbs within these bullets
-3) DO NOT use action verbs already used in other resume sections
-4) Use concrete, measurable verbs that demonstrate clear impact${verbAvoidanceText}${mostUsedVerbsText}
-5) Stick to COMMON, NATURAL verbs that real people use on resumes - avoid thesaurus-hunting
-
-STRUCTURE (implicit, not explicit):
-- Begin with powerful, specific action verb
-- Include exact context (team size, project scope, timeline)
-- State measurable outcome with specific metrics
-- Integrate keywords naturally within achievement
-
-YOUR RESPONSE FORMAT - STRICTLY REQUIRED:
-- Output ONLY the bullet points, each starting with ">>"
-- Do not include ANY explanations before or after the bullet points
-- Do not include ANY line numbers, bullet points (#, *, -), or annotations
-- Each bullet should be on its own line
-
-EXAMPLES OF CORRECT FORMAT AND LOGICAL CONSISTENCY:
->>Optimized PostgreSQL database queries for customer portal, reducing average response time by 45% and server load by 30%
->>Developed automated testing framework using Jest, increasing test coverage from 65% to 95% and reducing QA time by 8 hours weekly
-
-EXAMPLES OF INCORRECT FORMAT OR LOGIC:
-- "Automated deployment pipeline" (missing ">>" prefix)
-- ">> Automated deployment" (space after ">>")
-- "Here are some bullet points:" (explanatory text not allowed)
-- "1. >>Automated deployment" (numbering not allowed)
-- ">>Used Java to improve Photoshop performance" (illogical technology combination)
-- ">>Created Excel macros using MongoDB" (incompatible tools)`;
+RESPONSE FORMAT:
+- Output ONLY bullet points, each starting with ">>"
+- No explanations, line numbers, or annotations
+- Each bullet on its own line`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
