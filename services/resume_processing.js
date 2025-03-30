@@ -202,74 +202,84 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `Expert resume editor: Transform bullets into specific, measurable achievements while using natural, professional language.
+    const basePrompt = `Expert resume writer: Transform bullets into specific, measurable achievements while naturally incorporating required keywords.
 
-CRITICAL FORMATTING REQUIREMENT:
-Every bullet point MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
+KEYWORD DISTRIBUTION RULES:
+1) CRITICAL: Spread keywords (${keywords}) across ALL bullets - never cluster multiple keywords in one bullet
+2) Each bullet should use only keywords that make logical sense together
+3) Keywords must flow naturally within achievements - never list them
+4) BAD: "Used HTML, CSS, and JavaScript to build websites"
+5) GOOD: "Built responsive landing pages with CSS Grid, improving mobile conversion rates by 25%"
 
-ACTION VERB REQUIREMENTS (HIGHEST PRIORITY):
-1) Start each bullet with a DIFFERENT action verb that real professionals commonly use
+ACTION VERB REQUIREMENTS:
+1) Start each bullet with a clear, professional action verb
 2) STRICTLY AVOID these artificial-sounding verbs:
    - Bolstered, Fortified, Orchestrated, Conceived
    - Instituted, Spearheaded, Fashioned, Fostered
-   - Championed, Catalyzed, Cultivated, Leveraged
-   - Pioneered, Revolutionized, Transformed
-   ${verbAvoidanceText}${mostUsedVerbsText}
-3) Use natural, commonly-used verbs that demonstrate impact:
-   GOOD EXAMPLES:
-   - Built, Created, Developed, Designed
-   - Improved, Increased, Reduced, Decreased
-   - Managed, Led, Guided, Trained
-   - Implemented, Launched, Delivered
-   - Analyzed, Evaluated, Tested
-4) If you're unsure whether a verb sounds natural, default to simpler, clearer alternatives
+   - Any verbs listed in ${verbAvoidanceText}
+   - Any verbs listed in ${mostUsedVerbsText}
+3) Use natural, impactful verbs that real professionals use:
+   GOOD: Built, Developed, Improved, Created, Implemented
+   GOOD: Designed, Launched, Reduced, Increased, Streamlined
+4) Each bullet must use a unique action verb
 
-KEYWORD INTEGRATION REQUIREMENTS:
-1) Distribute keywords ACROSS ALL bullets - never concentrate multiple keywords in one bullet
-2) Each bullet should only contain keywords that logically belong together
-3) EVERY keyword from ${keywords} must appear at least once
-4) Keywords should flow naturally within the achievement description
-5) BAD: "Developed applications using HTML, CSS, JavaScript, and Python"
-   GOOD: "Built responsive web interfaces with HTML and CSS that reduced load time by 30%"
-   GOOD: "Developed JavaScript modules for data visualization that improved user engagement by 25%"
+TECHNOLOGY PAIRING RULES:
+1) Only combine technologies that work together in real projects:
+   GOOD: "Built React components with Redux for state management"
+   BAD: "Used MongoDB to optimize CSS animations"
 
-TECHNOLOGY CONSISTENCY REQUIREMENTS:
-1) Only combine technologies that logically work together in real-world scenarios
-2) BAD: "Used MongoDB to optimize Salesforce workflows"
-   BAD: "Integrated API Gateway with Excel macros"
-   GOOD: "Built REST APIs with API Gateway and Lambda, handling 2M+ daily requests"
-   GOOD: "Automated Salesforce workflows with Apex triggers, reducing manual tasks by 40%"
+2) Technology mentions must reflect real-world architecture:
+   GOOD: "Developed Node.js microservices with MongoDB, handling 50K daily requests"
+   BAD: "Used Python to enhance HTML performance"
 
-NATURAL LANGUAGE REQUIREMENTS:
-1) Write as a human professional would write
-2) Avoid buzzwords and corporate jargon
-3) BAD: "Leveraged cutting-edge technologies to drive innovation"
-   GOOD: "Reduced server response time by 40% using Redis caching"
-4) BAD: "Orchestrated cross-functional synergies"
-   GOOD: "Led 5-person team to deliver customer portal 2 weeks ahead of schedule"
+BULLET POINT REQUIREMENTS:
+1) Begin EVERY bullet with ">>" (no space after)
+2) Include at least one specific metric (%, $, time saved, etc.)
+3) Keep within ${wordLimit} words
+4) Maintain the original bullet's:
+   - Core meaning
+   - Scope of work
+   - Project impact
+   - Timeline
+   - Technical accuracy
 
-METRICS AND SPECIFICITY:
-1) Include at least one specific metric in EVERY bullet
-2) Use exact numbers for:
-   - Percentages (efficiency, improvement)
-   - Time periods (weeks, months)
-   - Team sizes (number of people)
-   - Volume (requests, users, transactions)
-   - Cost savings (dollar amounts)
+NATURAL LANGUAGE RULES:
+1) Write like a human professional
+2) Avoid awkward keyword combinations
+3) Connect ideas smoothly
+4) BAD (forced keywords):
+   "Leveraged React while implementing Azure and optimizing MongoDB"
+5) GOOD (natural flow):
+   "Built React dashboard that reduced data lookup time by 40%"
+   "Optimized MongoDB queries, cutting API response time by 50%"
 
-WORD LIMIT:
-Keep each bullet within ${wordLimit} words unless preserving metrics requires more
+METRICS REQUIREMENTS:
+1) Keep existing metrics exactly as written
+2) Add specific metrics where missing:
+   - Exact percentages for improvements
+   - Dollar amounts for revenue/savings
+   - Team/user/customer counts
+   - Time periods in months/years
+3) Replace vague terms with specifics:
+   Instead of "major improvement" → "40% improvement"
+   Instead of "large-scale" → "serving 100K+ users"
 
 FORMAT REQUIREMENTS:
-- Output ONLY bullet points, each starting with ">>"
-- No explanations before or after bullets
-- No line numbers or additional formatting
-- One bullet per line
+1) ONLY output bullet points
+2) Each bullet MUST start with ">>"
+3) No explanations or annotations
+4) No numbering or bullet symbols
+5) One bullet per line
 
-EXAMPLES OF STRONG, NATURAL BULLETS:
->>Built REST APIs that processed 500K+ daily transactions for e-commerce platform
->>Improved database query performance by 45% through PostgreSQL optimization
->>Created automated testing framework that increased code coverage from 65% to 95%`;
+EXAMPLES OF GOOD BULLETS:
+>>Built automated CI/CD pipeline using Jenkins, reducing deployment time from 4 hours to 30 minutes
+>>Developed REST APIs with Node.js that processed 2M+ requests daily
+>>Improved database query performance by 60% through MongoDB index optimization
+
+EXAMPLES OF BAD BULLETS:
+>>Bolstered efficiency using HTML, CSS, and JavaScript (artificial verb, listed keywords)
+>>Orchestrated implementation of various technologies (vague, artificial verb)
+>>Leveraged React, Node.js, MongoDB while utilizing Azure (forced keyword stuffing)`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
@@ -279,8 +289,8 @@ ${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `${basePrompt}
 
-Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
-REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION VERBS`;
+Generate 15 achievement-focused bullets ${context} with concrete metrics and natural action verbs.
+REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE, NATURAL ACTION VERBS`;
     }
 
     try {
