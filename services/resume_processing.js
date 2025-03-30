@@ -202,65 +202,60 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `Expert resume editor: Integrate keywords naturally into existing bullet points while preserving meaning.
-
-CRITICAL ACTION VERB REQUIREMENTS:
-1) STRICTLY AVOID THESE ARTIFICIAL-SOUNDING VERBS:
-   - "Bolstered", "Fortified", "Orchestrated", "Conceived", "Instituted"
-   - "Spearheaded", "Fashioned", "Fostered", "Championed", "Pioneered"
-   - "Leveraged", "Utilized", "Engineered", "Architected", "Operationalized"
-   - Any verb in ${verbAvoidanceText}
-   - Overused verbs from ${mostUsedVerbsText}
-
-2) USE THESE NATURAL ALTERNATIVES INSTEAD:
-   - "Developed", "Created", "Improved", "Built", "Designed"
-   - "Increased", "Reduced", "Optimized", "Implemented", "Led"
-   - "Managed", "Trained", "Resolved", "Automated", "Expanded"
-
-3) ACTION VERB RULES:
-   - Every bullet MUST start with a different, natural-sounding verb
-   - Verbs must reflect real workplace language (e.g., what developers/engineers actually say)
-   - Prioritize clarity over vocabulary complexity
-   - Avoid metaphorical verbs that don't describe concrete actions
-   - BAD: "Orchestrated cloud-native solutions"
-   - GOOD: "Migrated legacy systems to AWS, reducing infrastructure costs by 35%"
+    const basePrompt = `Expert resume editor: Transform bullets into specific, measurable achievements while using natural, professional language.
 
 CRITICAL FORMATTING REQUIREMENT:
 Every bullet point MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
+
+ACTION VERB REQUIREMENTS (HIGHEST PRIORITY):
+1) Start each bullet with a DIFFERENT action verb that real professionals commonly use
+2) STRICTLY AVOID these artificial-sounding verbs:
+   - Bolstered, Fortified, Orchestrated, Conceived
+   - Instituted, Spearheaded, Fashioned, Fostered
+   - Championed, Catalyzed, Cultivated, Leveraged
+   - Pioneered, Revolutionized, Transformed
+   ${verbAvoidanceText}${mostUsedVerbsText}
+3) Use natural, commonly-used verbs that demonstrate impact:
+   GOOD EXAMPLES:
+   - Built, Created, Developed, Designed
+   - Improved, Increased, Reduced, Decreased
+   - Managed, Led, Guided, Trained
+   - Implemented, Launched, Delivered
+   - Analyzed, Evaluated, Tested
+4) If you're unsure whether a verb sounds natural, default to simpler, clearer alternatives
 
 KEYWORD INTEGRATION REQUIREMENTS:
 1) Distribute keywords ACROSS ALL bullets - never concentrate multiple keywords in one bullet
 2) Each bullet should only contain keywords that logically belong together
 3) EVERY keyword from ${keywords} must appear at least once
-4) Keywords should flow within the narrative, not as comma-separated lists
+4) Keywords should flow naturally within the achievement description
 5) BAD: "Developed applications using HTML, CSS, JavaScript, and Python"
-   GOOD: "Developed responsive web interfaces with HTML and CSS that reduced load time by 30%"
-   GOOD: "Built JavaScript modules for data visualization that improved user engagement by 25%"
-6) If a keyword doesn't fit naturally with a bullet's core meaning, save it for another bullet
+   GOOD: "Built responsive web interfaces with HTML and CSS that reduced load time by 30%"
+   GOOD: "Developed JavaScript modules for data visualization that improved user engagement by 25%"
 
 TECHNOLOGY CONSISTENCY REQUIREMENTS:
 1) Only combine technologies that logically work together in real-world scenarios
-2) Maintain strict technical accuracy in all relationships between:
-   - Technologies/tools mentioned
-   - The specific task described
-   - The impact achieved
-3) AVOID ILLOGICAL COMBINATIONS:
-   BAD: "Used MongoDB to optimize Salesforce workflows"
+2) BAD: "Used MongoDB to optimize Salesforce workflows"
    BAD: "Integrated API Gateway with Excel macros"
    GOOD: "Built REST APIs with API Gateway and Lambda, handling 2M+ daily requests"
    GOOD: "Automated Salesforce workflows with Apex triggers, reducing manual tasks by 40%"
 
-MEANING PRESERVATION:
-1) The original bullet's core meaning must be preserved exactly
-2) DO NOT change or embellish scope, team size, impact, timeline, or technical context
-3) Only enhance specificity, clarity, and natural keyword integration
-
 NATURAL LANGUAGE REQUIREMENTS:
-1) Each bullet must read as if written by a human professional
-2) Keywords should blend seamlessly into the narrative
-3) Maintain professional, industry-standard language
-4) BAD: "Leveraged React, Node.js, MongoDB while implementing Azure, DevOps, Kubernetes"
-   GOOD: "Built React components that reduced page load time by 40% for enterprise dashboard"
+1) Write as a human professional would write
+2) Avoid buzzwords and corporate jargon
+3) BAD: "Leveraged cutting-edge technologies to drive innovation"
+   GOOD: "Reduced server response time by 40% using Redis caching"
+4) BAD: "Orchestrated cross-functional synergies"
+   GOOD: "Led 5-person team to deliver customer portal 2 weeks ahead of schedule"
+
+METRICS AND SPECIFICITY:
+1) Include at least one specific metric in EVERY bullet
+2) Use exact numbers for:
+   - Percentages (efficiency, improvement)
+   - Time periods (weeks, months)
+   - Team sizes (number of people)
+   - Volume (requests, users, transactions)
+   - Cost savings (dollar amounts)
 
 WORD LIMIT:
 Keep each bullet within ${wordLimit} words unless preserving metrics requires more
@@ -271,10 +266,10 @@ FORMAT REQUIREMENTS:
 - No line numbers or additional formatting
 - One bullet per line
 
-EXAMPLES OF NATURAL KEYWORD INTEGRATION:
->>Developed REST APIs using Node.js that processed 500K+ daily transactions for e-commerce platform
->>Improved database query performance by 45% through PostgreSQL optimization for high-traffic customer portal
->>Created automated testing framework with Jest that increased code coverage from 65% to 95%`;
+EXAMPLES OF STRONG, NATURAL BULLETS:
+>>Built REST APIs that processed 500K+ daily transactions for e-commerce platform
+>>Improved database query performance by 45% through PostgreSQL optimization
+>>Created automated testing framework that increased code coverage from 65% to 95%`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
