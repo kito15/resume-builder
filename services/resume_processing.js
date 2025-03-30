@@ -223,22 +223,12 @@ LOGICAL CONSISTENCY REQUIREMENTS:
 4) Keep technologies and tools within their typical use cases
    BAD: "Used Python to improve Photoshop rendering speed"
    GOOD: "Developed Python scripts to automate image processing, handling 500+ files daily"
-5) Technology pairings must be realistic and used in their typical contexts
-   BAD: "Integrated API Gateway with Salesforce to optimize Excel macros"
-   GOOD: "Built API Gateway endpoints that integrated with Salesforce, reducing manual data entry by 35%"
-
-KEYWORD INTEGRATION GUIDELINES:
-1) DO NOT force all keywords into EVERY bullet point - distribute them naturally across ALL bullets
-2) Each bullet should contain 1-3 keywords maximum, focused on related technologies
-3) Group related technologies/keywords in the same bullet points
-4) When integrating keywords, ONLY use them where they logically fit with the experience/achievement
-5) PRESERVE THE ORIGINAL MEANING of the bullet first, then find natural places to incorporate keywords
-6) If a keyword doesn't fit naturally in the context, save it for another bullet where it makes more sense
-
-EXAMPLES OF GOOD VS. BAD KEYWORD INTEGRATION:
-BAD (forced keywords): ">>Developed React frontend components while using Python for database optimization and implemented API Gateway integrations for Salesforce connections"
-GOOD (natural distribution): ">>Developed React frontend components that improved dashboard load time by 35% for 3,000+ daily users"
-GOOD (natural distribution): ">>Optimized Python data processing scripts, reducing report generation time from 4 hours to 15 minutes"
+5) CRITICAL: Never combine technologies that don't naturally work together
+   BAD: "Built React components using Salesforce cloud functions"
+   GOOD: "Built React components for customer portal, reducing page load time by 40%"
+6) Each technology must be used in its proper context and role
+   BAD: "Used API Gateway to create Salesforce flows"
+   GOOD: "Created API Gateway endpoints that integrated with existing Salesforce workflows"
 
 NATURAL LANGUAGE REQUIREMENTS:
 1) Write in a NATURAL, HUMAN voice that someone would actually put on their resume
@@ -267,13 +257,22 @@ CONTENT REQUIREMENTS:
    - Team/user/customer size in exact numbers
    - Project duration in months/years
    - Resource savings in specific units
-4) Distribute keywords (${keywords}) naturally across ALL bullets - don't force all keywords into each bullet
-5) Keep within ${wordLimit} words unless preserving metrics requires more
-6) Maintain consistent date formatting and chronological ordering
-7) NO vague descriptors - replace with specifics:
+4) Keep within ${wordLimit} words unless preserving metrics requires more
+5) Maintain consistent date formatting and chronological ordering
+6) NO vague descriptors - replace with specifics:
    Instead of "significantly improved" → "improved by 15%"
    Instead of "large team" → "team of 5 engineers"
    Instead of "multiple clients" → "4 enterprise clients"
+
+KEYWORD INTEGRATION REQUIREMENTS:
+1) DO NOT try to force ALL keywords into EVERY bullet point
+2) DISTRIBUTE the keywords (${keywords}) naturally across all bullet points
+3) Each bullet should contain only 1-2 keywords where they make logical sense
+4) ALL keywords must be used somewhere in the full set of bullets
+5) PRIORITIZE PRESERVING THE MEANING of the original bullet over forcing in keywords
+6) Only use keywords where they logically fit the context of that specific achievement
+7) If a keyword doesn't naturally fit with a bullet, use it in a different bullet
+8) NEVER sacrifice logical consistency or natural language just to include a keyword
 
 CRITICAL MEANING PRESERVATION:
 - You MUST preserve the exact meaning and core achievements from the original bullets
@@ -281,7 +280,7 @@ CRITICAL MEANING PRESERVATION:
 - Only enhance the format and specificity while keeping the same exact meaning
 - If a bullet describes managing 3 people, do not change it to 4 people
 - The facts, scope, and impact must remain identical to the original
-- NEVER add technologies or tools that weren't in the original bullet unless absolutely necessary for keyword integration
+- NEVER add technologies or skills that weren't mentioned in the original bullet
 
 XYZ FORMULA GUIDANCE:
 - Follow the XYZ formula: "Accomplished [X] as measured by [Y], by doing [Z]"
@@ -318,17 +317,39 @@ EXAMPLES OF INCORRECT FORMAT OR LOGIC:
 - "Here are some bullet points:" (explanatory text not allowed)
 - "1. >>Automated deployment" (numbering not allowed)
 - ">>Used Java to improve Photoshop performance" (illogical technology combination)
-- ">>Created Excel macros using MongoDB" (incompatible tools)`;
+- ">>Created Excel macros using MongoDB" (incompatible tools)
+- ">>Guided the creation of Salesforce flows using API Gateway" (incompatible technologies)`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
 
-INPUT BULLETS TO ENHANCE (integrate ALL keywords naturally):
-${(existingBullets || []).join('\n')}`;
+INPUT BULLETS TO ENHANCE:
+${(existingBullets || []).join('\n')}
+
+ADDITIONAL TAILORING INSTRUCTIONS:
+1) Your PRIMARY goal is to PRESERVE THE EXACT MEANING of each original bullet point
+2) DO NOT add technologies or skills that weren't in the original bullet point
+3) DISTRIBUTE the keywords (${keywords}) across different bullets, don't force them all into each bullet
+4) Only add a keyword to a bullet if it fits NATURALLY with the existing content
+5) If a keyword doesn't logically fit with any bullet, prioritize preserving the original meaning
+6) Focus on enhancing FORMAT and METRICS while keeping the same exact achievements
+7) Maintain technological consistency - don't combine unrelated technologies
+8) When adding keywords, ensure they are used in their proper technological context`;
     } else {
         prompt = `${basePrompt}
 
 Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
+
+ADDITIONAL GENERATION INSTRUCTIONS:
+1) DISTRIBUTE the keywords (${keywords}) naturally across all bullets - don't force all keywords into each bullet
+2) Each bullet should contain 1-2 keywords where they make LOGICAL sense
+3) NEVER combine technologies that don't naturally work together (e.g., "Used React with Salesforce flows")
+4) Ensure ALL technologies are used in their proper context and role
+5) Focus on creating REALISTIC, specific accomplishments with concrete metrics
+6) AVOID generic, vague, or clichéd statements - be specific and measurable
+7) Maintain technological consistency within each bullet point
+8) When using keywords like specific technologies, ensure they are used CORRECTLY
+
 REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION VERBS`;
     }
 
@@ -338,7 +359,7 @@ REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION
             {
                 system_instruction: {
                     parts: [{
-                        text: "You are a specialized resume optimization AI. Your ONLY task is to generate resume bullet points. You MUST format all bullet points with '>>' prefix (no space after). Do not include ANY other text. Use a DIFFERENT action verb for each bullet point."
+                        text: "You are a specialized resume optimization AI. Your ONLY task is to generate resume bullet points. You MUST format all bullet points with '>>' prefix (no space after). Do not include ANY other text. Use a DIFFERENT action verb for each bullet point. Distribute keywords naturally across all bullets rather than forcing them all into each bullet. Maintain strict technological consistency - never combine unrelated technologies in the same bullet point."
                     }]
                 },
                 contents: [{
@@ -347,9 +368,9 @@ REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION
                     }]
                 }],
                 generationConfig: {
-                    temperature: 0.4, // Lower temperature for more predictable formatting
+                    temperature: 0.35, // Lower temperature for more logical consistency
                     maxOutputTokens: 2000,
-                    topP: 0.9,
+                    topP: 0.85,
                     topK: 40
                 },
                 safetySettings: [{
