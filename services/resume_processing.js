@@ -205,36 +205,27 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
     const basePrompt = `Expert resume editor: Integrate keywords naturally into existing bullet points while preserving meaning.
 
 CRITICAL ACTION VERB REQUIREMENTS:
-1) STRICTLY AVOID THESE ARTIFICIAL-SOUNDING VERBS: 
-   Bolstered, Fortified, Orchestrated, Conceived, Instituted, Spearheaded, Fashioned, Fostered, 
-   Galvanized, Leveraged, Optimized, Pioneered, Revolutionized, Streamlined, Synergized
-   
-2) USE THESE PROFESSIONAL ALTERNATIVES INSTEAD:
-   Led, Managed, Developed, Built, Created, Designed, Improved, Increased, Reduced, Automated,
-   Implemented, Integrated, Optimized, Resolved, Trained, Expanded, Maintained
+1) STRICTLY AVOID THESE ARTIFICIAL-SOUNDING VERBS:
+   - "Bolstered", "Fortified", "Orchestrated", "Conceived", "Instituted"
+   - "Spearheaded", "Fashioned", "Fostered", "Championed", "Pioneered"
+   - "Leveraged", "Utilized", "Engineered", "Architected", "Operationalized"
+   - Any verb in ${verbAvoidanceText}
+   - Overused verbs from ${mostUsedVerbsText}
 
-3) Action verb rules:
-   - MUST use different verb for each bullet
-   - MUST sound like natural human writing
-   - MUST use verbs actually found in real tech resumes
-   - NO thesaurus-style replacements
-   - NO marketing jargon
-   - NO forced "impressive" verbs
+2) USE THESE NATURAL ALTERNATIVES INSTEAD:
+   - "Developed", "Created", "Improved", "Built", "Designed"
+   - "Increased", "Reduced", "Optimized", "Implemented", "Led"
+   - "Managed", "Trained", "Resolved", "Automated", "Expanded"
 
-EXAMPLES OF BAD/GOOD VERBS:
-BAD: "Bolstered React component performance"
-GOOD: "Improved React component performance by 40%"
+3) ACTION VERB RULES:
+   - Every bullet MUST start with a different, natural-sounding verb
+   - Verbs must reflect real workplace language (e.g., what developers/engineers actually say)
+   - Prioritize clarity over vocabulary complexity
+   - Avoid metaphorical verbs that don't describe concrete actions
+   - BAD: "Orchestrated cloud-native solutions"
+   - GOOD: "Migrated legacy systems to AWS, reducing infrastructure costs by 35%"
 
-BAD: "Orchestrated CI/CD pipeline implementation"
-GOOD: "Created CI/CD pipeline that reduced deployments by 30%"
-
-BAD: "Spearheaded cross-functional initiative"
-GOOD: "Led 4-person team in feature development"
-
-BAD: "Fostered Agile development practices"
-GOOD: "Implemented Agile processes across 3 teams"
-
-CRITICAL FORMATTING REQUIREMENTS:
+CRITICAL FORMATTING REQUIREMENT:
 Every bullet point MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
 
 KEYWORD INTEGRATION REQUIREMENTS:
