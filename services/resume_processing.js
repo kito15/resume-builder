@@ -202,7 +202,7 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `Expert resume writer: Transform bullets into specific, measurable achievements with concrete numbers and metrics.
+    const basePrompt = `Expert resume writer: Transform bullets into specific, measurable achievements using the STAR method.
 
 CRITICAL FORMATTING REQUIREMENT:
 Every bullet point you generate MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
@@ -221,10 +221,21 @@ TECHNOLOGY LOGICAL CONSISTENCY REQUIREMENTS:
 2) AVOID ILLOGICAL COMBINATIONS:
    WRONG: "Used MongoDB to optimize Salesforce workflows"
    WRONG: "Integrated API Gateway with Excel macros" 
-   CORRECT: "Developed REST APIs with Node.js and Express, handling 1M+ daily requests"
+   CORRECT: "Deployed REST APIs with Node.js and Express, handling 1M+ daily requests"
 3) Technology mentions must reflect actual professional usage:
    WRONG: "Used React for database optimization"
-   CORRECT: "Built React components with Redux, reducing state management complexity by 40%"
+   CORRECT: "Redesigned React components with Redux, reducing state management complexity by 40%"
+
+STAR METHOD REQUIREMENTS:
+1) Structure each bullet to include elements of the STAR method:
+   - Situation: Brief context of challenge/opportunity
+   - Task: Your specific responsibility
+   - Action: Precise steps taken (incorporating keywords naturally)
+   - Result: Specific outcome with quantifiable metrics
+2) Example: ">>Resolved database performance bottlenecks by optimizing SQL queries and implementing indexing strategy, cutting transaction processing time by 65%"
+3) EVERY bullet MUST include at least one specific metric (%, $, time saved, etc.)
+4) Preserve EXACT numbers from original bullets - never change metrics that already exist
+5) Keep balanced focus on both actions and results
 
 MEANING PRESERVATION PRIORITY:
 1) The original bullet's core meaning is SACRED - never alter:
@@ -233,34 +244,24 @@ MEANING PRESERVATION PRIORITY:
    - Project impacts
    - Timelines/durations
    - Technical contexts
-2) Only enhance with metrics and natural keyword integration
+2) Only enhance structure and natural keyword integration
 
 WORD LIMIT ADHERENCE:
 1) Each bullet MUST stay within ${wordLimit} words
-2) Never sacrifice meaning or metrics to meet word limit
-3) Prioritize conciseness and impact in every bullet
+2) Never sacrifice metrics or core meaning to meet word limit
+3) Prioritize conciseness while maintaining STAR elements
 
 ACTION VERB REQUIREMENTS (EXTREMELY IMPORTANT):
 1) Each bullet MUST start with a different professional action verb
-2) STRICTLY PROHIBITED VERBS: Bolstered, Fortified, Orchestrated, Conceived, Instituted, Spearheaded, Fashioned, Aided, Hardened, Shaped, Piloted, Crafted, Enriched, Championed, Fostered, Built, Used, Assisted, Helped, Participated, Worked, Supported, Handled, Performed${verbAvoidanceText}${mostUsedVerbsText}
-3) Use strong, specific action verbs like:
-   - Developed, Created, Designed, Implemented, Programmed
-   - Reduced, Improved, Increased, Decreased, Streamlined
-   - Managed, Led, Coordinated, Directed, Supervised
-   - Analyzed, Evaluated, Assessed, Researched, Investigated
-4) Avoid verbose or theatrical-sounding verbs - use direct, professional language
-
-STAR METHOD REQUIREMENTS:
-1) Each bullet should follow the STAR formula (Situation-Task-Action-Result)
-2) Include SPECIFIC context (Situation/Task)
-3) Highlight YOUR specific contribution (Action)
-4) QUANTIFY the impact with exact metrics (Result)
-   - Use specific percentages, dollar amounts, time saved
-   - Preserve EXACT numbers from original bullets
-   - Provide concrete metrics (%, $, user counts, etc.) for all achievements
-5) Example STAR format:
-   "Redesigned database architecture (Action) for e-commerce platform (Situation) 
-   to handle peak holiday traffic (Task), reducing query time by 40% (Result)"
+2) STRICTLY PROHIBITED VERBS: 
+   - WEAK VERBS: Built, Drove, Examined, Helped, Assisted, Used, Utilized, Employed, Worked, Handled, Managed, Did, Made, Created, Participated, Involved
+   - ARTIFICIAL VERBS: Bolstered, Fortified, Orchestrated, Conceived, Instituted, Spearheaded, Fashioned, Aided, Hardened, Shaped, Piloted, Crafted, Enriched, Championed, Fostered${verbAvoidanceText}${mostUsedVerbsText}
+3) Use strong, specific action verbs that demonstrate impact:
+   - Accelerated, Achieved, Automated, Transformed, Streamlined
+   - Reduced, Improved, Increased, Decreased, Enhanced
+   - Deployed, Implemented, Developed, Engineered, Programmed
+   - Analyzed, Resolved, Troubleshot, Diagnosed, Fixed
+4) Avoid verbose or theatrical-sounding verbs - use direct, impactful professional language
 
 INPUT BULLETS TO ENHANCE (integrate keywords naturally across ALL bullets):
 ${(existingBullets || []).join('\n')}`;
