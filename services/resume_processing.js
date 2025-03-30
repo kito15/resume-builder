@@ -237,23 +237,30 @@ MEANING PRESERVATION PRIORITY:
 
 WORD LIMIT ADHERENCE:
 1) Each bullet MUST stay within ${wordLimit} words
-2) Never sacrifice metrics or core meaning to meet word limit
-3) Prioritize conciseness with specific action + result + method format
+2) Never sacrifice meaning or metrics to meet word limit
+3) Prioritize conciseness and impact in every bullet
 
 ACTION VERB REQUIREMENTS (EXTREMELY IMPORTANT):
 1) Each bullet MUST start with a different professional action verb
-2) STRICTLY PROHIBITED VERBS: Bolstered, Fortified, Orchestrated, Conceived, Instituted, Spearheaded, Fashioned, Aided, Hardened, Shaped, Piloted, Crafted, Enriched, Fostered${verbAvoidanceText}${mostUsedVerbsText}
-3) Use natural, commonly used professional verbs like:
-   - Developed, Built, Created, Designed, Implemented
+2) STRICTLY PROHIBITED VERBS: Bolstered, Fortified, Orchestrated, Conceived, Instituted, Spearheaded, Fashioned, Aided, Hardened, Shaped, Piloted, Crafted, Enriched, Championed, Fostered, Built, Used, Assisted, Helped, Participated, Worked, Supported, Handled, Performed${verbAvoidanceText}${mostUsedVerbsText}
+3) Use strong, specific action verbs like:
+   - Developed, Created, Designed, Implemented, Programmed
    - Reduced, Improved, Increased, Decreased, Streamlined
    - Managed, Led, Coordinated, Directed, Supervised
    - Analyzed, Evaluated, Assessed, Researched, Investigated
-4) Avoid verbose or theatrical-sounding verbs - use direct, common professional language
+4) Avoid verbose or theatrical-sounding verbs - use direct, professional language
 
-METRICS REQUIREMENTS:
-1) EVERY bullet MUST include at least one specific metric (%, $, time saved, etc.)
-2) Preserve EXACT numbers from original bullets
-3) Add concrete metrics where missing (specific %, $, numbers)
+STAR METHOD REQUIREMENTS:
+1) Each bullet should follow the STAR formula (Situation-Task-Action-Result)
+2) Include SPECIFIC context (Situation/Task)
+3) Highlight YOUR specific contribution (Action)
+4) QUANTIFY the impact with exact metrics (Result)
+   - Use specific percentages, dollar amounts, time saved
+   - Preserve EXACT numbers from original bullets
+   - Provide concrete metrics (%, $, user counts, etc.) for all achievements
+5) Example STAR format:
+   "Redesigned database architecture (Action) for e-commerce platform (Situation) 
+   to handle peak holiday traffic (Task), reducing query time by 40% (Result)"
 
 INPUT BULLETS TO ENHANCE (integrate keywords naturally across ALL bullets):
 ${(existingBullets || []).join('\n')}`;
