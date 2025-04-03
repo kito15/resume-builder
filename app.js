@@ -41,7 +41,7 @@ const approvedDomains = [
     'cryptojobslist.com', 'gun.io', '6figurejobs.com', 'krop.com', 'nurse.com',
     'productionbeast.com', 'salesjobs.com', 'techcareers.com', 'travelnursesource.com',
     'writerswrite.com', 'lever.co', 'greenhouse.io', 'workday.com', 'bamboohr.com',
-    'smartrecruiters.com'
+    'smartrecruiters.com','tealhq.com'
 ];
 
 const corsOptions = {
