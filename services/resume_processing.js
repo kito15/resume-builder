@@ -204,9 +204,12 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
 
     const basePrompt = `Expert resume writer: Transform bullets into specific, measurable achievements using the STAR method.
 
-CRITICAL FORMATTING REQUIREMENT:
-Every bullet point you generate MUST begin with exactly ">>" (two greater-than signs) with no spaces before them.
-For example: ">>Developed..." not ">> Developed..." and not "Developed...".
+CRITICAL FORMATTING REQUIREMENT (ABSOLUTE RULE):
+Every single line representing a bullet point in your output MUST begin with exactly ">>" (two greater-than signs).
+There must be absolutely NO characters or whitespace before the ">>".
+Correct Example: ">>Developed..."
+Incorrect Examples: " >>Developed...", " Developed...", "- Developed...", "Developed..."
+This rule applies to ALL bullet points generated, without exception.
 
 ACTION VERB REQUIREMENTS (HIGHEST PRIORITY):
 1) Each bullet MUST start with a DIFFERENT professional action verb
