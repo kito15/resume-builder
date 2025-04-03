@@ -230,10 +230,10 @@ KEYWORD DISTRIBUTION REQUIREMENTS:
 6) If a keyword doesn't fit naturally with a bullet, save it for a more appropriate one
 
 TECHNOLOGY LOGICAL CONSISTENCY REQUIREMENTS:
-1) Only combine technologies that work together in real professional settings
-2) AVOID ILLOGICAL COMBINATIONS:
-   WRONG: "Used MongoDB to optimize Salesforce workflows"
-   CORRECT: "Modified database queries in MongoDB, reducing API response times by 40%"
+1) Ensure that any technologies mentioned in a single bullet point were directly used *together* in the specific action described to achieve the result.
+2) Only mention multiple technologies if the achievement *depended* on their interaction (e.g., 'analyzed server logs [Technology A] using custom scripts [Technology B]').
+3) Do NOT list technologies from the same project within one bullet if they were used for separate, unrelated tasks contributing to the achievement. Mention them in different bullets if appropriate.
+4) AVOID ILLOGICAL COMBINATIONS based on typical professional usage (e.g., do not claim to use a front-end framework to optimize a backend database directly).
 
 STAR METHOD REQUIREMENTS:
 1) Structure each bullet to include elements of the STAR method:
