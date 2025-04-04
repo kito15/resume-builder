@@ -225,62 +225,56 @@ ACTION VERB REQUIREMENTS (HIGHEST PRIORITY):
 4) Always choose straightforward, widely-used professional verbs that clearly communicate achievements
 
 KEYWORD DISTRIBUTION REQUIREMENTS:
-1) MANDATORY: Distribute keywords evenly across ALL bullets - never concentrate multiple keywords in one bullet. AIM for 1-2 relevant keywords per bullet maximum.
-2) **Prioritize Relevance over Quantity:** It is MORE important that a keyword is placed *logically* within a bullet than it is to force every single keyword onto the resume. If a keyword cannot be naturally and logically integrated into *any* bullet without violating the consistency or meaning rules below, DO NOT USE IT.
-3) Every keyword from ${keywords} SHOULD ideally be used at least once IF a logical place exists.
-4) Keywords MUST flow within sentences as if originally written that way - integrate them smoothly.
-5) NEVER list keywords together like "Used HTML, CSS, JavaScript to build..." – integrate them into the action or result description.
+1) MANDATORY: Distribute keywords evenly across ALL bullets - never concentrate multiple keywords in one bullet
+2) Each bullet should contain only 1-2 keywords that are contextually relevant to that specific achievement
+3) Every keyword from ${keywords} MUST be used at least once across all bullets
+4) Keywords should flow within sentences as if originally written that way
+5) NEVER list keywords together like "Used HTML, CSS, JavaScript to build..."
+6) If a keyword doesn't fit naturally with a bullet, save it for a more appropriate one
 
-TECHNOLOGY LOGICAL CONSISTENCY REQUIREMENTS (ABSOLUTE PRIORITY - FOLLOW STEP-BY-STEP FOR EACH KEYWORD AND BULLET):
-**BEFORE adding ANY keyword to ANY bullet, perform this explicit check:**
-   **Step 1: Analyze the Bullet's Core.** Identify the specific *Action* taken (e.g., "Optimized database queries") and the specific *Result* achieved (e.g., "reduced latency by 30%"). Understand the original technical context (e.g., database interaction).
-   **Step 2: Analyze the Keyword.** Consider the keyword's typical function (e.g., "React" is for building user interfaces; "SQL" is for database interaction; "JSON" is a data format).
-   **Step 3: Test for Direct Causal Link.** Ask: Was this specific [Keyword] *directly used or instrumental* in performing the *Action* identified in Step 1? Did the use of this [Keyword] *directly contribute* to achieving the *Result* identified in Step 1?
-      - *Example 1 (Logical):* Bullet Action/Result = "Optimized database queries, reducing latency". Keyword = "SQL". Test: Was SQL directly used to optimize queries and reduce latency? YES. --> **OK to potentially include.**
-      - *Example 2 (Illogical):* Bullet Action/Result = "Optimized database queries, reducing latency". Keyword = "React". Test: Was React directly used to optimize *database* queries? NO. --> **DO NOT INCLUDE 'React' IN THIS BULLET.**
-      - *Example 3 (Illogical):* Bullet Action/Result = "Increased user engagement by 30%". Keyword = "JSON". Test: Did using the data format JSON *directly cause* the increase in user engagement? NO (likely something else, like a feature built *using* data formatted as JSON, caused it). --> **DO NOT INCLUDE 'JSON' IN THIS BULLET as the cause.** Perhaps mention the feature itself if relevant.
-   **Step 4: Verify Grouping Logic.** If considering adding multiple keywords to one bullet, ensure they were used *together interactively* for the *single specific Action/Result* described. Do NOT list unrelated tools used on the same project but for different tasks within one bullet.
-   **Step 5: Natural Integration.** If Steps 1-4 pass, integrate the keyword smoothly into the sentence structure. It should sound like it belongs naturally in the description of the action or result. Avoid tacking keywords onto the end unnaturally.
-
-MEANING PRESERVATION PRIORITY (CRITICAL - LINKED TO LOGICAL CONSISTENCY):
-1) **The Original Meaning is Paramount.** The core message, scope, technologies originally mentioned (if any), and metrics of the input bullet point MUST be preserved.
-2) **Keywords Enhance, Not Alter.** Integrating a keyword (following the Logical Consistency steps above) should only *add contextually relevant detail* if it fits logically. It must NEVER:
-   - Change the primary action verb's meaning.
-   - Contradict the original technical context (e.g., don't add a backend keyword to a bullet clearly describing frontend work unless it's logically linked per Step 3).
-   - Change the scale or scope (e.g., team size, project impact).
-   - Alter existing numerical metrics (%, $, time).
-   - Make the original statement factually incorrect or nonsensical.
-3) **If adding a keyword violates the original meaning or makes the bullet illogical (fails the Step 3 Causal Link Test), DO NOT ADD IT.** Refer back to Keyword Distribution Rule #2.
+TECHNOLOGY LOGICAL CONSISTENCY REQUIREMENTS:
+1) Ensure that any technologies mentioned in a single bullet point were directly used *together* in the specific action described to achieve the result.
+2) Only mention multiple technologies if the achievement *depended* on their interaction (e.g., 'analyzed server logs [Technology A] using custom scripts [Technology B]').
+3) Do NOT list technologies from the same project within one bullet if they were used for separate, unrelated tasks contributing to the achievement. Mention them in different bullets if appropriate.
+4) AVOID ILLOGICAL COMBINATIONS based on typical professional usage (e.g., do not claim to use a front-end framework to optimize a backend database directly).
 
 STAR METHOD REQUIREMENTS:
 1) Structure each bullet to include elements of the STAR method:
-   - Situation: Brief context
-   - Task: Your responsibility
-   - Action: Precise steps taken (incorporating keywords *only* if they pass the LOGICAL CONSISTENCY and MEANING PRESERVATION checks)
-   - Result: Specific, quantifiable outcome
-2) Example (Good): ">>Resolved database performance bottlenecks by optimizing SQL queries and implementing indexing strategy, cutting transaction processing time by 65%"
+   - Situation: Brief context of challenge/opportunity
+   - Task: Your specific responsibility
+   - Action: Precise steps taken (incorporating keywords naturally)
+   - Result: Specific outcome with quantifiable metrics
+2) Example: ">>Resolved database performance bottlenecks by optimizing SQL queries and implementing indexing strategy, cutting transaction processing time by 65%"
 3) EVERY bullet MUST include at least one specific metric (%, $, time saved, etc.)
 4) Preserve EXACT numbers from original bullets - never change metrics that already exist
 5) Keep balanced focus on both actions and results
+
+MEANING PRESERVATION PRIORITY:
+1) The original bullet's core meaning is SACRED - never alter:
+   - Scope of responsibility
+   - Team sizes mentioned
+   - Project impacts
+   - Timelines/durations
+   - Technical contexts
+2) Only enhance structure and natural keyword integration
 
 WORD LIMIT ADHERENCE:
 1) Each bullet MUST stay within ${wordLimit} words
 2) Never sacrifice metrics or core meaning to meet word limit
 
-INPUT BULLETS TO ENHANCE (apply all rules carefully):
+INPUT BULLETS TO ENHANCE (integrate keywords naturally across ALL bullets):
 ${(existingBullets || []).join('\n')}`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
 
-INPUT BULLETS TO ENHANCE (integrate keywords naturally and logically across ALL bullets, following all rules meticulously):
+INPUT BULLETS TO ENHANCE (integrate keywords naturally across ALL bullets):
 ${(existingBullets || []).join('\n')}`;
     } else {
-        // Mode 'generate' - Less critical for this specific issue, but rules still apply
         prompt = `${basePrompt}
 
 Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
-REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION VERBS. Apply all Logical Consistency and Meaning Preservation rules.`;
+REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION VERBS`;
     }
 
     try {
