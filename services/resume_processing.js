@@ -1,14 +1,10 @@
-// resume_processing.js
 const puppeteer = require('puppeteer');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimilarity } = require('../config/util'); // Fixed from '../config/utils'
 
-// Add new API key reference for Gemini
 const geminiApiKey = process.env.GEMINI_API_KEY;
-// Simple in-memory cache for LLM responses
 const lmCache = new Map();
-
 
 function countWordsInBullet(text) {
     // Remove extra whitespace and special characters
@@ -808,7 +804,131 @@ async function adjustBulletPoints($, sections, currentBulletCount) {
     return currentBulletCount - 1;
 }
 
-// Update the updateResume function to pass verbTracker to generateAllBullets
+// Add this new function after the lmCache declaration
+async function categorizeKeywords(keywords) {
+    if (!keywords || keywords.length === 0) return null;
+    
+    // Create cache key for this specific set of keywords
+    const cacheKey = `categorize_${keywords.sort().join(',')}`;
+    
+    // Check cache first
+    if (lmCache.has(cacheKey)) {
+        return lmCache.get(cacheKey);
+    }
+    
+    try {
+        const prompt = `Categorize these technical keywords into the following categories:
+- Languages: Programming and markup languages
+- Frameworks/Libraries: Software frameworks and libraries
+- Others: APIs, services, protocols, tools, methodologies
+- Machine Learning Libraries: ML-specific libraries and frameworks
+
+Keywords to categorize: ${keywords.join(', ')}
+
+Return ONLY a JSON object with these exact category names as keys and arrays of keywords as values. Every keyword MUST be placed in exactly one category. Do not add any keywords not in the original list.`;
+
+        const response = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
+            {
+                contents: [{
+                    parts: [{
+                        text: prompt
+                    }]
+                }],
+                generationConfig: {
+                    temperature: 0.1,
+                    maxOutputTokens: 1000
+                }
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        const content = response.data.candidates[0].content.parts[0].text;
+        
+        // Extract JSON from response
+        const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/{[\s\S]*?}/);
+        const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
+        
+        try {
+            const categorized = JSON.parse(jsonString);
+            lmCache.set(cacheKey, categorized);
+            return categorized;
+        } catch (jsonError) {
+            console.error('Error parsing JSON from LLM response:', jsonError);
+            // Fallback: attempt to create a simple structure based on the response
+            const fallbackCategories = {
+                "Languages": [],
+                "Frameworks/Libraries": [],
+                "Others": [],
+                "Machine Learning Libraries": []
+            };
+            
+            // Add all keywords to Others as fallback
+            fallbackCategories["Others"] = keywords;
+            lmCache.set(cacheKey, fallbackCategories);
+            return fallbackCategories;
+        }
+    } catch (error) {
+        console.error('Error categorizing keywords:', error.response?.data || error.message);
+        return null;
+    }
+}
+
+// Add this function to update the skills section in the resume
+function updateSkillsSection($, keywords) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const categorizedKeywords = await categorizeKeywords(keywords);
+            if (!categorizedKeywords) {
+                console.warn('Could not categorize keywords, skills section unchanged');
+                resolve($);
+                return;
+            }
+            
+            // Find the skills section
+            const skillsSection = $('.section-content').eq(0);
+            if (skillsSection.length === 0) {
+                console.warn('Skills section not found in resume');
+                resolve($);
+                return;
+            }
+            
+            // Update each category
+            const categoryMapping = {
+                "Languages": "Languages:",
+                "Frameworks/Libraries": "Frameworks/Libraries:",
+                "Others": "Others (APIs, Services, Protocols):",
+                "Machine Learning Libraries": "Machine Learning Libraries:"
+            };
+            
+            Object.entries(categoryMapping).forEach(([dataKey, htmlLabel]) => {
+                if (categorizedKeywords[dataKey] && categorizedKeywords[dataKey].length > 0) {
+                    const keywords = categorizedKeywords[dataKey].join(', ');
+                    const paragraph = skillsSection.find(`p:contains("${htmlLabel}")`);
+                    
+                    if (paragraph.length > 0) {
+                        // Update existing paragraph
+                        paragraph.html(`<strong>${htmlLabel}</strong> ${keywords}`);
+                    } else {
+                        // Create new paragraph if category doesn't exist
+                        skillsSection.append(`<p><strong>${htmlLabel}</strong> ${keywords}</p>`);
+                    }
+                }
+            });
+            
+            resolve($);
+        } catch (error) {
+            console.error('Error updating skills section:', error);
+            resolve($); // Resolve anyway to not block resume generation
+        }
+    });
+}
+
+// Update the updateResume function to include skill section modification
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const sectionWordCounts = getSectionWordCounts($);
@@ -818,6 +938,9 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     
     // Extract original bullets before any modifications
     const originalBullets = extractOriginalBullets($);
+    
+    // Update the skills section with keywords
+    await updateSkillsSection($, keywords);
     
     const INITIAL_BULLET_COUNT = 6;
     const MIN_BULLETS = 3;
@@ -900,6 +1023,7 @@ async function customizeResume(req, res) {
         const educationBullets = $('.education-details li').length;
         
         console.log(`Generated bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}, Education=${educationBullets}`);
+        console.log('Skills section updated with relevant keywords');
         
         // Convert to PDF
         console.log('Converting updated HTML to PDF');
