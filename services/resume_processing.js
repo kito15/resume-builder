@@ -813,7 +813,7 @@ async function categorizeKeywords(keywords) {
     if (!keywords || keywords.length === 0) return null;
     
     // Create cache key for this specific set of keywords
-    const cacheKey = `categorize_${keywords.sort().join(',')}`;
+    const cacheKey = `categorize_v2_${keywords.sort().join(',')}`; // Added v2 to key for new prompt logic
     
     // Check cache first
     if (lmCache.has(cacheKey)) {
@@ -821,33 +821,32 @@ async function categorizeKeywords(keywords) {
     }
     
     try {
-        // Updated prompt with clearer instructions and exclusion criteria
-        const prompt = `Critically analyze the following list of keywords and categorize ONLY the specific, concrete technical skills into the specified categories.
+        const prompt = `Analyze the provided keywords for relevance to Applicant Tracking Systems (ATS) focused on technical roles. Your goal is to select ONLY the most impactful technical skills, tools, platforms, and specific methodologies.
 
-Categories:
-- Languages: Programming languages (e.g., Python, Java, JavaScript), markup languages (e.g., HTML, CSS), query languages (e.g., SQL).
-- Frameworks/Libraries: Software frameworks and libraries built upon languages (e.g., React, Node.js, Angular, jQuery, Flask, Spring, Scikit-learn, Tensorflow).
-- Others: Specific technical tools, platforms, APIs, protocols, databases, or services (e.g., Git, Docker, AWS, Azure, REST, JSON, OAuth, Jira, MySQL, Postgres, Redis).
-- Machine Learning Libraries: Libraries specifically focused on machine learning (e.g., Tensorflow, Scikit-learn, PyTorch, Keras). Place these *only* here, not in the general Frameworks/Libraries category.
+CRITERIA FOR INCLUSION (Prioritize these):
+- Programming Languages (e.g., Python, Java, JavaScript, C++, SQL, HTML, CSS)
+- Frameworks & Libraries (e.g., React, Node.js, Angular, TensorFlow, Scikit-learn, jQuery, Spring, Next.js, Pytorch)
+- Databases & Caching (e.g., MySQL, Postgres, Redis)
+- Cloud Platforms & Services (e.g., AWS, Kubeflow)
+- Tools & Technologies (e.g., Git, Jira, Selenium)
+- Specific Methodologies (e.g., Agile)
+- Key Technical Concepts (e.g., REST APIs, Microservices, Computer Vision, Data Analytics, Machine Learning, OAuth, Encryption, Containerization)
 
-Keywords to analyze: ${keywords.join(', ')}
+CRITERIA FOR EXCLUSION (STRICTLY Exclude these types):
+- Soft Skills (e.g., Problem-Solving, Leadership, Collaboration)
+- General Business Concepts (e.g., Development Lifecycle, Performance Engineering, User Experience, Reusability, Consistency, Simplicity, Testing Practices, Project Management)
+- Vague or Abstract Terms (e.g., Services, Modern Foundation, Data Sets, POCs, Coding Standards, Full Stack Engineering)
+- Redundant terms if a more specific one exists (e.g., prefer 'REST APIs' over 'API' or 'APIs' if both contextually fit; prefer 'Agile Methodologies' over 'Agile' if present). Only include the most specific applicable term.
 
-**IMPORTANT EXCLUSION RULES:**
-1.  **DO NOT** include general concepts, methodologies, or development practices (e.g., Agile, Scrum, TDD, CI/CD, Microservices, DevOps, Data Analytics, Software Engineering, Development Lifecycle).
-2.  **DO NOT** include soft skills or abstract qualities (e.g., Problem-Solving, Teamwork, Communication, Consistency, Reusability, Simplicity).
-3.  **DO NOT** include job roles or general areas (e.g., Full Stack Engineering, Performance Engineering).
-4.  Only categorize the keywords provided that strictly fit the definitions of the technical categories above. If a keyword doesn't fit, exclude it from the output.
+Based on these criteria, categorize the SELECTED keywords into the following specific categories:
+- Languages: Programming and markup languages only.
+- Frameworks/Libraries: Software frameworks and libraries only.
+- Others: Relevant and specific APIs, cloud services, protocols, tools, methodologies, platforms, OS, databases, technical concepts from the inclusion list that don't fit elsewhere.
+- Machine Learning Libraries: ML-specific libraries and frameworks ONLY (e.g., Tensorflow, Scikit-learn, Pytorch).
 
-Return ONLY a valid JSON object containing the categorized keywords. The keys MUST be exactly "Languages", "Frameworks/Libraries", "Others", and "Machine Learning Libraries". Each value must be an array of strings containing only the relevant keywords from the input list that fit the category and exclusion rules.
+Keywords to analyze and select from: ${keywords.join(', ')}
 
-Example Input Keywords: ['Python', 'React', 'AWS', 'Agile', 'Problem-Solving', 'Git']
-Example JSON Output:
-{
-  "Languages": ["Python"],
-  "Frameworks/Libraries": ["React"],
-  "Others": ["AWS", "Git"],
-  "Machine Learning Libraries": []
-}`;
+Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. Use these exact category names as keys: "Languages", "Frameworks/Libraries", "Others", "Machine Learning Libraries". The values should be arrays of the selected keywords. Every selected keyword MUST be placed in exactly one category. Do not include any keywords from the original list that fail the inclusion criteria or meet the exclusion criteria. Ensure the output is clean, valid JSON. Example format: {"Languages": ["Python", "SQL"], "Frameworks/Libraries": ["React"], "Others": ["AWS", "Git", "REST APIs"], "Machine Learning Libraries": ["Tensorflow"]}`;
 
         const response = await axios.post(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
@@ -857,12 +856,9 @@ Example JSON Output:
                         text: prompt
                     }]
                 }],
-                // Keep generation config focused on accuracy
                 generationConfig: {
-                    temperature: 0.1, 
-                    maxOutputTokens: 1000,
-                    topP: 0.8, // Slightly reduced topP for less creativity
-                    topK: 30  // Slightly reduced topK
+                    temperature: 0.1,
+                    maxOutputTokens: 1000
                 }
             },
             {
@@ -880,48 +876,26 @@ Example JSON Output:
         
         try {
             const categorized = JSON.parse(jsonString);
-            // Ensure all expected keys exist, even if empty, to avoid errors later
-            const finalCategories = {
-                "Languages": categorized["Languages"] || [],
-                "Frameworks/Libraries": categorized["Frameworks/Libraries"] || [],
-                "Others": categorized["Others"] || [],
-                "Machine Learning Libraries": categorized["Machine Learning Libraries"] || []
-            };
-            lmCache.set(cacheKey, finalCategories);
-            console.log('Successfully categorized keywords:', finalCategories); // Added logging
-            return finalCategories;
+            lmCache.set(cacheKey, categorized);
+            return categorized;
         } catch (jsonError) {
-            console.error('Error parsing JSON from LLM response:', jsonString, jsonError);
-            // Fallback remains the same, but less likely to be needed
+            console.error('Error parsing JSON from LLM response:', jsonError);
+            // Fallback: attempt to create a simple structure based on the response
             const fallbackCategories = {
                 "Languages": [],
                 "Frameworks/Libraries": [],
-                "Others": keywords, // Put all keywords here as a last resort
+                "Others": [],
                 "Machine Learning Libraries": []
             };
             
-            // Attempt to filter fallback 'Others' slightly based on simple rules
-            const simpleTechIndicators = ['js', '.', '/', 'sql', 'api', 'aws', 'git', 'cloud', 'db'];
-            fallbackCategories["Others"] = keywords.filter(k => 
-                k.length < 20 && // Exclude very long phrases
-                (k.match(/[A-Z]/) && k.match(/[a-z]/)) || // Mix of upper/lower often indicates tech
-                simpleTechIndicators.some(indicator => k.toLowerCase().includes(indicator)) ||
-                !k.includes(' ') // Single words are more likely tech
-            );
-            console.warn('Using fallback categorization for skills.'); // Added logging
-            
+            // Add all keywords to Others as fallback
+            fallbackCategories["Others"] = keywords;
             lmCache.set(cacheKey, fallbackCategories);
             return fallbackCategories;
         }
     } catch (error) {
-        console.error('Error categorizing keywords via LLM:', error.response?.data || error.message);
-        // Return a default empty structure on API error
-        return {
-            "Languages": [],
-            "Frameworks/Libraries": [],
-            "Others": [],
-            "Machine Learning Libraries": []
-        };
+        console.error('Error categorizing keywords:', error.response?.data || error.message);
+        return null;
     }
 }
 
