@@ -1056,7 +1056,7 @@ async function customizeResume(req, res) {
         }
 
         res.contentType('application/pdf');
-        res.set('Content-Disposition', 'attachment; filename=customized_resume.pdf');
+        res.set('Content-Disposition', 'attachment; filename=resume.pdf');
         res.send(Buffer.from(pdfBuffer));
         
         console.log('Resume PDF sent to client successfully');
