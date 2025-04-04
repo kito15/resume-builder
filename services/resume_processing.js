@@ -232,18 +232,18 @@ KEYWORD DISTRIBUTION REQUIREMENTS:
 5) NEVER list keywords together like "Used HTML, CSS, JavaScript to build..."
 6) If a keyword doesn't fit naturally with a bullet, save it for a more appropriate one
 
-TECHNOLOGY LOGICAL CONSISTENCY REQUIREMENTS (VERY IMPORTANT):
-1) **Verify Direct Relevance:** Before including *any* keyword (especially a technology, tool, or platform) in a bullet, confirm it was *instrumental* to the *specific Action* taken AND the *specific Result* achieved in *that bullet*. Ask: "Was [Keyword X] directly used *in the process* described to get *this specific outcome*?" If not, DO NOT include it in this bullet.
-2. **Avoid Unrelated Grouping:** Do NOT mention multiple technologies or keywords in one bullet if they were used for different tasks within the same project *unless* their interaction was *essential* for the *single achievement* being described in that bullet. For example, mentioning a database technology is logical when the bullet describes optimizing data retrieval, but illogical if the bullet describes building a UI component, even if both were part of the same project.
-3. **Causal Link Check:** Ensure a clear, logical link between the technology/keyword mentioned and the accomplishment. Example of illogical link to avoid: Claiming a data format like JSON *caused* an increase in user engagement. Example of logical link: "Used [Framework Y] to build interactive UI components, increasing user engagement by 25%."
-4. **No General Project Lists:** Do not simply list technologies used broadly in the project within a bullet point. Focus only on the keywords directly relevant to the *specific narrative* of that bullet point (the single STAR sequence).
-5. **Natural Integration:** Keywords must sound like a natural part of the sentence describing the achievement, not tacked on awkwardly at the end or inserted where they don't make sense grammatically or contextually.
+TECHNOLOGY LOGICAL CONSISTENCY REQUIREMENTS (ABSOLUTE & NON-NEGOTIABLE):
+1) **MANDATORY Keyword-Action-Result Link:** A keyword (especially technology/tool) MUST ONLY be included if it was *directly and essentially used* to perform the *specific ACTION* described in the bullet, AND that action *directly led* to the *specific RESULT* quantified. **If the keyword was just part of the overall project but NOT directly involved in THIS specific action/result pair, DO NOT INCLUDE IT IN THIS BULLET.**
+2. **Single Achievement Focus:** Each bullet describes *one* specific achievement. Do NOT include multiple keywords if they relate to separate tasks, even within the same project. Only list multiple keywords if their *direct interaction* was necessary for the *single* action and result described. (e.g., "Analyzed [Log Type A] using [Scripting Language B] to identify bottlenecks..." is potentially valid if B was used on A).
+3. **NO Unrelated or Tacked-On Keywords:** Critically evaluate if the keyword makes logical sense as part of the core achievement narrative. **DO NOT simply append keywords to the end of a bullet if they don't fit the main action.** Ask: "Does this keyword explain *how* the result was achieved by the action taken?" If not, OMIT the keyword from this bullet.
+4. **AVOID ILLOGICAL CAUSE-EFFECT:** A technology keyword should represent a tool or method used *for* the action, not an unrelated concept paired with the result. **Example of WHAT NOT TO DO:** "Increased user engagement by 30% with JSON." (JSON is a data format, it doesn't directly cause engagement increase in this context). **Correct Example:** "Implemented [API Name] using Python to integrate [Feature X], boosting user engagement by 30%." (Clear link: Python used for API implementation -> Feature -> Engagement).
+5. **Contextual Relevance Only:** Do not list technologies just because they were part of the project's tech stack. The keyword *must* be relevant to the specific story told in *that single bullet point*. Save unused keywords for other bullets where they fit logically.
 
 STAR METHOD REQUIREMENTS:
 1) Structure each bullet to include elements of the STAR method:
    - Situation: Brief context of challenge/opportunity
    - Task: Your specific responsibility
-   - Action: Precise steps taken (incorporating keywords naturally AND logically)
+   - Action: Precise steps taken (incorporating keywords **only** if they pass the TECHNOLOGY LOGICAL CONSISTENCY checks above)
    - Result: Specific outcome with quantifiable metrics
 2) Example: ">>Resolved database performance bottlenecks by optimizing SQL queries and implementing indexing strategy, cutting transaction processing time by 65%"
 3) EVERY bullet MUST include at least one specific metric (%, $, time saved, etc.)
