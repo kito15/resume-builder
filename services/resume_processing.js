@@ -232,17 +232,18 @@ KEYWORD DISTRIBUTION REQUIREMENTS:
 5) NEVER list keywords together like "Used HTML, CSS, JavaScript to build..."
 6) If a keyword doesn't fit naturally with a bullet, save it for a more appropriate one
 
-TECHNOLOGY LOGICAL CONSISTENCY REQUIREMENTS:
-1) Ensure that any technologies mentioned in a single bullet point were directly used *together* in the specific action described to achieve the result.
-2) Only mention multiple technologies if the achievement *depended* on their interaction (e.g., 'analyzed server logs [Technology A] using custom scripts [Technology B]').
-3) Do NOT list technologies from the same project within one bullet if they were used for separate, unrelated tasks contributing to the achievement. Mention them in different bullets if appropriate.
-4) AVOID ILLOGICAL COMBINATIONS based on typical professional usage (e.g., do not claim to use a front-end framework to optimize a backend database directly).
+TECHNOLOGY LOGICAL CONSISTENCY REQUIREMENTS (VERY IMPORTANT):
+1) **Verify Direct Relevance:** Before including *any* keyword (especially a technology, tool, or platform) in a bullet, confirm it was *instrumental* to the *specific Action* taken AND the *specific Result* achieved in *that bullet*. Ask: "Was [Keyword X] directly used *in the process* described to get *this specific outcome*?" If not, DO NOT include it in this bullet.
+2. **Avoid Unrelated Grouping:** Do NOT mention multiple technologies or keywords in one bullet if they were used for different tasks within the same project *unless* their interaction was *essential* for the *single achievement* being described in that bullet. For example, mentioning a database technology is logical when the bullet describes optimizing data retrieval, but illogical if the bullet describes building a UI component, even if both were part of the same project.
+3. **Causal Link Check:** Ensure a clear, logical link between the technology/keyword mentioned and the accomplishment. Example of illogical link to avoid: Claiming a data format like JSON *caused* an increase in user engagement. Example of logical link: "Used [Framework Y] to build interactive UI components, increasing user engagement by 25%."
+4. **No General Project Lists:** Do not simply list technologies used broadly in the project within a bullet point. Focus only on the keywords directly relevant to the *specific narrative* of that bullet point (the single STAR sequence).
+5. **Natural Integration:** Keywords must sound like a natural part of the sentence describing the achievement, not tacked on awkwardly at the end or inserted where they don't make sense grammatically or contextually.
 
 STAR METHOD REQUIREMENTS:
 1) Structure each bullet to include elements of the STAR method:
    - Situation: Brief context of challenge/opportunity
    - Task: Your specific responsibility
-   - Action: Precise steps taken (incorporating keywords naturally)
+   - Action: Precise steps taken (incorporating keywords naturally AND logically)
    - Result: Specific outcome with quantifiable metrics
 2) Example: ">>Resolved database performance bottlenecks by optimizing SQL queries and implementing indexing strategy, cutting transaction processing time by 65%"
 3) EVERY bullet MUST include at least one specific metric (%, $, time saved, etc.)
