@@ -202,72 +202,66 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `Expert resume writer: Transform bullets into specific, measurable achievements using the STAR method.
+    const basePrompt = `You are an expert resume writer. Make each bullet point show clear achievements with numbers.
 
-ABSOLUTE TOP PRIORITY - MEANING PRESERVATION:
-1) The original bullet's core meaning MUST be preserved with complete fidelity:
-   - Scope of responsibility (never expand or reduce the role)
-   - Team sizes mentioned (keep exact numbers)
-   - Project impacts (maintain original scale and context)
-   - Timelines/durations (preserve all time-related details)
-   - Technical contexts (maintain exact technical scope)
-2) Enhancement should ONLY:
-   - Improve structure and clarity
-   - Integrate keywords naturally
-   - Add metrics where none exist
-3) When in doubt between enhancing a bullet or preserving its original meaning, ALWAYS preserve the meaning
+RULE 1 - KEEP THE ORIGINAL MEANING:
+Do not change:
+- Job responsibilities
+- Team sizes
+- Project results
+- Time periods
+- Technical details
+Only make the writing clearer.
 
-CRITICAL FORMATTING REQUIREMENT (ABSOLUTE RULE):
-Every single line representing a bullet point in your output MUST begin with exactly ">>" (two greater-than signs).
-There must be absolutely NO characters or whitespace before the ">>".
-Correct Example: ">>Developed..."
-Incorrect Examples: " >>Developed...", " Developed...", "- Developed...", "Developed..."
-This rule applies to ALL bullet points generated, without exception.
+RULE 2 - FORMAT EVERY BULLET:
+Start each bullet with >>
+No spaces before >>
+Example: >>Improved...
+Wrong: " >>Improved..."
+Wrong: "- Improved..."
+Wrong: "Improved..."
 
-ACTION VERB REQUIREMENTS (HIGHEST PRIORITY):
-1) Each bullet MUST start with a DIFFERENT professional action verb
-2) STRICTLY PROHIBITED VERBS (DO NOT USE THESE UNDER ANY CIRCUMSTANCES):
-   - WEAK VERBS: Built, Drove, Examined, Helped, Assisted, Used, Utilized, Employed, Worked, Handled, Managed, Did, Made, Created, Participated, Involved
-   - OVERLY COMPLEX VERBS: Bolstered, Fortified, Orchestrated, Conceived, Instituted, Spearheaded, Fashioned, Aided, Hardened, Shaped, Piloted, Crafted, Enriched, Championed, Fostered
-   - UNNECESSARILY GRANDIOSE VERBS: Accelerated, Revolutionized, Catalyzed, Disrupted, Transformed, Pioneered, Masterminded, Architected${verbAvoidanceText}${mostUsedVerbsText}
-3) USE THESE SIMPLE, PROFESSIONAL VERBS INSTEAD:
-   - Improved, Increased, Reduced, Decreased, Generated
-   - Developed, Designed, Implemented, Established, Launched
-   - Led, Directed, Coordinated, Supervised, Guided
-   - Analyzed, Evaluated, Solved, Resolved, Fixed
-4) Always choose straightforward, widely-used professional verbs that clearly communicate achievements
+RULE 3 - USE GOOD ACTION WORDS:
+- Use a different action word for each bullet
+- Do not use: Built, Helped, Used, Worked, Managed, Created
+- Do not use: Bolstered, Orchestrated, Spearheaded, Championed
+- Do not use: Revolutionized, Transformed, Pioneered${verbAvoidanceText}${mostUsedVerbsText}
 
-KEYWORD DISTRIBUTION REQUIREMENTS:
-1) MANDATORY: Distribute keywords evenly across ALL bullets - never concentrate multiple keywords in one bullet
-2) Each bullet should contain only 1-2 keywords that are contextually relevant to that specific achievement
-3) Every keyword from ${keywords} MUST be used at least once across all bullets
-4) Keywords should flow within sentences as if originally written that way
-5) NEVER list keywords together like "Used HTML, CSS, JavaScript to build..."
-6) If a keyword doesn't fit naturally with a bullet, save it for a more appropriate one
+Good action words to use:
+- Improved, Increased, Reduced, Decreased
+- Developed, Designed, Implemented
+- Led, Directed, Coordinated
+- Analyzed, Evaluated, Solved
 
-VERY IMPORTANT: TECHNOLOGY LOGICAL CONSISTENCY REQUIREMENTS:
-1) Ensure that any technologies mentioned in a single bullet point were directly used *together* in the specific action described to achieve the result. Use realistic combinations reflecting common industry practices.
-2) Only mention multiple technologies if the achievement *depended* on their interaction (e.g., 'analyzed server logs [Technology A] using custom scripts [Technology B]'). Clearly describe *how* each technology contributed.
-3) Specify the nature of the work (e.g., development, integration, deployment) and clarify how tools, frameworks, or languages were used in that specific context.
-4) Do NOT list technologies from the same project within one bullet if they were used for separate, unrelated tasks contributing to the achievement. Mention them in different bullets if appropriate.
-5) AVOID ILLOGICAL COMBINATIONS based on typical professional usage (e.g., do not claim to use a front-end framework to optimize a backend database directly, or list competing backend languages like Java and Python as *both* being used simultaneously to *launch* the same single application). Ensure the scenario described is coherent and plausible.
+RULE 4 - USE KEYWORDS CORRECTLY:
+- Put one or two keywords in each bullet
+- Spread keywords evenly across all bullets
+- Use each keyword from ${keywords} at least once
+- Make keywords sound natural in sentences
+- Do not list keywords together
+- Save keywords that don't fit for other bullets
 
-STAR METHOD REQUIREMENTS:
-1) Structure each bullet to include elements of the STAR method:
-   - Situation: Brief context of challenge/opportunity
-   - Task: Your specific responsibility
-   - Action: Precise steps taken (incorporating keywords naturally)
-   - Result: Specific outcome with quantifiable metrics
-2) Example: ">>Resolved database performance bottlenecks by optimizing SQL queries and implementing indexing strategy, cutting transaction processing time by 65%"
-3) EVERY bullet MUST include at least one specific metric (%, $, time saved, etc.)
-4) Preserve EXACT numbers from original bullets - never change metrics that already exist
-5) Keep balanced focus on both actions and results
+RULE 5 - KEEP TECHNOLOGY REAL:
+- Only combine technologies that work together
+- Show how each technology was used
+- Be specific about development, testing, or deployment
+- Put related technologies in the same bullet
+- Do not mix technologies that don't work together
 
-WORD LIMIT ADHERENCE:
-1) Each bullet MUST stay within ${wordLimit} words
-2) Never sacrifice metrics or core meaning to meet word limit
+RULE 6 - USE STAR FORMAT:
+- Say what the situation was
+- Tell what your task was
+- Show what action you took
+- Give a number result
+Example: >>Reduced database query time by 65% by fixing SQL indexes
+Always keep exact numbers from the original bullet
+Always include at least one number in each bullet
 
-INPUT BULLETS TO ENHANCE (integrate keywords naturally across ALL bullets):
+RULE 7 - WATCH WORD COUNT:
+Keep each bullet under ${wordLimit} words
+Do not cut important details to meet word limit
+
+HERE ARE THE BULLETS TO IMPROVE:
 ${(existingBullets || []).join('\n')}`;
 
     if (mode === 'tailor') {
