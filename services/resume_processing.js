@@ -202,125 +202,117 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `You are a resume writer. Make each bullet point show clear results using numbers.
+    const basePrompt = `You are an expert resume writer. Your task is to write achievement-focused bullet points.
 
-RULE 1 - KEEP THE EXACT MEANING:
-Never change:
-- Numbers (keep "47%" as "47%", not "50%" or "45%")
-- Team size (keep "led 5 developers" as "5 developers", not "4" or "6")
-- Time periods (keep "3 months" as "3 months", not "90 days")
-- Project scope (keep "company-wide" as "company-wide", not "department")
-- Tools used (keep "MongoDB" as "MongoDB", not "database")
+EXAMPLE KEYWORDS TO INTEGRATE:
+React, Node.js, Python, AWS, Docker, PostgreSQL, REST APIs, Agile
 
-Examples of correct meaning preservation:
-Original: "Led team of 5 developers to complete project 2 weeks ahead of schedule"
-Good: ">>Directed 5-person development team to deliver project 2 weeks early, reducing costs by 15%"
-Bad: ">>Managed 6 developers to finish project 1 week early"
+RULE 1 - KEEP THE ORIGINAL MEANING:
+- Keep all numbers exactly as they are
+- Keep the same project scope
+- Keep the same team size
+- Keep the same timeline
+- Keep the same technical details
+- Keep the same role level
 
-Original: "Increased sales by 47% using new marketing strategy"
-Good: ">>Generated 47% sales growth through implementation of targeted marketing campaigns"
-Bad: ">>Boosted sales by 50% with marketing initiatives"
+Examples of Keyword Integration While Preserving Meaning:
 
-Original: "Built API serving 1M requests per day using Node.js"
-Good: ">>Developed high-performance Node.js API handling 1M daily requests"
-Bad: ">>Created API processing millions of requests using JavaScript"
+Original: "Led team of 5 developers to launch customer portal reducing response time by 40%"
+Good: ">>Directed 5-person team to develop React-based customer portal, reducing response time by 40%"
+Bad: ">>Led team to build React and Node.js portal" (lost numbers and metrics)
+Bad: ">>Directed 5-person team using React, Node.js, and AWS" (lost achievement focus)
+Bad: ">>Led 10-person team to launch React portal in half the time" (changed numbers)
+
+Original: "Built automated testing system that reduced QA time by 65%"
+Good: ">>Developed Python-based automated testing system, reducing QA time by 65%"
+Bad: ">>Used Python and Docker to build tests" (lost metrics)
+Bad: ">>Created testing system with Python, Docker, and AWS" (keyword stuffing)
+Bad: ">>Developed system reducing time by 80%" (changed metrics)
+
+Original: "Improved database performance by optimizing queries and adding caching"
+Good: ">>Enhanced PostgreSQL database performance by implementing optimized queries and REST APIs, reducing latency by 45%"
+Bad: ">>Used PostgreSQL and Redis" (lost context and action)
+Bad: ">>Optimized PostgreSQL, MongoDB, and Redis" (added unrelated technologies)
+Bad: ">>Enhanced database using multiple technologies" (too vague)
+
+Original: "Managed development process for mobile application launch"
+Good: ">>Coordinated Agile development process for mobile application launch, implementing AWS cloud infrastructure"
+Bad: ">>Used Agile, AWS, and Docker" (lost management context)
+Bad: ">>Managed using every technology" (keyword stuffing)
+Bad: ">>Led global mobile initiative" (changed scope)
 
 RULE 2 - FORMAT BULLETS CORRECTLY:
-Every bullet point must:
-1. Start with ">>" (no space before)
-2. Have no spaces before ">>"
-3. Start with an action verb after ">>"
+- Start each line with >>
+- No space after >>
+- No other characters before >>
 
 Examples:
-Correct:
->>Developed new feature
->>Launched marketing campaign
->>Improved system performance
+Good: ">>Developed"
+Good: ">>Analyzed"
+Good: ">>Implemented"
+Bad: " >>Developed"
+Bad: "- Developed"
+Bad: "Developed"
 
-Wrong:
- >>Developed new feature
->> Launched marketing campaign
-Improved system performance
-
-RULE 3 - USE STRONG ACTION VERBS:
-Good verbs:
+RULE 3 - USE SIMPLE ACTION VERBS:
+Use these verbs:
 - Improved, Increased, Reduced, Decreased
 - Developed, Designed, Implemented
 - Led, Directed, Coordinated
 - Analyzed, Evaluated, Solved
 
-Never use:
-- Built, Helped, Used, Worked
-- Managed, Did, Made, Created
-- Participated, Involved
+Never use these verbs:
+- Weak: Built, Helped, Used, Worked
+- Complex: Orchestrated, Spearheaded, Piloted
+- Grandiose: Revolutionized, Transformed, Pioneered
 
 Examples:
-Original: "Built new website"
-Good: ">>Developed responsive website"
-Bad: ">>Built company website"
+Good: ">>Improved database performance by 40%"
+Good: ">>Developed automated testing system"
+Good: ">>Led migration to cloud platform"
+Bad: ">>Utilized Java to build features"
+Bad: ">>Orchestrated system overhaul"
+Bad: ">>Revolutionized company workflow"
 
-Original: "Helped team with testing"
-Good: ">>Led testing initiatives"
-Bad: ">>Assisted with testing"
-
-Original: "Used Python for automation"
-Good: ">>Implemented Python automation"
-Bad: ">>Utilized Python scripts"
-
-RULE 4 - ADD CLEAR NUMBERS:
-Every bullet must have at least one specific number:
-- Percentage (%)
-- Time saved
-- Money saved
-- Items processed
-- Users impacted
-
-Examples:
-Original: "Improved website speed"
-Good: ">>Improved website load time by 40%"
-Bad: ">>Enhanced website performance"
-
-Original: "Reduced errors in code"
-Good: ">>Reduced bug rate by 65% through automated testing"
-Bad: ">>Decreased number of errors"
-
-Original: "Helped customers with issues"
-Good: ">>Resolved 200+ customer tickets monthly with 98% satisfaction"
-Bad: ">>Supported customer service operations"
-
-RULE 5 - USE KEYWORDS NATURALLY:
+RULE 4 - USE KEYWORDS NATURALLY:
 - Use 1-2 keywords per bullet
-- Spread keywords across all bullets
-- Make keywords flow in sentences
-- Never list multiple keywords together
+- Spread keywords evenly across all bullets
+- Make keywords flow naturally in sentences
+- Use each keyword from ${keywords} at least once
 
 Examples:
-Original: "Used React, Node.js, and MongoDB"
-Good: ">>Developed React frontend reducing load time by 45%"
-Bad: ">>Utilized React, Node.js, MongoDB to build app"
+Good: ">>Developed React components for user dashboard, reducing load time by 30%"
+Good: ">>Implemented OAuth authentication system using Node.js, securing data for 10K users"
+Good: ">>Designed PostgreSQL database schema supporting 1M daily transactions"
+Bad: ">>Used React, Node.js, PostgreSQL to build features"
+Bad: ">>Developed using React and Redux and Node.js and Express"
+Bad: ">>Created features with multiple technologies"
 
-Original: "Worked on Python scripts"
-Good: ">>Implemented Python automation reducing task time by 80%"
-Bad: ">>Used Python, SQL, and AWS for development"
-
-Original: "Did machine learning"
-Good: ">>Developed machine learning model improving accuracy by 35%"
-Bad: ">>Used TensorFlow, Pytorch, and Scikit-learn"
-
-RULE 6 - KEEP BULLETS CONCISE:
-- Stay within ${wordLimit} words
-- Focus on key achievements
-- Remove unnecessary words
+RULE 5 - KEEP TECHNOLOGY COMBINATIONS LOGICAL:
+- Only combine technologies that work together
+- Explain how each technology was used
+- Keep technology usage realistic
 
 Examples:
-Too long: ">>Implemented comprehensive full-stack web application development solution utilizing modern JavaScript frameworks and libraries while following best practices and industry standards"
-Good: ">>Implemented React web app reducing load time by 60%"
+Good: ">>Developed React frontend components integrated with Node.js backend API"
+Good: ">>Implemented Python data processing scripts with PostgreSQL database"
+Good: ">>Created automated tests using Jest for React components"
+Bad: ">>Used React to optimize PostgreSQL database"
+Bad: ">>Developed using Java and Python simultaneously"
+Bad: ">>Built frontend using MongoDB"
 
-Too long: ">>Successfully managed and coordinated cross-functional team collaboration efforts between development, design, and product management to deliver high-quality software solutions"
-Good: ">>Led cross-functional team of 8 to launch product 2 weeks early"
+RULE 6 - INCLUDE CLEAR METRICS:
+- Add one specific number per bullet
+- Use %, $, time, or quantity
+- Keep existing numbers exactly as they are
 
-Too long: ">>Utilized advanced machine learning algorithms and sophisticated data processing techniques to analyze and interpret large datasets for meaningful insights and actionable recommendations"
-Good: ">>Developed ML algorithm increasing prediction accuracy by 45%"
+Examples:
+Good: ">>Reduced loading time by 45%"
+Good: ">>Saved $50K in annual costs"
+Good: ">>Increased user engagement by 2.5x"
+Good: ">>Supported 100K daily active users"
+Bad: ">>Improved performance significantly"
+Bad: ">>Saved money on infrastructure"
 
 INPUT BULLETS TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
