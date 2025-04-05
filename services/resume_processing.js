@@ -314,20 +314,6 @@ Good: ">>Supported 100K daily active users"
 Bad: ">>Improved performance significantly"
 Bad: ">>Saved money on infrastructure"
 
-RULE 7 - MAINTAIN WORD LIMIT:
-- Each bullet point must be ${wordLimit} words or less
-- Never sacrifice meaning or natural keyword flow to meet word limit
-- If original bullet exceeds limit, focus on making language more concise
-- Keep all original metrics and scope intact
-
-Examples:
-Original (too long): "Developed and implemented a comprehensive full-stack web application solution using React for the frontend interface and Node.js for the backend server implementation while also integrating with PostgreSQL database for data storage needs"
-Good (within limit): ">>Developed full-stack web application using React frontend and Node.js backend, integrated with PostgreSQL database"
-Bad (lost meaning): ">>Used React and Node.js"
-Bad (unnatural keywords): ">>Created React Node.js PostgreSQL project"
-Bad (lost metrics): ">>Built web app with technologies"
-Bad (keyword stuffing): ">>Made React Node.js PostgreSQL AWS Docker app"
-
 INPUT BULLETS TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
