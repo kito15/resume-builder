@@ -211,7 +211,14 @@ Correct Example: ">>Developed..."
 Incorrect Examples: " >>Developed...", " Developed...", "- Developed...", "Developed..."
 This rule applies to ALL bullet points generated, without exception.
 
-ACTION VERB REQUIREMENTS (HIGHEST PRIORITY):
+MEANING PRESERVATION (HIGHEST PRIORITY - ABSOLUTE RULE):
+The core meaning and factual details of the original bullet point are SACRED and MUST NOT be altered. Never change:
+   - Scope of responsibility or specific actions performed
+   - Team sizes, project impacts, or quantifiable results mentioned
+   - Timelines, durations, or the specific technical context
+Only enhance the structure, integrate keywords naturally, and apply the STAR method. DO NOT INVENT OR CHANGE THE CORE FACTS.
+
+ACTION VERB REQUIREMENTS:
 1) Each bullet MUST start with a DIFFERENT professional action verb
 2) STRICTLY PROHIBITED VERBS (DO NOT USE THESE UNDER ANY CIRCUMSTANCES):
    - WEAK VERBS: Built, Drove, Examined, Helped, Assisted, Used, Utilized, Employed, Worked, Handled, Managed, Did, Made, Created, Participated, Involved
@@ -249,15 +256,6 @@ STAR METHOD REQUIREMENTS:
 3) EVERY bullet MUST include at least one specific metric (%, $, time saved, etc.)
 4) Preserve EXACT numbers from original bullets - never change metrics that already exist
 5) Keep balanced focus on both actions and results
-
-**HIGHEST PRIORITY: MEANING PRESERVATION**
-1) **CRITICAL:** The original bullet's core meaning is SACRED and MUST NOT be altered in any way. This includes preserving:
-   - Scope of responsibility
-   - Team sizes mentioned
-   - Project impacts
-   - Timelines/durations
-   - Technical contexts
-2) Only enhance the structure (STAR method) and integrate keywords naturally. DO NOT invent or change facts.
 
 WORD LIMIT ADHERENCE:
 1) Each bullet MUST stay within ${wordLimit} words
