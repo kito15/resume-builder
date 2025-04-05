@@ -202,66 +202,127 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `You are an expert resume writer. Make each bullet point show clear achievements with numbers.
+    const basePrompt = `You are a resume writer. Make each bullet point show clear results using numbers.
 
-RULE 1 - KEEP THE ORIGINAL MEANING:
-Do not change:
-- Job responsibilities
-- Team sizes
-- Project results
-- Time periods
-- Technical details
-Only make the writing clearer.
+RULE 1 - KEEP THE EXACT MEANING:
+Never change:
+- Numbers (keep "47%" as "47%", not "50%" or "45%")
+- Team size (keep "led 5 developers" as "5 developers", not "4" or "6")
+- Time periods (keep "3 months" as "3 months", not "90 days")
+- Project scope (keep "company-wide" as "company-wide", not "department")
+- Tools used (keep "MongoDB" as "MongoDB", not "database")
 
-RULE 2 - FORMAT EVERY BULLET:
-Start each bullet with >>
-No spaces before >>
-Example: >>Improved...
-Wrong: " >>Improved..."
-Wrong: "- Improved..."
-Wrong: "Improved..."
+Examples of correct meaning preservation:
+Original: "Led team of 5 developers to complete project 2 weeks ahead of schedule"
+Good: ">>Directed 5-person development team to deliver project 2 weeks early, reducing costs by 15%"
+Bad: ">>Managed 6 developers to finish project 1 week early"
 
-RULE 3 - USE GOOD ACTION WORDS:
-- Use a different action word for each bullet
-- Do not use: Built, Helped, Used, Worked, Managed, Created
-- Do not use: Bolstered, Orchestrated, Spearheaded, Championed
-- Do not use: Revolutionized, Transformed, Pioneered${verbAvoidanceText}${mostUsedVerbsText}
+Original: "Increased sales by 47% using new marketing strategy"
+Good: ">>Generated 47% sales growth through implementation of targeted marketing campaigns"
+Bad: ">>Boosted sales by 50% with marketing initiatives"
 
-Good action words to use:
+Original: "Built API serving 1M requests per day using Node.js"
+Good: ">>Developed high-performance Node.js API handling 1M daily requests"
+Bad: ">>Created API processing millions of requests using JavaScript"
+
+RULE 2 - FORMAT BULLETS CORRECTLY:
+Every bullet point must:
+1. Start with ">>" (no space before)
+2. Have no spaces before ">>"
+3. Start with an action verb after ">>"
+
+Examples:
+Correct:
+>>Developed new feature
+>>Launched marketing campaign
+>>Improved system performance
+
+Wrong:
+ >>Developed new feature
+>> Launched marketing campaign
+Improved system performance
+
+RULE 3 - USE STRONG ACTION VERBS:
+Good verbs:
 - Improved, Increased, Reduced, Decreased
 - Developed, Designed, Implemented
 - Led, Directed, Coordinated
 - Analyzed, Evaluated, Solved
 
-RULE 4 - USE KEYWORDS CORRECTLY:
-- Put one or two keywords in each bullet
-- Spread keywords evenly across all bullets
-- Use each keyword from ${keywords} at least once
-- Make keywords sound natural in sentences
-- Do not list keywords together
-- Save keywords that don't fit for other bullets
+Never use:
+- Built, Helped, Used, Worked
+- Managed, Did, Made, Created
+- Participated, Involved
 
-RULE 5 - KEEP TECHNOLOGY REAL:
-- Only combine technologies that work together
-- Show how each technology was used
-- Be specific about development, testing, or deployment
-- Put related technologies in the same bullet
-- Do not mix technologies that don't work together
+Examples:
+Original: "Built new website"
+Good: ">>Developed responsive website"
+Bad: ">>Built company website"
 
-RULE 6 - USE STAR FORMAT:
-- Say what the situation was
-- Tell what your task was
-- Show what action you took
-- Give a number result
-Example: >>Reduced database query time by 65% by fixing SQL indexes
-Always keep exact numbers from the original bullet
-Always include at least one number in each bullet
+Original: "Helped team with testing"
+Good: ">>Led testing initiatives"
+Bad: ">>Assisted with testing"
 
-RULE 7 - WATCH WORD COUNT:
-Keep each bullet under ${wordLimit} words
-Do not cut important details to meet word limit
+Original: "Used Python for automation"
+Good: ">>Implemented Python automation"
+Bad: ">>Utilized Python scripts"
 
-HERE ARE THE BULLETS TO IMPROVE:
+RULE 4 - ADD CLEAR NUMBERS:
+Every bullet must have at least one specific number:
+- Percentage (%)
+- Time saved
+- Money saved
+- Items processed
+- Users impacted
+
+Examples:
+Original: "Improved website speed"
+Good: ">>Improved website load time by 40%"
+Bad: ">>Enhanced website performance"
+
+Original: "Reduced errors in code"
+Good: ">>Reduced bug rate by 65% through automated testing"
+Bad: ">>Decreased number of errors"
+
+Original: "Helped customers with issues"
+Good: ">>Resolved 200+ customer tickets monthly with 98% satisfaction"
+Bad: ">>Supported customer service operations"
+
+RULE 5 - USE KEYWORDS NATURALLY:
+- Use 1-2 keywords per bullet
+- Spread keywords across all bullets
+- Make keywords flow in sentences
+- Never list multiple keywords together
+
+Examples:
+Original: "Used React, Node.js, and MongoDB"
+Good: ">>Developed React frontend reducing load time by 45%"
+Bad: ">>Utilized React, Node.js, MongoDB to build app"
+
+Original: "Worked on Python scripts"
+Good: ">>Implemented Python automation reducing task time by 80%"
+Bad: ">>Used Python, SQL, and AWS for development"
+
+Original: "Did machine learning"
+Good: ">>Developed machine learning model improving accuracy by 35%"
+Bad: ">>Used TensorFlow, Pytorch, and Scikit-learn"
+
+RULE 6 - KEEP BULLETS CONCISE:
+- Stay within ${wordLimit} words
+- Focus on key achievements
+- Remove unnecessary words
+
+Examples:
+Too long: ">>Implemented comprehensive full-stack web application development solution utilizing modern JavaScript frameworks and libraries while following best practices and industry standards"
+Good: ">>Implemented React web app reducing load time by 60%"
+
+Too long: ">>Successfully managed and coordinated cross-functional team collaboration efforts between development, design, and product management to deliver high-quality software solutions"
+Good: ">>Led cross-functional team of 8 to launch product 2 weeks early"
+
+Too long: ">>Utilized advanced machine learning algorithms and sophisticated data processing techniques to analyze and interpret large datasets for meaningful insights and actionable recommendations"
+Good: ">>Developed ML algorithm increasing prediction accuracy by 45%"
+
+INPUT BULLETS TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
     if (mode === 'tailor') {
