@@ -250,7 +250,7 @@ STAR METHOD REQUIREMENTS:
 4) Preserve EXACT numbers from original bullets - never change metrics that already exist
 5) Keep balanced focus on both actions and results
 
-MEANING PRESERVATION PRIORITY:
+VERY IMPORTANT: MEANING PRESERVATION PRIORITY:
 1) The original bullet's core meaning is SACRED - never alter:
    - Scope of responsibility
    - Team sizes mentioned
