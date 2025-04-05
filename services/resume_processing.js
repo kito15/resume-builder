@@ -202,74 +202,41 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    // Simplified and re-prioritized base prompt
-    const basePrompt = `Resume Expert: Enhance bullets using STAR, metrics, and keywords.
+    const basePrompt = `Expert resume writer: Enhance these bullet points while PRESERVING their original meaning and facts.
 
-**RULE 1: FORMAT (MANDATORY)**
-- Every bullet MUST start EXACTLY with ">>" (no space before or after).
-- Example: ">>Improved system performance..."
+ABSOLUTE RULES:
+1. Start EVERY bullet point with ">>" (no space after)
+2. NEVER change the original meaning, facts, numbers, or scope of responsibility
+3. Keep the same technical context and project details
+4. Use the EXACT metrics from the original bullets
 
-**RULE 2: PRESERVE ORIGINAL MEANING (HIGHEST PRIORITY)**
-- DO NOT CHANGE the core facts, scope, impact, metrics, or technical context of the original bullet.
-- Your job is to RESTRUCTURE and ENHANCE, *not* to rewrite the fundamental achievement. Keep original numbers.
+BULLET POINT STRUCTURE:
+1. Start with a strong action verb (different for each bullet)
+2. Include 1-2 keywords from: ${keywords}
+3. Keep under ${wordLimit} words
+4. Include specific metrics (%, $, time saved)
 
-**RULE 3: ACTION VERBS (MANDATORY)**
-- Start EACH bullet with a DIFFERENT strong action verb.
-- AVOID weak verbs (Helped, Used, Worked), overly complex ones (Orchestrated, Fashioned), or exaggerated ones (Revolutionized, Masterminded). ${verbAvoidanceText}${mostUsedVerbsText}
-- PREFER simple, professional verbs like: Improved, Increased, Reduced, Developed, Designed, Implemented, Led, Coordinated, Analyzed, Solved.
+AVOID THESE VERBS:${verbAvoidanceText}${mostUsedVerbsText}
 
-**RULE 4: KEYWORD INTEGRATION (MANDATORY)**
-- Distribute keywords from this list [${keywords}] NATURALLY across ALL bullets.
-- Use 1-2 relevant keywords per bullet. DO NOT list keywords together.
-- Every keyword MUST be used at least once.
+USE THESE VERBS INSTEAD:
+- Improved, Increased, Reduced, Decreased
+- Developed, Designed, Implemented
+- Led, Directed, Coordinated
+- Analyzed, Evaluated, Solved
 
-**RULE 5: STAR METHOD & METRICS (MANDATORY)**
-- Structure bullets using STAR (Situation/Task, Action, Result).
-- Include at least one SPECIFIC metric (%, $, time saved, count) in EVERY bullet.
-- Example: ">>Resolved database bottlenecks (Task) by optimizing SQL queries (Action), cutting processing time by 65% (Result)."
-
-**RULE 6: TECHNOLOGY CONSISTENCY**
-- Use realistic technology combinations.
-
-**RULE 7: WORD LIMIT**
-- Keep each bullet under ${wordLimit} words.
-
-Enhance the following bullet points based *strictly* on the rules above:
+ORIGINAL BULLETS TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
     if (mode === 'tailor') {
-        // For 'tailor' mode, the base prompt already includes the input bullets.
-        prompt = basePrompt;
+        prompt = `${basePrompt}
+
+INPUT BULLETS TO ENHANCE (integrate keywords naturally across ALL bullets):
+${(existingBullets || []).join('\n')}`;
     } else {
-        // For 'generate' mode, append the generation context instruction.
-        // Note: We need to adjust how 'generate' works if we always expect input bullets.
-        // Assuming 'generate' might need a different setup or is less used now.
-        // Let's keep the original logic but simplify the prompt part.
-        // This part might need revisiting based on how 'generate' mode is intended to be used
-        // without specific input bullets to enhance.
-        prompt = `Resume Expert: Generate achievement-focused bullets.
+        prompt = `${basePrompt}
 
-**RULE 1: FORMAT (MANDATORY)**
-- Every bullet MUST start EXACTLY with ">>" (no space before or after).
-
-**RULE 2: ACTION VERBS (MANDATORY)**
-- Start EACH bullet with a DIFFERENT strong action verb.
-- AVOID weak, complex, or exaggerated verbs. ${verbAvoidanceText}${mostUsedVerbsText}
-- PREFER simple verbs like: Improved, Increased, Reduced, Developed, Designed, Implemented, Led, Coordinated, Analyzed, Solved.
-
-**RULE 3: KEYWORD INTEGRATION (MANDATORY)**
-- Integrate keywords from [${keywords}] NATURALLY. Use 1-2 per bullet. Use all keywords.
-
-**RULE 4: STAR METHOD & METRICS (MANDATORY)**
-- Use STAR structure. Include a SPECIFIC metric (%, $, time, count) in EVERY bullet.
-
-**RULE 5: TECHNOLOGY CONSISTENCY**
-- Use realistic technology combinations.
-
-**RULE 6: WORD LIMIT**
-- Keep each bullet under ${wordLimit} words.
-
-Generate 15 bullets ${context} following these rules strictly.`;
+Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
+REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION VERBS`;
     }
 
     try {
