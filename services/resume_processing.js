@@ -202,7 +202,7 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `You are an expert resume writer. Your task is to write achievement-focused bullet points.
+    const basePrompt = `Expert resume writer: Transform bullets into specific, measurable achievements using the STAR method.
 
 EXAMPLE KEYWORDS TO INTEGRATE:
 React, Node.js, Python, AWS, Docker, PostgreSQL, REST APIs, Agile
@@ -313,6 +313,12 @@ Good: ">>Increased user engagement by 2.5x"
 Good: ">>Supported 100K daily active users"
 Bad: ">>Improved performance significantly"
 Bad: ">>Saved money on infrastructure"
+
+RULE 7 - WORD LIMIT PER BULLET:
+- Each bullet MUST be ${wordLimit} words or less
+- Count hyphenated words as one word
+- Do not sacrifice key metrics to meet word limit
+- Focus on concise, impactful language
 
 INPUT BULLETS TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
