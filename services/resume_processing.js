@@ -250,14 +250,14 @@ STAR METHOD REQUIREMENTS:
 4) Preserve EXACT numbers from original bullets - never change metrics that already exist
 5) Keep balanced focus on both actions and results
 
-VERY IMPORTANT: MEANING PRESERVATION PRIORITY:
-1) The original bullet's core meaning is SACRED - never alter:
+**HIGHEST PRIORITY: MEANING PRESERVATION**
+1) **CRITICAL:** The original bullet's core meaning is SACRED and MUST NOT be altered in any way. This includes preserving:
    - Scope of responsibility
    - Team sizes mentioned
    - Project impacts
    - Timelines/durations
    - Technical contexts
-2) Only enhance structure and natural keyword integration
+2) Only enhance the structure (STAR method) and integrate keywords naturally. DO NOT invent or change facts.
 
 WORD LIMIT ADHERENCE:
 1) Each bullet MUST stay within ${wordLimit} words
