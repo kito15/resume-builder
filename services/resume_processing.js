@@ -211,9 +211,9 @@ CORE RULES:
 1. Start each bullet with '>>' (no space after)
 2. Use strong action verbs that demonstrate impact
 3. Include specific metrics and numbers
-4. Only mention technologies directly involved in each achievement
+4. Focus on ONE primary technology/tool per bullet
 5. Focus on results and business value
-6. Keep technical details accurate
+6. Keep technical details accurate and focused
 
 FORMATTING:
 - Begin each bullet with >>
@@ -223,34 +223,42 @@ FORMATTING:
 
 CONTENT GUIDELINES:
 - Highlight measurable achievements
-- Show direct business impact 
-- Demonstrate technical expertise
-- Maintain scope and context
+- Show direct business impact
+- Focus on ONE primary technology per achievement
+- Maintain clear scope and context
 - Keep numbers and metrics accurate
 - Use industry-standard terminology
+
+TECHNOLOGY GUIDELINES:
+- Choose ONE primary technology focus per bullet
+- Avoid mixing multiple programming languages/frameworks
+- Only mention related tools if they're directly relevant
+- Keep technology stack references cohesive
+- Focus on the most impactful technology for each achievement
+- Maintain technical accuracy within the chosen focus
 
 KEYWORD USAGE:
 - Include 1-2 relevant keywords per bullet
 - Place keywords early in sentences
 - Use exact keyword matches
-- Only mention technologies directly related to each achievement
+- Avoid keyword stuffing
 - Maintain natural sentence flow
 - Ensure technical accuracy
 
 EXAMPLES OF EFFECTIVE BULLETS:
->>Built Salesforce integration using Apex and Lightning Web Components, automating workflows for 500+ sales reps
->>Developed GraphQL API with Node.js and MongoDB, powering mobile app features used by 100K+ users
->>Optimized PostgreSQL queries and indexes for customer data platform, reducing response times by 65%
->>Led migration from on-premise to AWS cloud infrastructure, achieving 40% cost reduction
+>>Optimized React component rendering performance by 60%, reducing load times for 1M+ daily users
+>>Architected scalable PostgreSQL indexing strategy that decreased query latency by 75%
+>>Developed Node.js microservice handling 200K daily authentication requests with 99.99% uptime
+>>Implemented Redis caching layer reducing database load by 40% and improving response times
 
 AVOID:
 - Generic or vague statements
-- Technologies not directly involved in the achievement
+- Mixing multiple core technologies
+- Irrelevant technical references
 - Altered metrics or scope
 - Dense technical jargon
 - Multiple achievements per bullet
 - Non-standard formatting
-- Mentioning technologies just for keyword matching
 
 INPUT BULLETS TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
@@ -264,7 +272,7 @@ ${(existingBullets || []).join('\n')}`;
         prompt = `${basePrompt}
 
 Generate ${wordLimit || 15} achievement-focused bullets ${context} that emphasize concrete results and technical expertise.
-Use varied action verbs and start each bullet with >>. Only mention technologies that were directly involved in each achievement.`;
+Use varied action verbs and start each bullet with >>. Focus on ONE primary technology per achievement.`;
     }
 
     try {
