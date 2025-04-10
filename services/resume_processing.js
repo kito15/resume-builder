@@ -202,66 +202,75 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `You are an expert resume writer. Your task is to write achievement-focused bullet points that will pass ATS systems and impress hiring managers.
+    const basePrompt = `You are an expert resume writer specializing in crafting achievement-focused bullet points for technical roles that impress both ATS systems and hiring managers.
 
-KEYWORDS TO INTEGRATE:
+Your task is to rewrite the INPUT BULLETS below, or generate new bullets if none are provided, following these strict rules:
+
+KEYWORDS TO INTEGRATE NATURALLY:
 ${keywords}
 
-CORE RULES:
-1. Start each bullet with '>>' (no space after)
-2. Use strong action verbs that demonstrate impact
-3. Include specific metrics and numbers
-4. Focus on ONE primary technology/tool per bullet
-5. Focus on results and business value
-6. Keep technical details accurate and focused
+RULE 1: FORMATTING & STRUCTURE
+- Start EVERY bullet point with '>>' (NO space after).
+- Each bullet MUST describe a single, distinct achievement.
+- Keep bullets concise, ideally between 15-25 words.
+- Use standard capitalization and punctuation.
 
-FORMATTING:
-- Begin each bullet with >>
-- One achievement per bullet
-- 15-20 words maximum per bullet
-- Use proper capitalization and punctuation
+RULE 2: ACTION VERBS & IMPACT
+- Begin each bullet with a strong, varied action verb (e.g., Developed, Implemented, Optimized, Led, Increased, Reduced).
+- Focus relentlessly on the RESULT or IMPACT of the action.
+- AVOID weak verbs (e.g., Worked on, Responsible for, Used) or overly grandiose terms (e.g., Revolutionized).
 
-CONTENT GUIDELINES:
-- Highlight measurable achievements
-- Show direct business impact
-- Focus on ONE primary technology per achievement
-- Maintain clear scope and context
-- Keep numbers and metrics accurate
-- Use industry-standard terminology
+RULE 3: METRICS & QUANTIFICATION
+- Include specific, quantifiable metrics whenever possible (e.g., %, $, time saved, amounts, user numbers).
+- If the original bullet had numbers/metrics, preserve them EXACTLY. Do not invent or exaggerate metrics.
+- Examples: "Reduced latency by 30%", "Managed budget of $50K", "Increased user engagement by 25%", "Processed 1M records daily".
 
-TECHNOLOGY GUIDELINES:
-- Choose ONE primary technology focus per bullet
-- Avoid mixing multiple programming languages/frameworks
-- Only mention related tools if they're directly relevant
-- Keep technology stack references cohesive
-- Focus on the most impactful technology for each achievement
-- Maintain technical accuracy within the chosen focus
+RULE 4: KEYWORD INTEGRATION
+- Naturally integrate 1-2 relevant keywords from the list provided into each bullet.
+- You MAY use more than 2 keywords ONLY IF they are directly related and part of the *same* core achievement (e.g., React and Node.js for a full-stack feature, Python and Pandas for data analysis).
+- Distribute keywords logically across all bullets.
+- Place keywords where they make sense grammatically; avoid forcing them unnaturally.
+- Use exact keyword matches where appropriate.
 
-KEYWORD USAGE:
-- Include 1-2 relevant keywords per bullet
-- Place keywords early in sentences
-- Use exact keyword matches
-- Avoid keyword stuffing
-- Maintain natural sentence flow
-- Ensure technical accuracy
+RULE 5: TECHNOLOGY COMBINATION & ACCURACY
+- Combine multiple technologies/tools in a single bullet ONLY if they were genuinely used together for that specific achievement.
+- The relationship between combined technologies should be logical (e.g., "React frontend with a Node.js API", "Python script interacting with a PostgreSQL DB", "Docker container running a Java application").
+- AVOID mixing unrelated technologies just to include more keywords (e.g., "Used React and improved SQL performance" - these are likely separate achievements).
+- Maintain the technical accuracy, scope, team size, and timeline of the original achievement. Do NOT alter core facts.
 
 EXAMPLES OF EFFECTIVE BULLETS:
->>Optimized React component rendering performance by 60%, reducing load times for 1M+ daily users
->>Architected scalable PostgreSQL indexing strategy that decreased query latency by 75%
->>Developed Node.js microservice handling 200K daily authentication requests with 99.99% uptime
->>Implemented Redis caching layer reducing database load by 40% and improving response times
 
-AVOID:
-- Generic or vague statements
-- Mixing multiple core technologies
-- Irrelevant technical references
-- Altered metrics or scope
-- Dense technical jargon
-- Multiple achievements per bullet
-- Non-standard formatting
+Good (Single Keyword):
+>>Optimized PostgreSQL database queries, reducing average report generation time by 60%.
+>>Led a 5-person team using Agile methodologies to deliver the client portal two weeks early.
 
-INPUT BULLETS TO ENHANCE:
-${(existingBullets || []).join('\n')}`;
+Good (Multiple RELATED Keywords):
+>>Developed React frontend components interacting with a Node.js REST API, improving user workflow efficiency by 25%.
+>>Implemented a Python data validation pipeline using Pandas deployed on AWS infrastructure, ensuring 99.9% data accuracy.
+>>Containerized legacy Java application using Docker, enabling deployment automation and reducing setup time by 80%.
+
+Bad (Unrelated Tech / Keyword Stuffing):
+>>Used React, Python, and SQL for the project. (Vague, likely unrelated tasks combined).
+>>Enhanced system using Java, C++, Docker, and Agile. (Forced keywords, unclear relationship).
+>>Built UI with React and also optimized backend database performance. (Two separate achievements).
+
+Bad (Violates Other Rules):
+>>Worked on developing new features using React. (Weak verb, no metric/impact).
+>>Revolutionized the deployment process with Docker. (Grandiose, lacks specifics).
+>>Significantly improved performance. (Vague, no metric).
+
+AVOID THESE PITFALLS:
+- Vague descriptions or generic statements.
+- Listing technologies without context or achievement.
+- Combining multiple unrelated achievements into one bullet.
+- Altering facts, metrics, or scope.
+- Exceeding the ideal word count significantly.
+- Failing to start with '>>'.
+
+INPUT BULLETS TO REWRITE/ENHANCE (or generate new if blank):
+${(existingBullets || []).join('\n')}
+
+Generate bullet points based *only* on the rules and examples provided. Ensure every output line starts with '>>'.`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
@@ -271,8 +280,8 @@ ${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `${basePrompt}
 
-Generate ${wordLimit || 15} achievement-focused bullets ${context} that emphasize concrete results and technical expertise.
-Use varied action verbs and start each bullet with >>. Focus on ONE primary technology per achievement.`;
+Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
+REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION VERBS`;
     }
 
     try {
@@ -281,7 +290,7 @@ Use varied action verbs and start each bullet with >>. Focus on ONE primary tech
             {
                 system_instruction: {
                     parts: [{
-                        text: "You are a specialized resume optimization AI focused on ATS compatibility. Generate achievement-focused bullet points starting with >>. Use unique action verbs and incorporate keywords naturally."
+                        text: "You are a specialized resume optimization AI. Your ONLY task is to generate resume bullet points. You MUST format all bullet points with '>>' prefix (no space after). Do not include ANY other text. Use a DIFFERENT action verb for each bullet point."
                     }]
                 },
                 contents: [{
@@ -291,7 +300,9 @@ Use varied action verbs and start each bullet with >>. Focus on ONE primary tech
                 }],
                 generationConfig: {
                     temperature: 0.4, // Lower temperature for more predictable formatting
-                    maxOutputTokens: 2000
+                    maxOutputTokens: 2000,
+                    topP: 0.9,
+                    topK: 40
                 },
                 safetySettings: [{
                     category: "HARM_CATEGORY_DANGEROUS_CONTENT",
