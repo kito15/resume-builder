@@ -202,75 +202,69 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `You are an expert resume writer specializing in crafting achievement-focused bullet points for technical roles that impress both ATS systems and hiring managers.
+    const basePrompt = `You are an expert resume writer. Your task is to write achievement-focused bullet points that naturally integrate technical keywords.
 
-Your task is to rewrite the INPUT BULLETS below, or generate new bullets if none are provided, following these strict rules:
+RULE 1 - ACHIEVEMENT STRUCTURE:
+- Start with a strong action verb
+- Include specific metrics (%, $, time, or quantity)
+- Focus on impact and results
+- Keep bullets to 1-2 lines maximum
 
-KEYWORDS TO INTEGRATE NATURALLY:
-${keywords}
+RULE 2 - KEYWORD INTEGRATION RULES:
+- Natural Integration: Keywords should flow naturally within the achievement context
+- Logical Pairing: Only combine technologies that work together (e.g., "React frontend with Node.js backend")
+- Technical Accuracy: Each technology mentioned should serve a clear purpose in the achievement
+- Density Guide:
+  * 1-2 keywords per bullet is ideal
+  * Up to 3 keywords IF they are naturally related (e.g., "Developed React components with TypeScript and Jest testing")
+  * Spread keywords evenly across all bullets
 
-RULE 1: FORMATTING & STRUCTURE
-- Start EVERY bullet point with '>>' (NO space after).
-- Each bullet MUST describe a single, distinct achievement.
-- Keep bullets concise, ideally between 15-25 words.
-- Use standard capitalization and punctuation.
+RULE 3 - FORMATTING:
+- Start each line with >> (no space after)
+- No other characters before >>
+- No trailing spaces
 
-RULE 2: ACTION VERBS & IMPACT
-- Begin each bullet with a strong, varied action verb (e.g., Developed, Implemented, Optimized, Led, Increased, Reduced).
-- Focus relentlessly on the RESULT or IMPACT of the action.
-- AVOID weak verbs (e.g., Worked on, Responsible for, Used) or overly grandiose terms (e.g., Revolutionized).
+RULE 4 - TECHNICAL ACCURACY:
+Good Examples:
+>>Engineered React.js components with TypeScript, reducing page load time by 45% through optimized rendering
+>>Implemented OAuth authentication in Node.js backend, securing API access for 50K users
+>>Developed Python data processing pipeline with PostgreSQL, handling 2M daily transactions
+>>Architected microservices using Docker and Kubernetes, improving system reliability by 99.9%
 
-RULE 3: METRICS & QUANTIFICATION
-- Include specific, quantifiable metrics whenever possible (e.g., %, $, time saved, amounts, user numbers).
-- If the original bullet had numbers/metrics, preserve them EXACTLY. Do not invent or exaggerate metrics.
-- Examples: "Reduced latency by 30%", "Managed budget of $50K", "Increased user engagement by 25%", "Processed 1M records daily".
+Bad Examples:
+>>Used React and MongoDB for frontend (Wrong: MongoDB is not a frontend technology)
+>>Implemented Python and JavaScript simultaneously (Wrong: Unclear technical relationship)
+>>Utilized AWS, Docker, and React for development (Wrong: Too vague, no clear relationship)
 
-RULE 4: KEYWORD INTEGRATION
-- Naturally integrate 1-2 relevant keywords from the list provided into each bullet.
-- You MAY use more than 2 keywords ONLY IF they are directly related and part of the *same* core achievement (e.g., React and Node.js for a full-stack feature, Python and Pandas for data analysis).
-- Distribute keywords logically across all bullets.
-- Place keywords where they make sense grammatically; avoid forcing them unnaturally.
-- Use exact keyword matches where appropriate.
+RULE 5 - PRESERVE CONTEXT:
+- Keep all numerical metrics exactly as they are
+- Maintain original project scope and team size
+- Preserve timeline references
+- Keep role level and responsibilities accurate
 
-RULE 5: TECHNOLOGY COMBINATION & ACCURACY
-- Combine multiple technologies/tools in a single bullet ONLY if they were genuinely used together for that specific achievement.
-- The relationship between combined technologies should be logical (e.g., "React frontend with a Node.js API", "Python script interacting with a PostgreSQL DB", "Docker container running a Java application").
-- AVOID mixing unrelated technologies just to include more keywords (e.g., "Used React and improved SQL performance" - these are likely separate achievements).
-- Maintain the technical accuracy, scope, team size, and timeline of the original achievement. Do NOT alter core facts.
+RULE 6 - ACTION VERBS:
+Strong Verbs (Use These):
+- Technical: Developed, Implemented, Engineered, Architected
+- Leadership: Led, Directed, Coordinated, Managed
+- Improvement: Optimized, Enhanced, Streamlined, Improved
+- Analysis: Analyzed, Evaluated, Assessed, Monitored
 
-EXAMPLES OF EFFECTIVE BULLETS:
+Weak Verbs (Avoid These):
+- Vague: Used, Helped, Worked on, Assisted
+- Passive: Responsible for, Tasked with
+- Grandiose: Revolutionized, Transformed
+- Generic: Built, Created, Made
 
-Good (Single Keyword):
->>Optimized PostgreSQL database queries, reducing average report generation time by 60%.
->>Led a 5-person team using Agile methodologies to deliver the client portal two weeks early.
+RULE 7 - METRICS GUIDELINES:
+Every bullet MUST include at least one specific metric:
+- Performance: "reducing latency by 40%"
+- Scale: "supporting 100K daily users"
+- Efficiency: "decreasing processing time by 65%"
+- Cost: "saving $50K in annual costs"
+- Business Impact: "increasing user engagement by 2.5x"
 
-Good (Multiple RELATED Keywords):
->>Developed React frontend components interacting with a Node.js REST API, improving user workflow efficiency by 25%.
->>Implemented a Python data validation pipeline using Pandas deployed on AWS infrastructure, ensuring 99.9% data accuracy.
->>Containerized legacy Java application using Docker, enabling deployment automation and reducing setup time by 80%.
-
-Bad (Unrelated Tech / Keyword Stuffing):
->>Used React, Python, and SQL for the project. (Vague, likely unrelated tasks combined).
->>Enhanced system using Java, C++, Docker, and Agile. (Forced keywords, unclear relationship).
->>Built UI with React and also optimized backend database performance. (Two separate achievements).
-
-Bad (Violates Other Rules):
->>Worked on developing new features using React. (Weak verb, no metric/impact).
->>Revolutionized the deployment process with Docker. (Grandiose, lacks specifics).
->>Significantly improved performance. (Vague, no metric).
-
-AVOID THESE PITFALLS:
-- Vague descriptions or generic statements.
-- Listing technologies without context or achievement.
-- Combining multiple unrelated achievements into one bullet.
-- Altering facts, metrics, or scope.
-- Exceeding the ideal word count significantly.
-- Failing to start with '>>'.
-
-INPUT BULLETS TO REWRITE/ENHANCE (or generate new if blank):
-${(existingBullets || []).join('\n')}
-
-Generate bullet points based *only* on the rules and examples provided. Ensure every output line starts with '>>'.`;
+INPUT BULLETS TO ENHANCE:
+${(existingBullets || []).join('\n')}`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
