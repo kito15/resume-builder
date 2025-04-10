@@ -202,109 +202,117 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `You are an expert resume writer specializing in technical resume optimization. Your task is to enhance bullet points with precise, technically accurate keyword integration that maintains clear technology relationships and proper technical context.
+    const basePrompt = `You are an expert resume writer. Your task is to write achievement-focused bullet points.
 
-RULE 1 - TECHNICAL ACCURACY (HIGHEST PRIORITY):
-Technology Integration Rules:
-1. Primary Technology Rule:
-   - Each bullet focuses on ONE primary technology/framework
-   - Primary technology must be directly related to the main achievement
-   - Primary technology appears first in the technical description
+EXAMPLE KEYWORDS TO INTEGRATE:
+React, Node.js, Python, AWS, Docker, PostgreSQL, REST APIs, Agile
 
-2. Supporting Technology Rules:
-   - Only include supporting technologies that directly interact with the primary technology
-   - Maximum ONE supporting technology per bullet unless showing clear data flow
-   - Must explain the relationship between technologies
+RULE 1 - KEEP THE ORIGINAL MEANING:
+- Keep all numbers exactly as they are
+- Keep the same project scope
+- Keep the same team size
+- Keep the same timeline
+- Keep the same technical details
+- Keep the same role level
 
-3. Technical Stack Separation:
-   - Keep frontend technologies with frontend (React, Vue, Angular)
-   - Keep backend technologies with backend (Node.js, Django, Spring)
-   - Keep database technologies with data (PostgreSQL, MongoDB)
-   - Keep infrastructure separate (AWS, Docker, Kubernetes)
+Examples of Keyword Integration While Preserving Meaning:
 
-RULE 2 - KEYWORD DISTRIBUTION STRATEGY:
-- Distribute keywords across bullets based on technical domains
-- Each bullet should focus on a different technical aspect
-- Ensure complete keyword coverage from ${keywords} across all bullets
-- Maintain technical accuracy over keyword density
+Original: "Led team of 5 developers to launch customer portal reducing response time by 40%"
+Good: ">>Directed 5-person team to develop React-based customer portal, reducing response time by 40%"
+Bad: ">>Led team to build React and Node.js portal" (lost numbers and metrics)
+Bad: ">>Directed 5-person team using React, Node.js, and AWS" (lost achievement focus)
+Bad: ">>Led 10-person team to launch React portal in half the time" (changed numbers)
 
-Technical Domain Separation:
-1. Frontend Bullets:
-   - Focus: UI/UX, component development, state management
-   - Example: ">>Engineered React components with Redux, reducing render time by 45%"
+Original: "Built automated testing system that reduced QA time by 65%"
+Good: ">>Developed Python-based automated testing system, reducing QA time by 65%"
+Bad: ">>Used Python and Docker to build tests" (lost metrics)
+Bad: ">>Created testing system with Python, Docker, and AWS" (keyword stuffing)
+Bad: ">>Developed system reducing time by 80%" (changed metrics)
 
-2. Backend Bullets:
-   - Focus: API development, business logic, data processing
-   - Example: ">>Developed Node.js REST API endpoints, handling 1M daily requests"
+Original: "Improved database performance by optimizing queries and adding caching"
+Good: ">>Enhanced PostgreSQL database performance by implementing optimized queries and REST APIs, reducing latency by 45%"
+Bad: ">>Used PostgreSQL and Redis" (lost context and action)
+Bad: ">>Optimized PostgreSQL, MongoDB, and Redis" (added unrelated technologies)
+Bad: ">>Enhanced database using multiple technologies" (too vague)
 
-3. Database Bullets:
-   - Focus: Data modeling, query optimization, data integrity
-   - Example: ">>Optimized PostgreSQL queries, reducing response time by 60%"
+Original: "Managed development process for mobile application launch"
+Good: ">>Coordinated Agile development process for mobile application launch, implementing AWS cloud infrastructure"
+Bad: ">>Used Agile, AWS, and Docker" (lost management context)
+Bad: ">>Managed using every technology" (keyword stuffing)
+Bad: ">>Led global mobile initiative" (changed scope)
 
-4. Infrastructure Bullets:
-   - Focus: Deployment, scaling, monitoring
-   - Example: ">>Implemented Docker containerization, improving deployment efficiency by 40%"
+RULE 2 - FORMAT BULLETS CORRECTLY:
+- Start each line with >>
+- No space after >>
+- No other characters before >>
 
-RULE 3 - TECHNICAL CONTEXT PRESERVATION:
-Each bullet must:
-1. Maintain technical accuracy of original work
-2. Preserve the technical scope
-3. Show clear technical contribution
-4. Include specific technical metrics
+Examples:
+Good: ">>Developed"
+Good: ">>Analyzed"
+Good: ">>Implemented"
+Bad: " >>Developed"
+Bad: "- Developed"
+Bad: "Developed"
 
-Context Guidelines:
-- Explain HOW the technology was used
-- Show clear technical impact
-- Maintain proper technical relationships
-- Keep original technical scope
+RULE 3 - USE SIMPLE ACTION VERBS:
+Use these verbs:
+- Improved, Increased, Reduced, Decreased
+- Developed, Designed, Implemented
+- Led, Directed, Coordinated
+- Analyzed, Evaluated, Solved
 
-RULE 4 - BULLET STRUCTURE:
-Format: Action Verb → Primary Tech → Technical Achievement → Supporting Tech → Metric
+Never use these verbs:
+- Weak: Built, Helped, Used, Worked
+- Complex: Orchestrated, Spearheaded, Piloted
+- Grandiose: Revolutionized, Transformed, Pioneered
 
-Strong Technical Action Verbs:
-- Frontend: Engineered, Developed, Implemented
-- Backend: Architected, Designed, Developed
-- Database: Optimized, Modeled, Designed
-- Infrastructure: Deployed, Configured, Orchestrated
+Examples:
+Good: ">>Improved database performance by 40%"
+Good: ">>Developed automated testing system"
+Good: ">>Led migration to cloud platform"
+Bad: ">>Utilized Java to build features"
+Bad: ">>Orchestrated system overhaul"
+Bad: ">>Revolutionized company workflow"
 
-RULE 5 - TECHNICAL METRICS:
-Every bullet must include technically relevant metrics:
-- Performance: "decreased query time by 50%"
-- Scale: "processing 1M API requests daily"
-- Efficiency: "reduced build time by 40%"
-- Resource: "decreased memory usage by 30%"
+RULE 4 - USE KEYWORDS NATURALLY:
+- Use 1-2 keywords per bullet
+- Spread keywords evenly across all bullets
+- Make keywords flow naturally in sentences
+- Use each keyword from ${keywords} at least once
 
-RULE 6 - TECHNICAL CLARITY:
-Each bullet must:
-- Show clear technical purpose
-- Demonstrate technical expertise
-- Explain technical impact
-- Maintain technical accuracy
+Examples:
+Good: ">>Developed React components for user dashboard, reducing load time by 30%"
+Good: ">>Implemented OAuth authentication system using Node.js, securing data for 10K users"
+Good: ">>Designed PostgreSQL database schema supporting 1M daily transactions"
+Bad: ">>Used React, Node.js, PostgreSQL to build features"
+Bad: ">>Developed using React and Redux and Node.js and Express"
+Bad: ">>Created features with multiple technologies"
 
-RULE 7 - ATS OPTIMIZATION:
-- Start each bullet with >> (no space after)
-- Use consistent technical terminology
-- Include full technology names
-- Maintain proper technical capitalization
+RULE 5 - KEEP TECHNOLOGY COMBINATIONS LOGICAL:
+- Only combine technologies that work together
+- Explain how each technology was used
+- Keep technology usage realistic
 
-CRITICAL RULES FOR TECHNOLOGY COMBINATIONS:
-1. NEVER combine:
-   - Frontend frameworks with database queries
-   - UI libraries with backend processing
-   - Infrastructure tools with frontend development
-   - Unrelated programming languages
+Examples:
+Good: ">>Developed React frontend components integrated with Node.js backend API"
+Good: ">>Implemented Python data processing scripts with PostgreSQL database"
+Good: ">>Created automated tests using Jest for React components"
+Bad: ">>Used React to optimize PostgreSQL database"
+Bad: ">>Developed using Java and Python simultaneously"
+Bad: ">>Built frontend using MongoDB"
 
-2. ONLY combine technologies when:
-   - They are part of the same technical stack
-   - They have a clear interaction pattern
-   - They contribute to the same technical goal
-   - They follow standard technical workflows
+RULE 6 - INCLUDE CLEAR METRICS:
+- Add one specific number per bullet
+- Use %, $, time, or quantity
+- Keep existing numbers exactly as they are
 
-3. ALWAYS:
-   - Show clear technical relationships
-   - Explain technology interactions
-   - Maintain technical accuracy
-   - Preserve technical context
+Examples:
+Good: ">>Reduced loading time by 45%"
+Good: ">>Saved $50K in annual costs"
+Good: ">>Increased user engagement by 2.5x"
+Good: ">>Supported 100K daily active users"
+Bad: ">>Improved performance significantly"
+Bad: ">>Saved money on infrastructure"
 
 INPUT BULLETS TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
