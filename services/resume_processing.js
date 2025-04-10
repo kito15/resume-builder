@@ -202,117 +202,54 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `You are an expert resume writer. Your task is to write achievement-focused bullet points.
+    const basePrompt = `You are an expert resume writer. Your task is to write achievement-focused bullet points that will pass ATS systems and impress hiring managers.
 
-EXAMPLE KEYWORDS TO INTEGRATE:
-React, Node.js, Python, AWS, Docker, PostgreSQL, REST APIs, Agile
+KEYWORDS TO INTEGRATE:
+${keywords}
 
-RULE 1 - KEEP THE ORIGINAL MEANING:
-- Keep all numbers exactly as they are
-- Keep the same project scope
-- Keep the same team size
-- Keep the same timeline
-- Keep the same technical details
-- Keep the same role level
+CORE RULES:
+1. Start each bullet with '>>' (no space after)
+2. Use strong action verbs that demonstrate impact
+3. Include specific metrics and numbers
+4. Naturally incorporate relevant technologies
+5. Focus on results and business value
+6. Keep technical details accurate
 
-Examples of Keyword Integration While Preserving Meaning:
+FORMATTING:
+- Begin each bullet with >>
+- One achievement per bullet
+- 15-20 words maximum per bullet
+- Use proper capitalization and punctuation
 
-Original: "Led team of 5 developers to launch customer portal reducing response time by 40%"
-Good: ">>Directed 5-person team to develop React-based customer portal, reducing response time by 40%"
-Bad: ">>Led team to build React and Node.js portal" (lost numbers and metrics)
-Bad: ">>Directed 5-person team using React, Node.js, and AWS" (lost achievement focus)
-Bad: ">>Led 10-person team to launch React portal in half the time" (changed numbers)
+CONTENT GUIDELINES:
+- Highlight measurable achievements
+- Show direct business impact 
+- Demonstrate technical expertise
+- Maintain scope and context
+- Keep numbers and metrics accurate
+- Use industry-standard terminology
 
-Original: "Built automated testing system that reduced QA time by 65%"
-Good: ">>Developed Python-based automated testing system, reducing QA time by 65%"
-Bad: ">>Used Python and Docker to build tests" (lost metrics)
-Bad: ">>Created testing system with Python, Docker, and AWS" (keyword stuffing)
-Bad: ">>Developed system reducing time by 80%" (changed metrics)
+KEYWORD USAGE:
+- Include 1-2 relevant keywords per bullet
+- Place keywords early in sentences
+- Use exact keyword matches
+- Avoid keyword stuffing
+- Maintain natural sentence flow
+- Ensure technical accuracy
 
-Original: "Improved database performance by optimizing queries and adding caching"
-Good: ">>Enhanced PostgreSQL database performance by implementing optimized queries and REST APIs, reducing latency by 45%"
-Bad: ">>Used PostgreSQL and Redis" (lost context and action)
-Bad: ">>Optimized PostgreSQL, MongoDB, and Redis" (added unrelated technologies)
-Bad: ">>Enhanced database using multiple technologies" (too vague)
+EXAMPLES OF EFFECTIVE BULLETS:
+>>Developed React microservices architecture serving 2M+ daily users, reducing latency by 40%
+>>Implemented Node.js REST API endpoints handling 500K requests/day with 99.9% uptime
+>>Designed PostgreSQL database optimization strategy cutting query times by 65%
+>>Led 6-person Agile development team delivering AWS cloud migration 2 months ahead of schedule
 
-Original: "Managed development process for mobile application launch"
-Good: ">>Coordinated Agile development process for mobile application launch, implementing AWS cloud infrastructure"
-Bad: ">>Used Agile, AWS, and Docker" (lost management context)
-Bad: ">>Managed using every technology" (keyword stuffing)
-Bad: ">>Led global mobile initiative" (changed scope)
-
-RULE 2 - FORMAT BULLETS CORRECTLY:
-- Start each line with >>
-- No space after >>
-- No other characters before >>
-
-Examples:
-Good: ">>Developed"
-Good: ">>Analyzed"
-Good: ">>Implemented"
-Bad: " >>Developed"
-Bad: "- Developed"
-Bad: "Developed"
-
-RULE 3 - USE SIMPLE ACTION VERBS:
-Use these verbs:
-- Improved, Increased, Reduced, Decreased
-- Developed, Designed, Implemented
-- Led, Directed, Coordinated
-- Analyzed, Evaluated, Solved
-
-Never use these verbs:
-- Weak: Built, Helped, Used, Worked
-- Complex: Orchestrated, Spearheaded, Piloted
-- Grandiose: Revolutionized, Transformed, Pioneered
-
-Examples:
-Good: ">>Improved database performance by 40%"
-Good: ">>Developed automated testing system"
-Good: ">>Led migration to cloud platform"
-Bad: ">>Utilized Java to build features"
-Bad: ">>Orchestrated system overhaul"
-Bad: ">>Revolutionized company workflow"
-
-RULE 4 - USE KEYWORDS NATURALLY:
-- Use 1-2 keywords per bullet
-- Spread keywords evenly across all bullets
-- Make keywords flow naturally in sentences
-- Use each keyword from ${keywords} at least once
-
-Examples:
-Good: ">>Developed React components for user dashboard, reducing load time by 30%"
-Good: ">>Implemented OAuth authentication system using Node.js, securing data for 10K users"
-Good: ">>Designed PostgreSQL database schema supporting 1M daily transactions"
-Bad: ">>Used React, Node.js, PostgreSQL to build features"
-Bad: ">>Developed using React and Redux and Node.js and Express"
-Bad: ">>Created features with multiple technologies"
-
-RULE 5 - KEEP TECHNOLOGY COMBINATIONS LOGICAL:
-- Only combine technologies that work together
-- Explain how each technology was used
-- Keep technology usage realistic
-
-Examples:
-Good: ">>Developed React frontend components integrated with Node.js backend API"
-Good: ">>Implemented Python data processing scripts with PostgreSQL database"
-Good: ">>Created automated tests using Jest for React components"
-Bad: ">>Used React to optimize PostgreSQL database"
-Bad: ">>Developed using Java and Python simultaneously"
-Bad: ">>Built frontend using MongoDB"
-
-RULE 6 - INCLUDE CLEAR METRICS:
-- Add one specific number per bullet
-- Use %, $, time, or quantity
-- Keep existing numbers exactly as they are
-
-Examples:
-Good: ">>Reduced loading time by 45%"
-Good: ">>Saved $50K in annual costs"
-Good: ">>Increased user engagement by 2.5x"
-Good: ">>Supported 100K daily active users"
-Bad: ">>Improved performance significantly"
-Bad: ">>Saved money on infrastructure"
+AVOID:
+- Generic or vague statements
+- Irrelevant technologies
+- Altered metrics or scope
+- Dense technical jargon
+- Multiple achievements per bullet
+- Non-standard formatting
 
 INPUT BULLETS TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
@@ -325,8 +262,8 @@ ${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `${basePrompt}
 
-Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
-REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION VERBS`;
+Generate ${wordLimit || 15} achievement-focused bullets ${context} that emphasize concrete results and technical expertise.
+Use varied action verbs and start each bullet with >>`;
     }
 
     try {
@@ -335,7 +272,7 @@ REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION
             {
                 system_instruction: {
                     parts: [{
-                        text: "You are a specialized resume optimization AI. Your ONLY task is to generate resume bullet points. You MUST format all bullet points with '>>' prefix (no space after). Do not include ANY other text. Use a DIFFERENT action verb for each bullet point."
+                        text: "You are a specialized resume optimization AI focused on ATS compatibility. Generate achievement-focused bullet points starting with >>. Use unique action verbs and incorporate keywords naturally."
                     }]
                 },
                 contents: [{
@@ -345,9 +282,7 @@ REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION
                 }],
                 generationConfig: {
                     temperature: 0.4, // Lower temperature for more predictable formatting
-                    maxOutputTokens: 2000,
-                    topP: 0.9,
-                    topK: 40
+                    maxOutputTokens: 2000
                 },
                 safetySettings: [{
                     category: "HARM_CATEGORY_DANGEROUS_CONTENT",
