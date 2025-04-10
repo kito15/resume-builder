@@ -211,7 +211,7 @@ CORE RULES:
 1. Start each bullet with '>>' (no space after)
 2. Use strong action verbs that demonstrate impact
 3. Include specific metrics and numbers
-4. Naturally incorporate relevant technologies
+4. Only mention technologies directly involved in each achievement
 5. Focus on results and business value
 6. Keep technical details accurate
 
@@ -233,23 +233,24 @@ KEYWORD USAGE:
 - Include 1-2 relevant keywords per bullet
 - Place keywords early in sentences
 - Use exact keyword matches
-- Avoid keyword stuffing
+- Only mention technologies directly related to each achievement
 - Maintain natural sentence flow
 - Ensure technical accuracy
 
 EXAMPLES OF EFFECTIVE BULLETS:
->>Developed React microservices architecture serving 2M+ daily users, reducing latency by 40%
->>Implemented Node.js REST API endpoints handling 500K requests/day with 99.9% uptime
->>Designed PostgreSQL database optimization strategy cutting query times by 65%
->>Led 6-person Agile development team delivering AWS cloud migration 2 months ahead of schedule
+>>Built Salesforce integration using Apex and Lightning Web Components, automating workflows for 500+ sales reps
+>>Developed GraphQL API with Node.js and MongoDB, powering mobile app features used by 100K+ users
+>>Optimized PostgreSQL queries and indexes for customer data platform, reducing response times by 65%
+>>Led migration from on-premise to AWS cloud infrastructure, achieving 40% cost reduction
 
 AVOID:
 - Generic or vague statements
-- Irrelevant technologies
+- Technologies not directly involved in the achievement
 - Altered metrics or scope
 - Dense technical jargon
 - Multiple achievements per bullet
 - Non-standard formatting
+- Mentioning technologies just for keyword matching
 
 INPUT BULLETS TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
@@ -263,7 +264,7 @@ ${(existingBullets || []).join('\n')}`;
         prompt = `${basePrompt}
 
 Generate ${wordLimit || 15} achievement-focused bullets ${context} that emphasize concrete results and technical expertise.
-Use varied action verbs and start each bullet with >>`;
+Use varied action verbs and start each bullet with >>. Only mention technologies that were directly involved in each achievement.`;
     }
 
     try {
