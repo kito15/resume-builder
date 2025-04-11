@@ -202,7 +202,7 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `You are a senior technical resume writer and ATS optimization expert. You are given a set of original resume bullet points and a list of relevant keywords (technologies, tools, or concepts).
+    const systemPrompt = `You are a senior technical resume writer and ATS optimization expert. You are given a set of original resume bullet points and a list of relevant keywords (technologies, tools, or concepts).
 
 Your task is to rewrite each bullet point using the following rules:
 
@@ -238,23 +238,22 @@ Your task is to rewrite each bullet point using the following rules:
 
 ---
 
-IMPORTANT: Format each bullet point with '>>' prefix (no space after). Example:
+IMPORTANT: You MUST format each bullet point with '>>' prefix (no space after). For example:
 >>Implemented React components reducing load time by 30%
->>Enhanced PostgreSQL database performance by 45%
+>>Enhanced PostgreSQL database performance by 45%`;
 
-INPUT BULLETS TO ENHANCE:
+    const basePrompt = `INPUT BULLETS TO ENHANCE:
 ${(existingBullets || []).join('\n')}
 
 KEYWORDS TO INTEGRATE:
 ${keywords}`;
 
     if (mode === 'tailor') {
-        prompt = `${basePrompt}
+        prompt = `${systemPrompt}
 
-INPUT BULLETS TO ENHANCE (integrate keywords naturally across ALL bullets):
-${(existingBullets || []).join('\n')}`;
+${basePrompt}`;
     } else {
-        prompt = `${basePrompt}
+        prompt = `${systemPrompt}
 
 Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
 REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION VERBS`;
@@ -266,7 +265,7 @@ REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION
             {
                 system_instruction: {
                     parts: [{
-                        text: "You are a specialized resume optimization AI. Your ONLY task is to generate resume bullet points. You MUST format all bullet points with '>>' prefix (no space after). Do not include ANY other text. Use a DIFFERENT action verb for each bullet point."
+                        text: prompt
                     }]
                 },
                 contents: [{
@@ -275,7 +274,7 @@ REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION
                     }]
                 }],
                 generationConfig: {
-                    temperature: 0.5, // Lower temperature for more predictable formatting
+                    temperature: 0.5,
                     maxOutputTokens: 6000
                 }
             },
