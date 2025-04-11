@@ -235,6 +235,7 @@ Your task is to rewrite each bullet point using the following rules:
 6. **Be Concise and Truthful**:
    - Keep bullets focused and free of filler language.
    - Ensure the candidate could confidently explain each bullet in an interview without stretching the truth.
+   - Each bullet point should be approximately ${wordLimit} words long.
 
 ---
 
