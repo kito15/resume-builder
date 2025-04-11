@@ -188,21 +188,7 @@ function getFirstVerb(bulletText) {
 
 // Update the generateBullets function to emphasize verb diversity
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit, verbTracker) {
-    let prompt;
-    
-    // Get previously used verbs to avoid
-    const usedVerbs = verbTracker ? verbTracker.getUsedVerbs() : [];
-    const mostUsedVerbs = verbTracker ? verbTracker.getMostUsedVerbs(8) : [];
-    
-    const verbAvoidanceText = usedVerbs.length > 0 
-        ? `\nAVOID THESE PREVIOUSLY USED VERBS: ${usedVerbs.join(', ')}\n`
-        : '';
-        
-    const mostUsedVerbsText = mostUsedVerbs.length > 0
-        ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
-        : '';
-
-    const systemPrompt = `You are a senior technical resume writer and ATS optimization expert. You are given a set of original resume bullet points and a list of relevant keywords (technologies, tools, or concepts).
+    let systemPrompt = `You are a senior technical resume writer and ATS optimization expert. You are given a set of original resume bullet points and a list of relevant keywords (technologies, tools, or concepts).
 
 Your task is to rewrite each bullet point using the following rules:
 
@@ -242,86 +228,74 @@ IMPORTANT: You MUST format each bullet point with '>>' prefix (no space after). 
 >>Implemented React components reducing load time by 30%
 >>Enhanced PostgreSQL database performance by 45%`;
 
-    const basePrompt = `INPUT BULLETS TO ENHANCE:
+    let userPrompt = `INPUT BULLETS TO ENHANCE:
 ${(existingBullets || []).join('\n')}
 
 KEYWORDS TO INTEGRATE:
 ${keywords}`;
 
-    if (mode === 'tailor') {
-        prompt = `${systemPrompt}
-
-${basePrompt}`;
-    } else {
-        prompt = `${systemPrompt}
-
-Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
-REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION VERBS`;
+    if (mode !== 'tailor') {
+        userPrompt += `\n\nGenerate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.`;
     }
 
-    try {
-        const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
-            {
-                system_instruction: {
-                    parts: [{
-                        text: prompt
-                    }]
-                },
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }],
-                generationConfig: {
-                    temperature: 0.5,
-                    maxOutputTokens: 6000
-                }
+    const response = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
+        {
+            system_instruction: {
+                parts: [{
+                    text: systemPrompt
+                }]
             },
-            {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+            contents: [{
+                parts: [{
+                    text: userPrompt
+                }]
+            }],
+            generationConfig: {
+                temperature: 0.5,
+                maxOutputTokens: 6000
             }
-        );
-
-        const content = response.data.candidates[0].content.parts[0].text;
-        
-        // Primary matching for ">>" prefixed lines
-        let matched = content.match(/^\>\>(.+)$/gm) || [];
-        
-        // Secondary matching for lines that might be bullet points but missing the prefix
-        if (matched.length < 3) {
-            console.log('Warning: Not enough ">>" prefixed bullets found, applying secondary extraction');
-            
-            // Extract any line that looks like a complete sentence and might be a bullet point
-            const potentialBullets = content.split(/\n+/).filter(line => {
-                // Filter for lines that start with an action verb (capitalized word)
-                // and contain some text (at least 30 chars) and ideally have numbers
-                const trimmed = line.trim();
-                return trimmed.length > 30 && 
-                       /^[A-Z][a-z]+/.test(trimmed) && 
-                       (/\d+/.test(trimmed) || /ed\s/.test(trimmed));
-            });
-            
-            // Add these as properly formatted bullets
-            if (potentialBullets.length > 0) {
-                const formattedBullets = potentialBullets.map(b => `>>${b}`);
-                matched = [...matched, ...formattedBullets];
-                console.log(`Added ${formattedBullets.length} secondary-extracted bullets`);
+        },
+        {
+            headers: {
+                'Content-Type': 'application/json'
             }
         }
+    );
+
+    const content = response.data.candidates[0].content.parts[0].text;
+    
+    // Primary matching for ">>" prefixed lines
+    let matched = content.match(/^\>\>(.+)$/gm) || [];
+    
+    // Secondary matching for lines that might be bullet points but missing the prefix
+    if (matched.length < 3) {
+        console.log('Warning: Not enough ">>" prefixed bullets found, applying secondary extraction');
         
-        // Clean up the bullets
-        return matched.map(bp =>
-            bp.replace(/^>>\s*/, '')
-              .replace(/\*\*/g, '')
-              .replace(/\s*\([^)]*\)$/, '') // Remove any trailing parenthesis and enclosed keywords
-        );
-    } catch (error) {
-        console.error('Error generating bullets:', error.response?.data || error.message);
-        return []; // Return empty array in case of error
+        // Extract any line that looks like a complete sentence and might be a bullet point
+        const potentialBullets = content.split(/\n+/).filter(line => {
+            // Filter for lines that start with an action verb (capitalized word)
+            // and contain some text (at least 30 chars) and ideally have numbers
+            const trimmed = line.trim();
+            return trimmed.length > 30 && 
+                   /^[A-Z][a-z]+/.test(trimmed) && 
+                   (/\d+/.test(trimmed) || /ed\s/.test(trimmed));
+        });
+        
+        // Add these as properly formatted bullets
+        if (potentialBullets.length > 0) {
+            const formattedBullets = potentialBullets.map(b => `>>${b}`);
+            matched = [...matched, ...formattedBullets];
+            console.log(`Added ${formattedBullets.length} secondary-extracted bullets`);
+        }
     }
+    
+    // Clean up the bullets
+    return matched.map(bp =>
+        bp.replace(/^>>\s*/, '')
+          .replace(/\*\*/g, '')
+          .replace(/\s*\([^)]*\)$/, '') // Remove any trailing parenthesis and enclosed keywords
+    );
 }
 
 // Add function to shuffle bullets with verb checking
