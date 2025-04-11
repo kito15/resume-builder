@@ -246,7 +246,7 @@ INPUT BULLETS TO ENHANCE:
 ${(existingBullets || []).join('\n')}
 
 KEYWORDS TO INTEGRATE:
-${keywords.join(', ')}`;
+${keywords}`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
