@@ -275,15 +275,9 @@ REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION
                     }]
                 }],
                 generationConfig: {
-                    temperature: 0.4, // Lower temperature for more predictable formatting
-                    maxOutputTokens: 2000,
-                    topP: 0.9,
-                    topK: 40
-                },
-                safetySettings: [{
-                    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-                    threshold: "BLOCK_ONLY_HIGH"
-                }]
+                    temperature: 0.5, // Lower temperature for more predictable formatting
+                    maxOutputTokens: 2000
+                }
             },
             {
                 headers: {
