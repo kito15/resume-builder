@@ -187,56 +187,53 @@ function getFirstVerb(bulletText) {
 }
 
 // Update the generateBullets function to emphasize verb diversity
-async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
+async function generateBullets(mode, existingBullets, keywords, context) {
     const basePrompt = `You are a specialized resume bullet point optimizer. Your task has TWO PHASES:
 
 PHASE 1 - INITIAL GENERATION:
 First, generate achievement-focused resume bullets following these rules:
-1. One specific metric per bullet (%, $, time, or quantity)
+1. Each bullet MUST have ONE specific, realistic metric that directly relates to the achievement
 2. Begin with a strong action verb
-3. Use keywords naturally from this list: ${keywords}
-4. Use ONLY 1-2 related technologies per bullet
-5. DO NOT prefix bullets with '>>' yet
+3. Use keywords from this list ONLY when they make logical sense together: ${keywords}
+4. Focus on ONE primary technology or TWO closely related technologies per bullet
+5. The achievement must be a direct result of using the mentioned technologies
 
 PHASE 2 - REFLECTION AND REVISION:
-Then, review each bullet point against these criteria:
-1. Does it have a SPECIFIC metric? (Required: %, $, time, or quantity)
-2. Does it start with a STRONG action verb?
-3. Are technologies RELATED and used NATURALLY?
-4. Is the achievement CLEAR and CONCRETE?
+Review each bullet against these criteria:
+1. TECHNOLOGY CHECK:
+   - Are the technologies naturally related? (e.g., "React with Node.js" ✓, "Python with React" ✗)
+   - Is the achievement directly tied to using these technologies?
+   - If technologies don't pair logically, keep only the primary one
 
-REVISION RULES:
-- If a technology doesn't fit naturally, REMOVE ALL tech references but PRESERVE the achievement
-- If technologies are unrelated, KEEP the most relevant one and REMOVE others
-- If a bullet lacks a specific metric, ADD one
-- If a verb is weak, REPLACE it with a stronger alternative
+2. METRIC CHECK:
+   - Is the metric specific and realistic?
+   - Does the metric directly result from the technical work?
+   - Metrics must be concrete: time saved, costs reduced, users impacted, performance improved
 
-APPROVED ACTION VERBS:
-- Performance: Improved, Increased, Reduced, Decreased, Optimized
-- Development: Developed, Designed, Implemented, Created, Launched
-- Leadership: Led, Directed, Coordinated, Managed
-- Analysis: Analyzed, Evaluated, Assessed
+3. CLARITY CHECK:
+   - Is the cause-and-effect relationship clear?
+   - Could another developer understand exactly what was accomplished?
+   - Remove any buzzwords or vague terminology
 
-PROHIBITED:
-- Weak verbs: Built, Helped, Used, Worked
-- Mixing unrelated technologies (e.g., "Used React to optimize PostgreSQL")
-- Vague metrics (e.g., "many", "several", "various")
-- Grandiose claims without specifics
+EXAMPLES OF STRONG BULLETS:
+✓ "Developed React frontend components with Redux state management, reducing page load time by 45%"
+   [Clear relationship: React/Redux → faster loading]
+   
+✓ "Optimized PostgreSQL database queries and indexes, decreasing average query time from 2.5s to 200ms"
+   [Single technology focus, specific before/after metric]
+   
+✓ "Built Node.js REST API with Express.js caching layer, handling 50K daily requests with 99.9% uptime"
+   [Related technologies, concrete usage metrics]
 
-EXAMPLES OF GOOD BULLETS:
-- Developed React frontend with Node.js backend API, reducing load time by 40%
-- Implemented Python data processing pipeline using PostgreSQL, handling 1M daily records
-- Designed REST API endpoints in Node.js, supporting 50K daily users
-
-EXAMPLES OF BAD BULLETS (WITH CORRECTIONS):
-BAD: Used React to optimize PostgreSQL queries
-GOOD: Optimized PostgreSQL query performance, reducing response time by 60%
-
-BAD: Helped team with various JavaScript tasks
-GOOD: Developed JavaScript utilities that reduced code duplication by 35%
-
-BAD: Built MongoDB interface using React hooks
-GOOD: Developed React dashboard that visualized MongoDB data for 10K daily users
+EXAMPLES OF WEAK BULLETS (WITH PROBLEMS):
+✗ "Used React and SQL to improve performance by 30%"
+   [Problem: Unrelated technologies, vague improvement]
+   
+✗ "Developed Python scripts and JavaScript modules"
+   [Problem: No metric, unrelated technologies]
+   
+✗ "Increased efficiency using various tools and best practices"
+   [Problem: No specific technologies, vague metric]
 
 FINAL OUTPUT FORMAT:
 After revision, prefix each FINAL bullet with '>>' (no space after prefix)
@@ -246,7 +243,7 @@ ${(existingBullets || []).join('\n')}`;
 
     const prompt = mode === 'tailor' 
         ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements. Follow the two-phase process to ensure quality.`
-        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs. Follow the two-phase process to ensure quality.`;
+        : `${basePrompt}\n\nTASK: Generate achievement-focused bullets ${context} with concrete metrics and clear technology usage. Follow the two-phase process to ensure quality.`;
 
     try {
         const response = await axios.post(
@@ -259,7 +256,7 @@ ${(existingBullets || []).join('\n')}`;
                 }],
                 generationConfig: {
                     temperature: 0.5,
-                    maxOutputTokens: 8000
+                    maxOutputTokens: 6000
                 }
             },
             {
@@ -293,6 +290,8 @@ ${(existingBullets || []).join('\n')}`;
             bullet.replace(/^>>\s*/, '')
                   .replace(/\*\*/g, '')
                   .replace(/\s*\([^)]*\)$/, '')
+                  .replace(/\n/g, ' ') // Ensure no line breaks in bullets
+                  .trim()
         );
     } catch (error) {
         console.error('Error generating bullets:', error.response?.data || error.message);
@@ -443,7 +442,8 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                 
             bulletPoints = await generateBullets(
                 'tailor', existingBullets,
-                keywords, context, wordLimit, verbTracker
+                keywords, context,
+                verbTracker
             );
             
             // Add tailored bullets to cache
