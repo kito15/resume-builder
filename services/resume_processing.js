@@ -2,99 +2,63 @@
 const puppeteer = require('puppeteer');
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimilarity } = require('../config/util'); // Fixed from '../config/utils'
+const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimilarity } = require('../config/util');
 
-// Add new API key reference for Gemini
+// API key reference for Gemini
 const geminiApiKey = process.env.GEMINI_API_KEY;
 // Simple in-memory cache for LLM responses
 const lmCache = new Map();
 
-
+// Utility functions
 function countWordsInBullet(text) {
-    // Remove extra whitespace and special characters
     const cleaned = text.trim()
-        .replace(/[""]/g, '') // Remove smart quotes
-        .replace(/[.,!?()]/g, '') // Remove punctuation
-        .replace(/\s+/g, ' '); // Normalize spaces
+        .replace(/[""]/g, '')
+        .replace(/[.,!?()]/g, '')
+        .replace(/\s+/g, ' ');
     
-    // Count hyphenated words as one word
     const words = cleaned.split(' ')
         .filter(word => word.length > 0)
-        .map(word => word.replace(/-/g, '')); // Treat hyphenated words as single
+        .map(word => word.replace(/-/g, ''));
         
     return words.length;
 }
 
 function getSectionWordCounts($) {
-    const counts = {
+    const sections = {
         job: { total: 0, bullets: 0 },
         project: { total: 0, bullets: 0 },
         education: { total: 0, bullets: 0 }
     };
 
-    // Count job section bullets
-    $('.job-details li').each((_, el) => {
-        const wordCount = countWordsInBullet($(el).text());
-        counts.job.total += wordCount;
-        counts.job.bullets++;
-    });
-
-    // Count project section bullets
-    $('.project-details li').each((_, el) => {
-        const wordCount = countWordsInBullet($(el).text());
-        counts.project.total += wordCount;
-        counts.project.bullets++;
-    });
-
-    // Count education section bullets
-    $('.education-details li').each((_, el) => {
-        const wordCount = countWordsInBullet($(el).text());
-        counts.education.total += wordCount;
-        counts.education.bullets++;
+    Object.keys(sections).forEach(section => {
+        $(`.${section}-details li`).each((_, el) => {
+            const wordCount = countWordsInBullet($(el).text());
+            sections[section].total += wordCount;
+            sections[section].bullets++;
+        });
     });
 
     return {
-        job: counts.job.bullets > 0 ? Math.round(counts.job.total / counts.job.bullets) : 15,
-        project: counts.project.bullets > 0 ? Math.round(counts.project.total / counts.project.bullets) : 15,
-        education: counts.education.bullets > 0 ? Math.round(counts.education.total / counts.education.bullets) : 15
+        job: sections.job.bullets > 0 ? Math.round(sections.job.total / sections.job.bullets) : 15,
+        project: sections.project.bullets > 0 ? Math.round(sections.project.total / sections.project.bullets) : 15,
+        education: sections.education.bullets > 0 ? Math.round(sections.education.total / sections.education.bullets) : 15
     };
 }
 
-// Add new function to extract and store original bullets
 function extractOriginalBullets($) {
+    const sections = ['job', 'project', 'education'];
     const originalBullets = {
         job: [],
         project: [],
         education: [],
-        unassigned: [] // For any bullets not in a specific section
+        unassigned: []
     };
 
-    // Extract job bullets
-    $('.job-details').each((_, section) => {
-        $(section).find('li').each((_, bullet) => {
+    sections.forEach(section => {
+        $(`.${section}-details li`).each((_, bullet) => {
             const bulletText = $(bullet).text().trim();
-            if (bulletText && !originalBullets.job.includes(bulletText)) {
-                originalBullets.job.push(bulletText);
-            }
-        });
-    });
-
-    // Extract project bullets
-    $('.project-details').each((_, section) => {
-        $(section).find('li').each((_, bullet) => {
-            const bulletText = $(bullet).text().trim();
-            if (bulletText && !originalBullets.project.includes(bulletText)) {
-                originalBullets.project.push(bulletText);
-            }
-        });
-    });
-
-    // Extract education bullets
-    $('.education-details').each((_, section) => {
-        $(section).find('li').each((_, bullet) => {
-            const bulletText = $(bullet).text().trim();
-            if (bulletText && !originalBullets.education.includes(bulletText)) {
-                originalBullets.education.push(bulletText);
+            if (bulletText && !originalBullets[section].includes(bulletText)) {
+                originalBullets[section].push(bulletText);
             }
         });
     });
@@ -102,91 +66,82 @@ function extractOriginalBullets($) {
     return originalBullets;
 }
 
-// Add new class to track section-specific bullets
-class SectionBulletTracker {
+function getFirstVerb(bulletText) {
+    return bulletText.trim().split(/\s+/)[0].toLowerCase();
+}
+
+function shuffleArray(array) {
+    const result = [...array];
+    for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+}
+
+// Classes for tracking bullets and verbs
+class BulletTracker {
     constructor() {
-        this.bulletMap = new Map(); // Maps bullet text to section type
-        this.usedBullets = new Set(); // Tracks all used bullets
+        this.bulletMap = new Map();
+        this.usedBullets = new Set();
+        this.usedVerbs = new Map();
+        this.globalVerbs = new Set();
+        this.verbFrequency = new Map();
+        this.sectionPools = {
+            job: new Set(),
+            project: new Set(),
+            education: new Set()
+        };
     }
 
     addBullet(bulletText, sectionType) {
         this.bulletMap.set(bulletText, sectionType);
         this.usedBullets.add(bulletText);
+        this.sectionPools[sectionType].add(bulletText);
+        
+        // Track the verb
+        const verb = getFirstVerb(bulletText);
+        if (verb && verb.match(/^[a-z]+$/)) {
+            if (!this.usedVerbs.has(sectionType)) {
+                this.usedVerbs.set(sectionType, new Set());
+            }
+            this.usedVerbs.get(sectionType).add(verb);
+            this.globalVerbs.add(verb);
+            
+            // Track frequency
+            this.verbFrequency.set(verb, (this.verbFrequency.get(verb) || 0) + 1);
+        }
     }
 
     canUseBulletInSection(bulletText, sectionType) {
-        // If bullet hasn't been used before, it can be used
-        if (!this.bulletMap.has(bulletText)) return true;
-        // If bullet has been used, only allow in same section type
-        return this.bulletMap.get(bulletText) === sectionType;
+        return !this.bulletMap.has(bulletText) || this.bulletMap.get(bulletText) === sectionType;
     }
 
     isUsed(bulletText) {
         return this.usedBullets.has(bulletText);
     }
-}
-
-// Improve the ActionVerbTracker class to be more effective at preventing duplicate verbs
-class ActionVerbTracker {
-    constructor() {
-        this.usedVerbs = new Map(); // Maps section type to Set of used verbs
-        this.globalVerbs = new Set(); // Tracks verbs used across all sections
-        this.verbSynonyms = new Map(); // Maps common verbs to their usage count
-    }
-
-    addVerb(verb, sectionType) {
-        verb = verb.toLowerCase().trim();
-        
-        // Skip empty or non-word verbs
-        if (!verb || !verb.match(/^[a-z]+$/)) return;
-        
-        if (!this.usedVerbs.has(sectionType)) {
-            this.usedVerbs.set(sectionType, new Set());
-        }
-        this.usedVerbs.get(sectionType).add(verb);
-        this.globalVerbs.add(verb);
-        
-        // Track verb usage frequency
-        if (!this.verbSynonyms.has(verb)) {
-            this.verbSynonyms.set(verb, 1);
-        } else {
-            this.verbSynonyms.set(verb, this.verbSynonyms.get(verb) + 1);
-        }
-    }
-
+    
     isVerbUsedInSection(verb, sectionType) {
-        verb = verb.toLowerCase().trim();
-        return this.usedVerbs.get(sectionType)?.has(verb) || false;
+        return this.usedVerbs.get(sectionType)?.has(verb.toLowerCase().trim()) || false;
     }
 
     isVerbUsedGlobally(verb) {
-        verb = verb.toLowerCase().trim();
-        return this.globalVerbs.has(verb);
+        return this.globalVerbs.has(verb.toLowerCase().trim());
     }
-
-    getUsedVerbs() {
-        return Array.from(this.globalVerbs);
-    }
-
+    
     getMostUsedVerbs(limit = 10) {
-        // Return the most commonly used verbs to avoid
-        return Array.from(this.verbSynonyms.entries())
+        return Array.from(this.verbFrequency.entries())
             .sort((a, b) => b[1] - a[1])
             .slice(0, limit)
             .map(entry => entry[0]);
     }
-
-    clearSection(sectionType) {
-        this.usedVerbs.set(sectionType, new Set());
+    
+    getBulletsForSection(section, count) {
+        return Array.from(this.sectionPools[section]).slice(0, count);
     }
 }
 
-// Add function to get first verb from bullet point
-function getFirstVerb(bulletText) {
-    return bulletText.trim().split(/\s+/)[0].toLowerCase();
-}
-
-// Update the generateBullets function to emphasize verb diversity
+// API interaction functions
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     const basePrompt = `You are a specialized resume bullet point optimizer. Your task is to enhance or generate achievement-focused resume bullets while following these strict rules:
 
@@ -279,7 +234,7 @@ Let's think step by step prior to generating any bullet points.`;
 
         const content = response.data.candidates[0].content.parts[0].text;
         
-        // Extract bullets that start with ">>"
+        // Extract bullets
         let bullets = content.match(/^\>\>(.+)$/gm) || [];
         
         // If we don't have enough bullets, try to extract complete sentences
@@ -308,228 +263,93 @@ Let's think step by step prior to generating any bullet points.`;
     }
 }
 
-// Add function to shuffle bullets with verb checking
-function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
-    let attempts = 0;
-    const maxAttempts = 15; // Increased attempts to find better verb arrangements
+async function categorizeKeywords(keywords) {
+    if (!keywords || keywords.length === 0) return null;
     
-    while (attempts < maxAttempts) {
-        // Shuffle the array
-        bullets = shuffleArray([...bullets]);
-        
-        // Check if the arrangement is valid
-        let isValid = true;
-        let previousVerbs = new Set();
-        
-        for (let i = 0; i < bullets.length; i++) {
-            const currentVerb = getFirstVerb(bullets[i]);
-            
-            // Skip empty bullets
-            if (!currentVerb) continue;
-            
-            // Check if verb is same as any previous bullet or already used as first verb globally
-            if (previousVerbs.has(currentVerb) || 
-                (verbTracker.isVerbUsedGlobally(currentVerb) && i === 0)) {
-                isValid = false;
-                break;
+    const cacheKey = `categorize_v2_${keywords.sort().join(',')}`;
+    
+    if (lmCache.has(cacheKey)) {
+        return lmCache.get(cacheKey);
+    }
+    
+    try {
+        const prompt = `Analyze the provided keywords for relevance to Applicant Tracking Systems (ATS) focused on technical roles. Your goal is to select ONLY the most impactful technical skills, tools, platforms, and specific methodologies.
+
+CRITERIA FOR INCLUSION (Prioritize these):
+- Programming Languages (e.g., Python, Java, JavaScript, C++, SQL, HTML, CSS)
+- Frameworks & Libraries (e.g., React, Node.js, Angular, TensorFlow, Scikit-learn, jQuery, Spring, Next.js, Pytorch)
+- Databases & Caching (e.g., MySQL, Postgres, Redis)
+- Cloud Platforms & Services (e.g., AWS, Kubeflow)
+- Tools & Technologies (e.g., Git, Jira, Selenium)
+- Specific Methodologies (e.g., Agile)
+- Key Technical Concepts (e.g., REST APIs, Microservices, Computer Vision, Data Analytics, Machine Learning, OAuth, Encryption, Containerization)
+
+CRITERIA FOR EXCLUSION (STRICTLY Exclude these types):
+- Soft Skills (e.g., Problem-Solving, Leadership, Collaboration)
+- General Business Concepts (e.g., Development Lifecycle, Performance Engineering, User Experience, Reusability, Consistency, Simplicity, Testing Practices, Project Management)
+- Vague or Abstract Terms (e.g., Services, Modern Foundation, Data Sets, POCs, Coding Standards, Full Stack Engineering)
+- Redundant terms if a more specific one exists (e.g., prefer 'REST APIs' over 'API' or 'APIs' if both contextually fit; prefer 'Agile Methodologies' over 'Agile' if present). Only include the most specific applicable term.
+
+Based on these criteria, categorize the SELECTED keywords into the following specific categories:
+- Languages: Programming and markup languages only.
+- Frameworks/Libraries: Software frameworks and libraries only.
+- Others: Relevant and specific APIs, cloud services, protocols, tools, methodologies, platforms, OS, databases, technical concepts from the inclusion list that don't fit elsewhere.
+- Machine Learning Libraries: ML-specific libraries and frameworks ONLY (e.g., Tensorflow, Scikit-learn, Pytorch).
+
+Keywords to analyze and select from: ${keywords.join(', ')}
+
+Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. Use these exact category names as keys: "Languages", "Frameworks/Libraries", "Others", "Machine Learning Libraries". The values should be arrays of the selected keywords. Every selected keyword MUST be placed in exactly one category. Do not include any keywords from the original list that fail the inclusion criteria or meet the exclusion criteria. Ensure the output is clean, valid JSON. Example format: {"Languages": ["Python", "SQL"], "Frameworks/Libraries": ["React"], "Others": ["AWS", "Git", "REST APIs"], "Machine Learning Libraries": ["Tensorflow"]}`;
+
+        const response = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
+            {
+                contents: [{
+                    parts: [{
+                        text: prompt
+                    }]
+                }],
+                generationConfig: {
+                    temperature: 0.1,
+                    maxOutputTokens: 1000
+                }
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             }
-            
-            previousVerbs.add(currentVerb);
-        }
+        );
+
+        const content = response.data.candidates[0].content.parts[0].text;
         
-        if (isValid) {
-            // Add first verb to tracker
-            if (bullets.length > 0) {
-                verbTracker.addVerb(getFirstVerb(bullets[0]), sectionType);
-            }
-            return bullets;
-        }
+        // Extract JSON
+        const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/{[\s\S]*?}/);
+        const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
         
-        attempts++;
-    }
-    
-    // If we couldn't find a perfect arrangement, at least ensure the first verb is unique
-    const sortedBullets = [...bullets].sort((a, b) => {
-        const verbA = getFirstVerb(a);
-        const verbB = getFirstVerb(b);
-        
-        // Put bullets with unused verbs at the beginning
-        if (!verbTracker.isVerbUsedGlobally(verbA) && verbTracker.isVerbUsedGlobally(verbB)) {
-            return -1;
+        try {
+            const categorized = JSON.parse(jsonString);
+            lmCache.set(cacheKey, categorized);
+            return categorized;
+        } catch (jsonError) {
+            console.error('Error parsing JSON from LLM response:', jsonError);
+            // Fallback
+            const fallbackCategories = {
+                "Languages": [],
+                "Frameworks/Libraries": [],
+                "Others": [],
+                "Machine Learning Libraries": []
+            };
+            fallbackCategories["Others"] = keywords;
+            lmCache.set(cacheKey, fallbackCategories);
+            return fallbackCategories;
         }
-        if (verbTracker.isVerbUsedGlobally(verbA) && !verbTracker.isVerbUsedGlobally(verbB)) {
-            return 1;
-        }
-        return 0;
-    });
-    
-    // Add the first verb to the tracker
-    if (sortedBullets.length > 0) {
-        verbTracker.addVerb(getFirstVerb(sortedBullets[0]), sectionType);
-    }
-    
-    return sortedBullets;
-}
-
-// Add BulletCache class for efficient bullet point management
-class BulletCache {
-    constructor() {
-        this.cache = new Map();
-        this.sectionPools = {
-            job: new Set(),
-            project: new Set(),
-            education: new Set()
-        };
-        this.targetBulletCounts = {
-            job: 7,
-            project: 6,
-            education: 5
-        };
-    }
-
-    async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
-        const sections = ['job', 'project', 'education'];
-        const cacheKey = `${keywords.join(',')}_${context}`;
-
-        if (this.cache.has(cacheKey)) {
-            return this.cache.get(cacheKey);
-        }
-
-        const allBullets = {};
-        const promises = sections.map(async (section) => {
-            const targetCount = this.targetBulletCounts[section];
-            const bullets = await generateBullets(
-                'generate',
-                null,
-                keywords,
-                `for ${section} experience`,
-                wordLimit,
-                verbTracker
-            );
-            allBullets[section] = bullets.slice(0, targetCount);
-            bullets.forEach(bullet => this.sectionPools[section].add(bullet));
-        });
-
-        await Promise.all(promises);
-        this.cache.set(cacheKey, allBullets);
-        return allBullets;
-    }
-
-    getBulletsForSection(section, count) {
-        return Array.from(this.sectionPools[section]).slice(0, count);
-    }
-
-    addBulletToSection(bullet, section) {
-        if (bullet && bullet.trim().length > 0) {
-            this.sectionPools[section].add(bullet);
-        }
-    }
-
-    clear() {
-        this.cache.clear();
-        Object.values(this.sectionPools).forEach(pool => pool.clear());
+    } catch (error) {
+        console.error('Error categorizing keywords:', error.response?.data || error.message);
+        return null;
     }
 }
 
-// Update updateResumeSection to pass verbTracker to generateBullets
-async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount, verbTracker, bulletCache) {
-    for (let i = 0; i < sections.length; i++) {
-        const section = sections.eq(i);
-        let bulletList = section.find('ul');
-
-        if (bulletList.length === 0) {
-            section.append('<ul></ul>');
-            bulletList = section.find('ul');
-        }
-
-        let bulletPoints = bulletCache.getBulletsForSection(sectionType, targetBulletCount);
-        
-        if (fullTailoring && bulletList.find('li').length > 0) {
-            const existingBullets = bulletList.find('li')
-                .map((_, el) => $(el).text())
-                .get();
-                
-            bulletPoints = await generateBullets(
-                'tailor', existingBullets,
-                keywords, context, wordLimit, verbTracker
-            );
-            
-            // Add tailored bullets to cache
-            bulletPoints.forEach(bp => bulletCache.addBulletToSection(bp, sectionType));
-        }
-
-        // Filter and shuffle bullets
-        bulletPoints = bulletPoints
-            .filter(bp => !bulletTracker.isUsed(bp) || 
-                        bulletTracker.canUseBulletInSection(bp, sectionType))
-            .slice(0, targetBulletCount);
-
-        // Shuffle bullets with verb checking
-        bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, sectionType, verbTracker);
-
-        // Update bullet list
-        bulletList.empty();
-        bulletPoints.forEach(point => {
-            bulletTracker.addBullet(point, sectionType);
-            // Also add the point's action verb to the verb tracker
-            verbTracker.addVerb(getFirstVerb(point), sectionType);
-            bulletList.append(`<li>${point}</li>`);
-        });
-    }
-}
-
-// Update adjustSectionBullets to use BulletCache
-async function adjustSectionBullets($, selector, targetCount, sectionType, bulletTracker, keywords, context, bulletCache) {
-    const sections = $(selector);
-    sections.each((_, section) => {
-        const bulletList = $(section).find('ul');
-        const bullets = bulletList.find('li');
-        const currentCount = bullets.length;
-
-        if (currentCount > targetCount) {
-            // Remove excess bullets from the end
-            bullets.slice(targetCount).remove();
-        } else if (currentCount < targetCount) {
-            const cachedBullets = bulletCache.getBulletsForSection(sectionType, targetCount - currentCount);
-            const validBullets = cachedBullets
-                .filter(bp => !bulletTracker.isUsed(bp))
-                .slice(0, targetCount - currentCount);
-
-            validBullets.forEach(bullet => {
-                bulletTracker.addBullet(bullet, sectionType);
-                bulletList.append(`<li>${bullet}</li>`);
-            });
-        }
-    });
-}
-
-async function ensureBulletRange(bulletPoints, usedBullets, generateFn, minCount, maxCount) {
-    let attempts = 0;
-    const originalBullets = [...bulletPoints];
-
-    while (bulletPoints.length < minCount && attempts < 3) {
-        const newPoints = (await generateFn()).filter(bp => !usedBullets.has(bp));
-        bulletPoints = bulletPoints.concat(newPoints);
-        attempts++;
-    }
-
-    // If still below minCount, use originals instead of placeholders
-    while (bulletPoints.length < minCount) {
-        const recycledBullet = originalBullets[bulletPoints.length % originalBullets.length];
-        bulletPoints.push(recycledBullet || bulletPoints[0]); // Fallback to first bullet if needed
-    }
-
-    return bulletPoints.slice(0, maxCount);
-}
-
-function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
-}
-
+// PDF generation functions
 async function checkPageHeight(page) {
     return await page.evaluate(() => {
         const body = document.body;
@@ -754,112 +574,7 @@ async function convertHtmlToPdf(htmlContent) {
     return { pdfBuffer, exceedsOnePage: height > MAX_HEIGHT };
 }
 
-// Add new function to manage bullet points
-async function adjustBulletPoints($, sections, currentBulletCount) {
-    // Reduce bullets in all sections equally
-    sections.forEach(section => {
-        const bulletList = $(section).find('ul');
-        const bullets = bulletList.find('li');
-        if (bullets.length > currentBulletCount) {
-            // Remove the last bullet
-            bullets.last().remove();
-        }
-    });
-    return currentBulletCount - 1;
-}
-
-// Add this new function after the lmCache declaration
-async function categorizeKeywords(keywords) {
-    if (!keywords || keywords.length === 0) return null;
-    
-    // Create cache key for this specific set of keywords
-    const cacheKey = `categorize_v2_${keywords.sort().join(',')}`; // Added v2 to key for new prompt logic
-    
-    // Check cache first
-    if (lmCache.has(cacheKey)) {
-        return lmCache.get(cacheKey);
-    }
-    
-    try {
-        const prompt = `Analyze the provided keywords for relevance to Applicant Tracking Systems (ATS) focused on technical roles. Your goal is to select ONLY the most impactful technical skills, tools, platforms, and specific methodologies.
-
-CRITERIA FOR INCLUSION (Prioritize these):
-- Programming Languages (e.g., Python, Java, JavaScript, C++, SQL, HTML, CSS)
-- Frameworks & Libraries (e.g., React, Node.js, Angular, TensorFlow, Scikit-learn, jQuery, Spring, Next.js, Pytorch)
-- Databases & Caching (e.g., MySQL, Postgres, Redis)
-- Cloud Platforms & Services (e.g., AWS, Kubeflow)
-- Tools & Technologies (e.g., Git, Jira, Selenium)
-- Specific Methodologies (e.g., Agile)
-- Key Technical Concepts (e.g., REST APIs, Microservices, Computer Vision, Data Analytics, Machine Learning, OAuth, Encryption, Containerization)
-
-CRITERIA FOR EXCLUSION (STRICTLY Exclude these types):
-- Soft Skills (e.g., Problem-Solving, Leadership, Collaboration)
-- General Business Concepts (e.g., Development Lifecycle, Performance Engineering, User Experience, Reusability, Consistency, Simplicity, Testing Practices, Project Management)
-- Vague or Abstract Terms (e.g., Services, Modern Foundation, Data Sets, POCs, Coding Standards, Full Stack Engineering)
-- Redundant terms if a more specific one exists (e.g., prefer 'REST APIs' over 'API' or 'APIs' if both contextually fit; prefer 'Agile Methodologies' over 'Agile' if present). Only include the most specific applicable term.
-
-Based on these criteria, categorize the SELECTED keywords into the following specific categories:
-- Languages: Programming and markup languages only.
-- Frameworks/Libraries: Software frameworks and libraries only.
-- Others: Relevant and specific APIs, cloud services, protocols, tools, methodologies, platforms, OS, databases, technical concepts from the inclusion list that don't fit elsewhere.
-- Machine Learning Libraries: ML-specific libraries and frameworks ONLY (e.g., Tensorflow, Scikit-learn, Pytorch).
-
-Keywords to analyze and select from: ${keywords.join(', ')}
-
-Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. Use these exact category names as keys: "Languages", "Frameworks/Libraries", "Others", "Machine Learning Libraries". The values should be arrays of the selected keywords. Every selected keyword MUST be placed in exactly one category. Do not include any keywords from the original list that fail the inclusion criteria or meet the exclusion criteria. Ensure the output is clean, valid JSON. Example format: {"Languages": ["Python", "SQL"], "Frameworks/Libraries": ["React"], "Others": ["AWS", "Git", "REST APIs"], "Machine Learning Libraries": ["Tensorflow"]}`;
-
-        const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
-            {
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }],
-                generationConfig: {
-                    temperature: 0.1,
-                    maxOutputTokens: 1000
-                }
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
-
-        const content = response.data.candidates[0].content.parts[0].text;
-        
-        // Extract JSON from response
-        const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/{[\s\S]*?}/);
-        const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
-        
-        try {
-            const categorized = JSON.parse(jsonString);
-            lmCache.set(cacheKey, categorized);
-            return categorized;
-        } catch (jsonError) {
-            console.error('Error parsing JSON from LLM response:', jsonError);
-            // Fallback: attempt to create a simple structure based on the response
-            const fallbackCategories = {
-                "Languages": [],
-                "Frameworks/Libraries": [],
-                "Others": [],
-                "Machine Learning Libraries": []
-            };
-            
-            // Add all keywords to Others as fallback
-            fallbackCategories["Others"] = keywords;
-            lmCache.set(cacheKey, fallbackCategories);
-            return fallbackCategories;
-        }
-    } catch (error) {
-        console.error('Error categorizing keywords:', error.response?.data || error.message);
-        return null;
-    }
-}
-
-// Add this function to update the skills section in the resume
+// Resume section update functions
 function updateSkillsSection($, keywords) {
     return new Promise(async (resolve, reject) => {
         try {
@@ -909,18 +624,75 @@ function updateSkillsSection($, keywords) {
     });
 }
 
-// Update the updateResume function to include skill section modification
+async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount) {
+    for (let i = 0; i < sections.length; i++) {
+        const section = sections.eq(i);
+        let bulletList = section.find('ul');
+
+        if (bulletList.length === 0) {
+            section.append('<ul></ul>');
+            bulletList = section.find('ul');
+        }
+
+        let bulletPoints = bulletTracker.getBulletsForSection(sectionType, targetBulletCount);
+        
+        if (fullTailoring && bulletList.find('li').length > 0) {
+            const existingBullets = bulletList.find('li')
+                .map((_, el) => $(el).text())
+                .get();
+                
+            bulletPoints = await generateBullets(
+                'tailor', existingBullets, keywords, context, wordLimit
+            );
+            
+            // Add tailored bullets to tracker
+            bulletPoints.forEach(bp => {
+                if (bp && bp.trim()) {
+                    bulletTracker.addBullet(bp, sectionType);
+                }
+            });
+        }
+
+        // Filter, shuffle and get bullets
+        bulletPoints = bulletPoints
+            .filter(bp => !bulletTracker.isUsed(bp) || bulletTracker.canUseBulletInSection(bp, sectionType))
+            .slice(0, targetBulletCount);
+
+        // Shuffle with verb diversity
+        bulletPoints = shuffleArray(bulletPoints);
+        
+        // Sort to prioritize bullets with unused first verbs
+        bulletPoints.sort((a, b) => {
+            const verbA = getFirstVerb(a);
+            const verbB = getFirstVerb(b);
+            if (!bulletTracker.isVerbUsedGlobally(verbA) && bulletTracker.isVerbUsedGlobally(verbB)) {
+                return -1;
+            }
+            if (bulletTracker.isVerbUsedGlobally(verbA) && !bulletTracker.isVerbUsedGlobally(verbB)) {
+                return 1;
+            }
+            return 0;
+        });
+
+        // Update bullet list
+        bulletList.empty();
+        bulletPoints.forEach(point => {
+            bulletTracker.addBullet(point, sectionType);
+            bulletList.append(`<li>${point}</li>`);
+        });
+    }
+}
+
+// Main resume update functions
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const sectionWordCounts = getSectionWordCounts($);
-    const bulletTracker = new SectionBulletTracker();
-    const verbTracker = new ActionVerbTracker();
-    const bulletCache = new BulletCache();
+    const bulletTracker = new BulletTracker();
     
-    // Extract original bullets before any modifications
+    // Extract original bullets
     const originalBullets = extractOriginalBullets($);
     
-    // Update the skills section with keywords
+    // Update the skills section
     await updateSkillsSection($, keywords);
     
     const INITIAL_BULLET_COUNT = 6;
@@ -930,26 +702,48 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         keywords.join(', ') : 
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
 
-    // Generate all bullets upfront
-    const allBullets = await bulletCache.generateAllBullets($, keywords, 'resume section', 15, verbTracker);
-
+    // Generate initial bullets for each section
     const sections = [
-        { selector: $('.job-details'), type: 'job', context: 'for a job experience', bullets: originalBullets.job },
-        { selector: $('.project-details'), type: 'project', context: 'for a project', bullets: originalBullets.project },
-        { selector: $('.education-details'), type: 'education', context: 'for education', bullets: originalBullets.education }
+        { selector: $('.job-details'), type: 'job', context: 'for a job experience' },
+        { selector: $('.project-details'), type: 'project', context: 'for a project' },
+        { selector: $('.education-details'), type: 'education', context: 'for education' }
     ];
 
-    // Update each section with its specific context
+    // Generate bullets for each section
+    for (const section of sections) {
+        const bullets = await generateBullets(
+            'generate', 
+            null, 
+            keywordString, 
+            section.context, 
+            sectionWordCounts[section.type]
+        );
+        
+        // Add generated bullets to tracker
+        bullets.forEach(bullet => {
+            if (bullet && bullet.trim()) {
+                bulletTracker.addBullet(bullet, section.type);
+            }
+        });
+    }
+
+    // Update each section with generated bullets
     for (const section of sections) {
         await updateResumeSection(
-            $, section.selector, keywordString, section.context,
-            fullTailoring, sectionWordCounts[section.type],
-            bulletTracker, section.type, section.bullets,
-            INITIAL_BULLET_COUNT, verbTracker, bulletCache
+            $, 
+            section.selector, 
+            keywordString, 
+            section.context,
+            fullTailoring, 
+            sectionWordCounts[section.type],
+            bulletTracker, 
+            section.type, 
+            originalBullets[section.type],
+            INITIAL_BULLET_COUNT
         );
     }
 
-    // Check and adjust page length with smarter space management
+    // Check and adjust page length
     let currentBulletCount = INITIAL_BULLET_COUNT;
     let attempts = 0;
 
@@ -957,19 +751,16 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         const { exceedsOnePage } = await convertHtmlToPdf($.html());
         if (!exceedsOnePage) break;
 
-        // Reduce bullets proportionally based on section importance
+        // Reduce bullets in all sections
         currentBulletCount--;
-        for (const section of sections) {
-            const adjustedCount = Math.max(
-                MIN_BULLETS,
-                Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8))
-            );
-            await adjustSectionBullets(
-                $, section.selector, adjustedCount,
-                section.type, bulletTracker, keywordString,
-                section.context, bulletCache
-            );
-        }
+        sections.forEach(section => {
+            const bulletList = $(section.selector).find('ul');
+            const bullets = bulletList.find('li');
+            if (bullets.length > currentBulletCount) {
+                bullets.slice(currentBulletCount).remove();
+            }
+        });
+        
         attempts++;
     }
 
@@ -997,14 +788,13 @@ async function customizeResume(req, res) {
         
         console.log('Resume HTML updated successfully');
         
-        // Validate the updated HTML to ensure it has bullet points
+        // Validate the updated HTML
         const $ = cheerio.load(updatedHtmlContent);
         const jobBullets = $('.job-details li').length;
         const projectBullets = $('.project-details li').length;
         const educationBullets = $('.education-details li').length;
         
         console.log(`Generated bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}, Education=${educationBullets}`);
-        console.log('Skills section updated with relevant keywords');
         
         // Convert to PDF
         console.log('Converting updated HTML to PDF');
@@ -1026,4 +816,5 @@ async function customizeResume(req, res) {
     }
 }
 
+module.exports = { customizeResume };
 module.exports = { customizeResume };
