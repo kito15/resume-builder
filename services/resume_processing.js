@@ -187,21 +187,7 @@ function getFirstVerb(bulletText) {
 }
 
 // Update the generateBullets function to emphasize verb diversity
-async function generateBullets(mode, existingBullets, keywords, context, wordLimit, verbTracker) {
-    let prompt;
-    
-    // Get previously used verbs to avoid
-    const usedVerbs = verbTracker ? verbTracker.getUsedVerbs() : [];
-    const mostUsedVerbs = verbTracker ? verbTracker.getMostUsedVerbs(8) : [];
-    
-    const verbAvoidanceText = usedVerbs.length > 0 
-        ? `\nAVOID THESE PREVIOUSLY USED VERBS: ${usedVerbs.join(', ')}\n`
-        : '';
-        
-    const mostUsedVerbsText = mostUsedVerbs.length > 0
-        ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
-        : '';
-
+async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     const basePrompt = `You are a specialized resume bullet point optimizer. Your task is to enhance or generate achievement-focused resume bullets while following these strict rules:
 
 FORMATTING RULES:
@@ -250,16 +236,9 @@ METRICS GUIDELINES:
 INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
-    if (mode === 'tailor') {
-        prompt = `${basePrompt}
-
-TASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`;
-    } else {
-        prompt = `${basePrompt}
-
-TASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
-Each bullet must follow ALL formatting rules and include at least one keyword.`;
-    }
+    const prompt = mode === 'tailor' 
+        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`
+        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.`;
 
     try {
         const response = await axios.post(
@@ -276,13 +255,9 @@ Each bullet must follow ALL formatting rules and include at least one keyword.`;
                     }]
                 }],
                 generationConfig: {
-                    temperature: 0.4, // Lower temperature for more predictable formatting
+                    temperature: 0.4,
                     maxOutputTokens: 2000
-                },
-                safetySettings: [{
-                    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-                    threshold: "BLOCK_ONLY_HIGH"
-                }]
+                }
             },
             {
                 headers: {
@@ -293,38 +268,32 @@ Each bullet must follow ALL formatting rules and include at least one keyword.`;
 
         const content = response.data.candidates[0].content.parts[0].text;
         
-        // Primary matching for ">>" prefixed lines
-        let matched = content.match(/^\>\>(.+)$/gm) || [];
+        // Extract bullets that start with ">>"
+        let bullets = content.match(/^\>\>(.+)$/gm) || [];
         
-        // Secondary matching for lines that might be bullet points but missing the prefix
-        if (matched.length < 3) {
-            console.log('Warning: Not enough ">>" prefixed bullets found, applying secondary extraction');
+        // If we don't have enough bullets, try to extract complete sentences
+        if (bullets.length < 3) {
+            const additionalBullets = content.split(/\n+/)
+                .filter(line => {
+                    const trimmed = line.trim();
+                    return trimmed.length > 30 && 
+                           /^[A-Z]/.test(trimmed) && 
+                           /\d+/.test(trimmed);
+                })
+                .map(b => `>>${b}`);
             
-            // Extract any line that looks like a complete sentence and might be a bullet point
-            const potentialBullets = content.split(/\n+/).filter(line => {
-                const trimmed = line.trim();
-                return trimmed.length > 30 && 
-                       /^[A-Z][a-z]+/.test(trimmed) && 
-                       (/\d+/.test(trimmed) || /ed\s/.test(trimmed));
-            });
-            
-            // Add these as properly formatted bullets
-            if (potentialBullets.length > 0) {
-                const formattedBullets = potentialBullets.map(b => `>>${b}`);
-                matched = [...matched, ...formattedBullets];
-                console.log(`Added ${formattedBullets.length} secondary-extracted bullets`);
-            }
+            bullets = [...bullets, ...additionalBullets];
         }
         
-        // Clean up the bullets
-        return matched.map(bp =>
-            bp.replace(/^>>\s*/, '')
-              .replace(/\*\*/g, '')
-              .replace(/\s*\([^)]*\)$/, '') // Remove any trailing parenthesis and enclosed keywords
+        // Clean and format bullets
+        return bullets.map(bullet => 
+            bullet.replace(/^>>\s*/, '')
+                  .replace(/\*\*/g, '')
+                  .replace(/\s*\([^)]*\)$/, '')
         );
     } catch (error) {
         console.error('Error generating bullets:', error.response?.data || error.message);
-        return []; // Return empty array in case of error
+        return [];
     }
 }
 
