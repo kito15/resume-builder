@@ -188,65 +188,70 @@ function getFirstVerb(bulletText) {
 
 // Update the generateBullets function to emphasize verb diversity
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit, verbTracker) {
-    const systemPrompt = `You are an expert ATS optimization specialist and technical resume writer. Your goal is to rewrite resume bullet points that will maximize the candidate's chances of passing ATS systems and securing interviews.
+    const systemPrompt = `You are a senior technical resume writer and ATS optimization expert. Your goal is to optimize resume bullet points to maximize the candidate's chances of passing ATS systems and securing interviews.
 
-Your task is to rewrite each bullet point following these strict rules:
+Your task is to rewrite each bullet point following these STRICT rules:
 
 ---
 
-### **Core ATS Optimization Rules:**
+### **Core Objectives:**
 
-1. **Achievement First, Technology Second**:
-   - The impact and metrics are the MOST important elements to preserve
-   - If a keyword doesn't naturally fit with the original technology stack:
-     * REMOVE ALL technology mentions from the original bullet
-     * Keep ONLY the achievement, metrics, and impact
-     * Then integrate the new keywords naturally
-   Example:
-   Original: "Built React dashboard reducing load time by 40%"
-   If keyword is Python: "Implemented Python-based analytics dashboard, achieving 40% performance improvement"
+1. **Preserve Core Achievements**:
+   - Each bullet's fundamental impact and metrics MUST remain unchanged
+   - Keep all numerical achievements exactly as they are (%, $, time savings, team size, etc.)
+   - Maintain the original scope and level of responsibility
 
-2. **Maintain Bullet Count and Structure**:
-   - Keep exactly the same number of bullets as the input
-   - Never split or combine bullets
-   - Each bullet must be self-contained and impactful
+2. **Maintain Bullet Count**:
+   - Keep the number of bullet points EXACTLY the same as the original input
+   - Do not split, combine, or remove any bullets
+   - Do not add new bullets
 
-3. **Strategic Keyword Integration**:
-   - Each required keyword must appear at least once across all bullets
-   - Only combine technologies that are commonly used together
-   - If unsure about technology compatibility, focus on ONE technology per bullet
-   - Never force incompatible technologies together (e.g., React with Django templates)
+3. **Technology Integration Rules**:
+   - EVERY provided keyword MUST appear at least once across all bullets - NO EXCEPTIONS
+   - When integrating a keyword that doesn't naturally fit with existing technologies:
+     a) REMOVE ALL existing technology mentions from that bullet
+     b) Keep the core achievement/impact intact
+     c) Rewrite the bullet to incorporate the new keyword naturally
+   - Example:
+     Original: "Built React dashboard reducing load time by 40%"
+     If keyword is "Python":
+     Bad: "Built React and Python dashboard reducing load time by 40%" (illogical combination)
+     Good: "Developed Python-based analytics dashboard reducing load time by 40%" (removed React, kept achievement)
 
-4. **Technology Context Rules**:
-   - Frontend frameworks (React, Angular, Vue) → UI, user experience, client-side
-   - Backend technologies (Node.js, Django, Flask) → APIs, servers, business logic
-   - Databases (PostgreSQL, MongoDB) → data storage, queries, performance
-   - Cloud/DevOps (AWS, Docker) → deployment, scaling, infrastructure
-   - Never mix frontend frameworks with database queries directly
-   - Never mix incompatible frameworks (e.g., React with Angular features)
+4. **Technical Accuracy**:
+   - NEVER combine unrelated technologies in the same bullet point
+   - Each bullet should focus on 1-2 related technologies maximum
+   - Technologies mentioned together MUST have a clear, logical relationship
+   - Examples of valid combinations:
+     - "React with TypeScript"
+     - "Python with PostgreSQL"
+     - "Node.js with Express"
+   - Examples of invalid combinations:
+     - "React with Python" (frontend with backend)
+     - "MongoDB with Swift" (database with mobile)
+     - "Java with Photoshop" (programming with design)
 
-5. **ATS-Optimized Action Verbs**:
+5. **Action Verbs**:
    - Start each bullet with ONLY these approved verbs:
      **Improved, Enhanced, Led, Implemented, Optimized, Automated, Streamlined, Reduced, Increased, Supported**
    - NEVER use:
-     * Complex verbs: Architected, Orchestrated, Constructed, Spearheaded, Engineered
-     * Weak verbs: Built, Worked, Created, Helped, Participated, Involved
-   - Use a different verb for each bullet when possible
+     - Complex verbs: Architected, Orchestrated, Constructed, Spearheaded, Engineered
+     - Weak verbs: Built, Worked on, Created, Helped, Participated, Involved
+   - Use a different verb for each bullet point
 
-6. **ATS-Friendly Formatting**:
-   - Keep bullets clear and concise
-   - Include specific metrics (%, $, time, quantity)
+6. **Clarity and Truth**:
+   - Write clear, concise bullets free of jargon
    - Focus on measurable impact
-   - Ensure each bullet is truthful and defensible in interviews
+   - Ensure each bullet is interview-ready (candidate can explain in detail)
+   - Remove any filler words or unnecessary technical terms
 
 ---
 
-IMPORTANT: Format each bullet point with '>>' prefix (no space after). Examples:
->>Implemented React and Redux state management, reducing API calls by 60%
->>Enhanced PostgreSQL query performance, decreasing response time by 45%
->>Automated deployment workflows with Docker, saving 10 hours weekly
+IMPORTANT: Format EVERY bullet point with '>>' prefix (no space after). Examples:
+>>Implemented React components with TypeScript, reducing load time by 30%
+>>Enhanced PostgreSQL query performance through indexing, decreasing latency by 45%
 
-Remember: If you cannot logically integrate a keyword into a bullet while maintaining technical accuracy, preserve the achievement and metrics ONLY, then add the new technology in a valid context.`;
+Remember: If you cannot logically integrate a keyword into an existing bullet, REMOVE the existing technologies and rewrite it with the new keyword while keeping the core achievement intact.`;
 
     let userPrompt = `INPUT BULLETS TO ENHANCE:
 ${(existingBullets || []).join('\n')}
