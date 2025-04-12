@@ -192,74 +192,61 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
 
 PHASE 1 - INITIAL GENERATION:
 First, generate achievement-focused resume bullets following these rules:
+1. One specific metric per bullet (%, $, time, or quantity)
+2. Begin with a strong action verb
+3. Use keywords naturally from this list: ${keywords}
+4. Use ONLY 1-2 related technologies per bullet
+5. DO NOT prefix bullets with '>>' yet
 
-FORMATTING RULES:
-1. Do NOT add '>>' prefix in this phase
-2. One specific metric per bullet (%, $, time, or quantity)
-3. Each bullet MUST begin with a strong action verb
-4. NEVER reuse the same starting verb across bullet points
+PHASE 2 - REFLECTION AND REVISION:
+Then, review each bullet point against these criteria:
+1. Does it have a SPECIFIC metric? (Required: %, $, time, or quantity)
+2. Does it start with a STRONG action verb?
+3. Are technologies RELATED and used NATURALLY?
+4. Is the achievement CLEAR and CONCRETE?
 
-KEYWORD INTEGRATION RULES:
-1. Use keywords from this list: ${keywords}
-2. Use ONLY 1-2 related technologies per bullet
-3. NEVER combine unrelated technologies
-4. Each keyword MUST be used at least once across all bullets
-5. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
+REVISION RULES:
+- If a technology doesn't fit naturally, REMOVE ALL tech references but PRESERVE the achievement
+- If technologies are unrelated, KEEP the most relevant one and REMOVE others
+- If a bullet lacks a specific metric, ADD one
+- If a verb is weak, REPLACE it with a stronger alternative
 
-METRICS GUIDELINES:
-1. Keep all existing numbers EXACTLY as provided
-2. Each bullet MUST include ONE specific metric:
-   - Percentages (e.g., "reduced costs by 40%")
-   - Time (e.g., "decreased load time by 2.5 seconds")
-   - Quantity (e.g., "supported 100K users")
-   - Money (e.g., "saved $50K annually")
-
-ACTION VERB GUIDELINES:
-Approved Verbs:
+APPROVED ACTION VERBS:
 - Performance: Improved, Increased, Reduced, Decreased, Optimized
 - Development: Developed, Designed, Implemented, Created, Launched
 - Leadership: Led, Directed, Coordinated, Managed
+- Analysis: Analyzed, Evaluated, Assessed
 
-Prohibited Verbs:
-- Weak: Built, Helped, Used, Worked
-- Complex: Orchestrated, Spearheaded, Piloted
-- Grandiose: Revolutionized, Transformed, Pioneered
+PROHIBITED:
+- Weak verbs: Built, Helped, Used, Worked
+- Mixing unrelated technologies (e.g., "Used React to optimize PostgreSQL")
+- Vague metrics (e.g., "many", "several", "various")
+- Grandiose claims without specifics
+
+EXAMPLES OF GOOD BULLETS:
+- Developed React frontend with Node.js backend API, reducing load time by 40%
+- Implemented Python data processing pipeline using PostgreSQL, handling 1M daily records
+- Designed REST API endpoints in Node.js, supporting 50K daily users
+
+EXAMPLES OF BAD BULLETS (WITH CORRECTIONS):
+BAD: Used React to optimize PostgreSQL queries
+GOOD: Optimized PostgreSQL query performance, reducing response time by 60%
+
+BAD: Helped team with various JavaScript tasks
+GOOD: Developed JavaScript utilities that reduced code duplication by 35%
+
+BAD: Built MongoDB interface using React hooks
+GOOD: Developed React dashboard that visualized MongoDB data for 10K daily users
+
+FINAL OUTPUT FORMAT:
+After revision, prefix each FINAL bullet with '>>' (no space after prefix)
 
 INPUT TO ENHANCE:
-${(existingBullets || []).join('\n')}
-
-PHASE 2 - REFLECTION AND CORRECTION:
-After generating the initial bullets, analyze each one against these criteria:
-1. Does it start with an approved action verb?
-2. Does it contain exactly one specific metric?
-3. Does it use keywords appropriately and avoid mixing unrelated technologies?
-4. Is it concise and within the word limit?
-
-For any bullet that fails these criteria:
-1. Identify the specific issue
-2. Revise the bullet to fix the issue
-3. Ensure the revision maintains the original achievement while following all rules
-
-FINAL OUTPUT:
-After reflection and revision:
-1. Add '>>' prefix to each final bullet
-2. Ensure no duplicate verbs at the start of bullets
-3. Verify each bullet has one metric
-4. Confirm appropriate keyword usage
-
-Format your response as follows:
-INITIAL BULLETS:
-[List initial bullets without '>>' prefix]
-
-REFLECTION:
-[Analyze each bullet and note any issues]
-
-FINAL BULLETS:
-[List final revised bullets with '>>' prefix]`;
+${(existingBullets || []).join('\n')}`;
 
     const prompt = mode === 'tailor' 
-        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`
-        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.`;
+        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements. Follow the two-phase process to ensure quality.`
+        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs. Follow the two-phase process to ensure quality.`;
 
     try {
         const response = await axios.post(
@@ -271,7 +258,7 @@ FINAL BULLETS:
                     }]
                 }],
                 generationConfig: {
-                    temperature: 0.4,
+                    temperature: 0.5,
                     maxOutputTokens: 8000
                 }
             },
