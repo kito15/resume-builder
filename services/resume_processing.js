@@ -235,11 +235,13 @@ METRICS GUIDELINES:
    - Money (e.g., "saved $50K annually")
 
 INPUT TO ENHANCE:
-${(existingBullets || []).join('\n')}`;
+${(existingBullets || []).join('\n')}
+
+Let's think step by step prior to generating any bullet points. Your final output MUST be bullet points prefixed with >> no matter what.`;
 
     const prompt = mode === 'tailor' 
-        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.\n\nLet's think step by step prior to generating any bullet points.`
-        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.\n\nLet's think step by step prior to generating any bullet points.`;
+        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`
+        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.`;
 
     try {
         const response = await axios.post(
@@ -257,7 +259,7 @@ ${(existingBullets || []).join('\n')}`;
                 }],
                 generationConfig: {
                     temperature: 0.4,
-                    maxOutputTokens: 6000
+                    maxOutputTokens: 2000
                 }
             },
             {
