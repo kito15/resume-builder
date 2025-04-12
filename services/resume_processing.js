@@ -188,93 +188,52 @@ function getFirstVerb(bulletText) {
 
 // Update the generateBullets function to emphasize verb diversity
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    const basePrompt = `You are a specialized resume bullet point optimizer. Your task involves THREE phases: Understanding, Generation, and Verification.
+    const basePrompt = `You are a specialized resume bullet point optimizer. Your task has TWO PHASES:
 
-PHASE 1 - UNDERSTANDING AND REFLECTION:
-Before generating any bullets, confirm your understanding of these critical rules by completing these reflection steps:
+PHASE 1 - GENERATION:
+First, generate achievement-focused resume bullets following these rules:
+1. One specific metric per bullet (%, $, time, or quantity)
+2. Begin with a strong action verb
+3. Use keywords naturally from this list: ${keywords}
+4. Use ONLY 1-2 related technologies per bullet
+5. Keep each bullet under ${wordLimit} words
+6. Do NOT use ">>" prefix in this phase
 
-1. Acknowledge the key rules:
-   - Every bullet starts with '>>' (no space after)
-   - Each bullet must have exactly ONE metric (%, $, time, or quantity)
-   - Each keyword must be used EXACTLY ONCE across ALL bullets
-   - Never reuse action verbs across bullets
-   - Never combine unrelated technologies
+PHASE 2 - REFLECTION AND REVISION:
+After generating the bullets, analyze them against these criteria:
+1. Does each bullet have exactly one specific metric?
+2. Does each bullet start with an approved action verb?
+3. Are the keywords integrated naturally?
+4. Are technology combinations logical and related?
+5. Is each bullet concise and under the word limit?
 
-2. Explain your strategy:
-   - How will you ensure each keyword is used exactly once?
-   - How will you track and avoid verb repetition?
-   - How will you maintain consistent metrics?
+Then, revise any bullets that don't meet the criteria. For the final output:
+1. Add ">>" prefix to each bullet
+2. Ensure no duplicate verbs are used
+3. Verify each bullet follows all rules
 
-3. State your commitment:
-   "I commit to following these rules and will verify my output against them."
-
-PHASE 2 - GENERATION RULES:
-
-FORMATTING RULES:
-1. Every bullet MUST start with '>>' (no space after)
-2. One specific metric per bullet (%, $, time, or quantity)
-3. Each bullet MUST begin with a strong action verb
-4. NEVER reuse the same starting verb across bullet points
-
-KEYWORD INTEGRATION RULES:
-1. Use keywords from this list: ${keywords}
-2. Use ONLY 1-2 related technologies per bullet
-3. NEVER combine unrelated technologies
-4. Each keyword MUST be used exactly ONCE across ALL bullet points
-5. Once a keyword is used in a bullet point, it CANNOT be used again in any other bullet point
-6. Distribute keywords evenly across all bullet points to ensure maximum keyword coverage
-7. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
-
-EXAMPLES OF PROPER KEYWORD USAGE:
-
-GOOD (Unique Keywords):
->>Developed React frontend components, reducing load time by 40%
->>Implemented Python data processing pipeline, handling 1M daily records
->>Designed Node.js API endpoints, supporting 50K daily users
-
-BAD (Reused Keywords):
->>Built React dashboard with Node.js backend
->>Created React components for data visualization
->>Developed Node.js microservices architecture
-
-ACTION VERB GUIDELINES:
-Approved Verbs:
+APPROVED ACTION VERBS:
 - Performance: Improved, Increased, Reduced, Decreased, Optimized
-- Development: Developed, Designed, Implemented, Created, Launched, Delivered
+- Development: Developed, Designed, Implemented, Created, Launched
 - Leadership: Led, Directed, Coordinated, Managed
+- Analysis: Analyzed, Evaluated, Assessed
 
-Prohibited Verbs:
+PROHIBITED VERBS:
 - Weak: Built, Helped, Used, Worked
 - Complex: Orchestrated, Spearheaded, Piloted
 - Grandiose: Revolutionized, Transformed, Pioneered
 
-METRICS GUIDELINES:
-1. Keep all existing numbers EXACTLY as provided
-2. Each bullet MUST include ONE specific metric:
-   - Percentages (e.g., "reduced costs by 40%")
-   - Time (e.g., "decreased load time by 2.5 seconds")
-   - Quantity (e.g., "supported 100K users")
-   - Money (e.g., "saved $50K annually")
+EXAMPLE OF GOOD BULLETS:
+>>Developed React frontend with Node.js backend API, reducing load time by 40%
+>>Implemented Python data processing pipeline using PostgreSQL, handling 1M daily records
+>>Designed REST API endpoints in Node.js, supporting 50K daily users
 
 INPUT TO ENHANCE:
-${(existingBullets || []).join('\n')}
-
-PHASE 3 - VERIFICATION:
-After generating the bullets, verify that:
-1. Each bullet starts with '>>'
-2. Each bullet contains exactly one metric
-3. Each keyword appears exactly once across all bullets
-4. No action verbs are repeated at the start of bullets
-5. All technologies mentioned together are related
-6. All metrics are specific and quantifiable
-
-If any rule is violated, regenerate the non-compliant bullets.
-
-Begin by completing Phase 1 reflection, then proceed with bullet point generation, and finally verify your output in Phase 3.`;
+${(existingBullets || []).join('\n')}`;
 
     const prompt = mode === 'tailor' 
-        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`
-        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.`;
+        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements. Follow both generation and reflection phases.`
+        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs. Follow both generation and reflection phases.`;
 
     try {
         const response = await axios.post(
@@ -286,8 +245,8 @@ Begin by completing Phase 1 reflection, then proceed with bullet point generatio
                     }]
                 }],
                 generationConfig: {
-                    temperature: 0.4,
-                    maxOutputTokens: 2000
+                    temperature: 0.5,
+                    maxOutputTokens: 8000
                 }
             },
             {
