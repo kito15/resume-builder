@@ -202,93 +202,64 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `You are an expert resume writer focused on creating achievement-based bullet points that pass ATS systems and increase interview rates.
+    const basePrompt = `You are a specialized resume bullet point optimizer. Your task is to enhance or generate achievement-focused resume bullets while following these strict rules:
 
-Your task is to enhance resume bullets by naturally integrating relevant keywords while preserving the core achievements.
+FORMATTING RULES:
+1. Every bullet MUST start with '>>' (no space after)
+2. Maximum ${wordLimit || 20} words per bullet
+3. One specific metric per bullet (%, $, time, or quantity)
 
-KEYWORDS TO INTEGRATE: ${keywords}
+KEYWORD INTEGRATION RULES:
+1. Use keywords from this list: ${keywords}
+2. Use ONLY 1-2 related technologies per bullet
+3. NEVER combine unrelated technologies
+4. Each keyword MUST be used at least once across all bullets
+5. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
 
-CORE RULES:
+EXAMPLES OF PROPER TECHNOLOGY INTEGRATION:
 
-1. BULLET FORMAT
-- Start every bullet with >> (no space after)
-- Example: ">>Developed"
-- Never use other prefixes or spaces
+GOOD (Related Technologies):
+>>Developed React frontend with Node.js backend API, reducing load time by 40%
+>>Implemented Python data processing pipeline using PostgreSQL, handling 1M daily records
+>>Designed REST API endpoints in Node.js, supporting 50K daily users
 
-2. ACTION VERBS
-Use these verbs only:
-- Achievement: Improved, Increased, Reduced, Decreased
-- Technical: Developed, Designed, Implemented
+BAD (Unrelated Technologies):
+>>Used React to optimize PostgreSQL queries (Frontend tool for database tasks)
+>>Implemented Python in React components (Mixing unrelated languages)
+>>Built MongoDB interface using React hooks (Database tasks in frontend code)
+
+ACTION VERB GUIDELINES:
+Approved Verbs:
+- Performance: Improved, Increased, Reduced, Decreased
+- Development: Developed, Designed, Implemented
 - Leadership: Led, Directed, Coordinated
 - Analysis: Analyzed, Evaluated, Solved
 
-Never use:
-- Weak verbs: Built, Helped, Used, Worked
-- Complex verbs: Orchestrated, Spearheaded
-- Grandiose verbs: Revolutionized, Transformed
+Prohibited Verbs:
+- Weak: Built, Helped, Used, Worked
+- Complex: Orchestrated, Spearheaded, Piloted
+- Grandiose: Revolutionized, Transformed, Pioneered
 
-3. TECHNOLOGY INTEGRATION
-Core principle: Only combine technologies that naturally work together
+METRICS GUIDELINES:
+1. Keep all existing numbers EXACTLY as provided
+2. Each bullet MUST include ONE specific metric:
+   - Percentages (e.g., "reduced costs by 40%")
+   - Time (e.g., "decreased load time by 2.5 seconds")
+   - Quantity (e.g., "supported 100K users")
+   - Money (e.g., "saved $50K annually")
 
-✅ CORRECT EXAMPLES:
->>Developed React frontend components with Node.js backend integration, reducing load time by 40%
-(React + Node.js: Frontend-backend integration)
-
->>Implemented PostgreSQL database optimizations and REST API caching, improving query speed by 65%
-(PostgreSQL + REST APIs: Data layer optimization)
-
-❌ INCORRECT EXAMPLES:
->>Used React to optimize PostgreSQL queries
-(React is frontend, not for database optimization)
-
->>Built MongoDB interface using React components
-(Direct database-frontend coupling is incorrect)
-
-4. PRESERVING ACHIEVEMENTS
-If a keyword cannot be naturally integrated:
-1. Remove existing technical terms
-2. Keep the core achievement
-3. Rewrite with relevant technology
-
-Example:
-Original: "Optimized database queries reducing load by 50%"
-New keyword to add: React
-Solution: ">>Developed React component caching system, reducing page load time by 50%"
-(Preserved 50% metric, changed context to fit React)
-
-5. METRICS AND SPECIFICS
-- Keep all original numbers exactly as provided
-- Every bullet must include one specific metric:
-  - Percentages (reduced time by 40%)
-  - Numbers (supported 100K users)
-  - Time periods (completed in 3 months)
-  - Team size (led team of 5)
-
-6. KEYWORD DISTRIBUTION
-- Use 1-2 keywords per bullet
-- Spread keywords evenly across all bullets
-- Each keyword must appear at least once
-- Never force unrelated technologies together
-
-Remember:
-- Focus on achievements, not just technical details
-- Keep bullets concise and impactful
-- Ensure each technology is used in its correct context
-- Preserve all original metrics and scope
-
-INPUT BULLETS TO ENHANCE:
+INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
 
-INPUT BULLETS TO ENHANCE (integrate keywords naturally across ALL bullets):
-${(existingBullets || []).join('\n')}`;
+TASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`;
     } else {
         prompt = `${basePrompt}
 
-Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
-REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION VERBS`;
+TASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
+Each bullet must follow ALL formatting rules and include at least one keyword.`;
     }
 
     try {
@@ -297,7 +268,7 @@ REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION
             {
                 system_instruction: {
                     parts: [{
-                        text: "You are a specialized resume optimization AI. Your ONLY task is to generate resume bullet points. You MUST format all bullet points with '>>' prefix (no space after). Do not include ANY other text. Use a DIFFERENT action verb for each bullet point."
+                        text: "You are a specialized resume bullet point optimizer. Your task is to generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
                     }]
                 },
                 contents: [{
