@@ -200,20 +200,22 @@ KEYWORD INTEGRATION RULES:
 1. Use keywords from this list: ${keywords}
 2. Use ONLY 1-2 related technologies per bullet
 3. NEVER combine unrelated technologies
-4. Each keyword MUST be used at least once across all bullets
-5. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
+4. Each keyword MUST be used exactly ONCE across ALL bullet points
+5. Once a keyword is used in a bullet point, it CANNOT be used again in any other bullet point
+6. Distribute keywords evenly across all bullet points to ensure maximum keyword coverage
+7. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
 
-EXAMPLES OF PROPER TECHNOLOGY INTEGRATION:
+EXAMPLES OF PROPER KEYWORD USAGE:
 
-GOOD (Related Technologies):
->>Developed React frontend with Node.js backend API, reducing load time by 40%
->>Implemented Python data processing pipeline using PostgreSQL, handling 1M daily records
->>Designed REST API endpoints in Node.js, supporting 50K daily users
+GOOD (Unique Keywords):
+>>Developed React frontend components, reducing load time by 40%
+>>Implemented Python data processing pipeline, handling 1M daily records
+>>Designed Node.js API endpoints, supporting 50K daily users
 
-BAD (Unrelated Technologies):
->>Used React to optimize PostgreSQL queries (Frontend tool for database tasks)
->>Implemented Python in React components (Mixing unrelated languages)
->>Built MongoDB interface using React hooks (Database tasks in frontend code)
+BAD (Reused Keywords):
+>>Built React dashboard with Node.js backend
+>>Created React components for data visualization
+>>Developed Node.js microservices architecture
 
 ACTION VERB GUIDELINES:
 Approved Verbs:
