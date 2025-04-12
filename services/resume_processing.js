@@ -217,10 +217,9 @@ BAD (Unrelated Technologies):
 
 ACTION VERB GUIDELINES:
 Approved Verbs:
-- Performance: Improved, Increased, Reduced, Decreased
-- Development: Developed, Designed, Implemented
-- Leadership: Led, Directed, Coordinated
-- Analysis: Analyzed, Evaluated, Solved
+- Performance: Improved, Increased, Reduced, Decreased, Optimized
+- Development: Developed, Designed, Implemented, Created, Launched, Delivered
+- Leadership: Led, Directed, Coordinated, Managed
 
 Prohibited Verbs:
 - Weak: Built, Helped, Used, Worked
