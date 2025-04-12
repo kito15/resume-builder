@@ -193,8 +193,8 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
 FORMATTING RULES:
 1. Every bullet MUST start with '>>' (no space after)
 2. One specific metric per bullet (%, $, time, or quantity)
-3. Each bullet MUST be exactly one line long - no wrapping or multiple lines
-4. Each bullet MUST begin with a unique action verb - never reuse starting verbs
+3. Each bullet MUST begin with a strong action verb
+4. NEVER reuse the same starting verb across bullet points
 
 KEYWORD INTEGRATION RULES:
 1. Use keywords from this list: ${keywords}
@@ -226,11 +226,6 @@ Prohibited Verbs:
 - Weak: Built, Helped, Used, Worked
 - Complex: Orchestrated, Spearheaded, Piloted
 - Grandiose: Revolutionized, Transformed, Pioneered
-
-VERB UNIQUENESS RULE:
-- If one bullet starts with "Developed", no other bullet can start with "Developed"
-- If one bullet starts with "Improved", no other bullet can start with "Improved"
-- Each bullet must use a different starting verb than all other bullets
 
 METRICS GUIDELINES:
 1. Keep all existing numbers EXACTLY as provided
