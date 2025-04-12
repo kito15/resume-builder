@@ -188,7 +188,27 @@ function getFirstVerb(bulletText) {
 
 // Update the generateBullets function to emphasize verb diversity
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    const basePrompt = `You are a specialized resume bullet point optimizer. Your task is to enhance or generate achievement-focused resume bullets while following these strict rules:
+    const basePrompt = `You are a specialized resume bullet point optimizer. Your task involves THREE phases: Understanding, Generation, and Verification.
+
+PHASE 1 - UNDERSTANDING AND REFLECTION:
+Before generating any bullets, confirm your understanding of these critical rules by completing these reflection steps:
+
+1. Acknowledge the key rules:
+   - Every bullet starts with '>>' (no space after)
+   - Each bullet must have exactly ONE metric (%, $, time, or quantity)
+   - Each keyword must be used EXACTLY ONCE across ALL bullets
+   - Never reuse action verbs across bullets
+   - Never combine unrelated technologies
+
+2. Explain your strategy:
+   - How will you ensure each keyword is used exactly once?
+   - How will you track and avoid verb repetition?
+   - How will you maintain consistent metrics?
+
+3. State your commitment:
+   "I commit to following these rules and will verify my output against them."
+
+PHASE 2 - GENERATION RULES:
 
 FORMATTING RULES:
 1. Every bullet MUST start with '>>' (no space after)
@@ -237,7 +257,20 @@ METRICS GUIDELINES:
    - Money (e.g., "saved $50K annually")
 
 INPUT TO ENHANCE:
-${(existingBullets || []).join('\n')}`;
+${(existingBullets || []).join('\n')}
+
+PHASE 3 - VERIFICATION:
+After generating the bullets, verify that:
+1. Each bullet starts with '>>'
+2. Each bullet contains exactly one metric
+3. Each keyword appears exactly once across all bullets
+4. No action verbs are repeated at the start of bullets
+5. All technologies mentioned together are related
+6. All metrics are specific and quantifiable
+
+If any rule is violated, regenerate the non-compliant bullets.
+
+Begin by completing Phase 1 reflection, then proceed with bullet point generation, and finally verify your output in Phase 3.`;
 
     const prompt = mode === 'tailor' 
         ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`
@@ -247,11 +280,6 @@ ${(existingBullets || []).join('\n')}`;
         const response = await axios.post(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
             {
-                system_instruction: {
-                    parts: [{
-                        text: "You are a specialized resume bullet point optimizer. Your task is to generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
-                    }]
-                },
                 contents: [{
                     parts: [{
                         text: prompt
