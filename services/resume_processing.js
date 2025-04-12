@@ -202,141 +202,59 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `You are an expert resume writer. Your task is to write achievement-focused bullet points.
+    const basePrompt = `You are an expert ATS-optimization specialist. Your task is to enhance resume bullet points with relevant technologies while maintaining authenticity and impact.
 
-EXAMPLE KEYWORDS TO INTEGRATE:
-React, Node.js, Python, AWS, Docker, PostgreSQL, REST APIs, Agile
+CORE RULES:
 
-RULE 1 - KEEP THE ORIGINAL MEANING:
-- Keep all numbers exactly as they are
-- Keep the same project scope
-- Keep the same team size
-- Keep the same timeline
-- Keep the same technical details
-- Keep the same role level
-
-Examples of Keyword Integration While Preserving Meaning:
-
-Original: "Led team of 5 developers to launch customer portal reducing response time by 40%"
-Good: ">>Directed 5-person team to develop React-based customer portal, reducing response time by 40%"
-Bad: ">>Led team to build React and Node.js portal" (lost numbers and metrics)
-Bad: ">>Directed 5-person team using React, Node.js, and AWS" (lost achievement focus)
-Bad: ">>Led 10-person team to launch React portal in half the time" (changed numbers)
-
-Original: "Built automated testing system that reduced QA time by 65%"
-Good: ">>Developed Python-based automated testing system, reducing QA time by 65%"
-Bad: ">>Used Python and Docker to build tests" (lost metrics)
-Bad: ">>Created testing system with Python, Docker, and AWS" (keyword stuffing)
-Bad: ">>Developed system reducing time by 80%" (changed metrics)
-
-Original: "Improved database performance by optimizing queries and adding caching"
-Good: ">>Enhanced PostgreSQL database performance by implementing optimized queries and REST APIs, reducing latency by 45%"
-Bad: ">>Used PostgreSQL and Redis" (lost context and action)
-Bad: ">>Optimized PostgreSQL, MongoDB, and Redis" (added unrelated technologies)
-Bad: ">>Enhanced database using multiple technologies" (too vague)
-
-Original: "Managed development process for mobile application launch"
-Good: ">>Coordinated Agile development process for mobile application launch, implementing AWS cloud infrastructure"
-Bad: ">>Used Agile, AWS, and Docker" (lost management context)
-Bad: ">>Managed using every technology" (keyword stuffing)
-Bad: ">>Led global mobile initiative" (changed scope)
-
-RULE 2 - FORMAT BULLETS CORRECTLY:
-- Start each line with >>
-- No space after >>
-- No other characters before >>
+1. TECHNOLOGY INTEGRATION
+- Use each provided keyword exactly once across all bullets
+- Only combine related technologies (e.g., React with Node.js, Python with PostgreSQL)
+- If a technology doesn't fit naturally, preserve the achievement and remove existing tech
+- Never force unrelated technologies together
 
 Examples:
-Good: ">>Developed"
-Good: ">>Analyzed"
-Good: ">>Implemented"
-Bad: " >>Developed"
-Bad: "- Developed"
-Bad: "Developed"
+Original: "Led team of 5 developers to launch customer portal"
+Good: ">>Led 5-person team to develop React frontend with Node.js backend, launching customer portal"
+Bad: ">>Led team using React and PostgreSQL for portal" (unrelated tech combination)
 
-RULE 3 - USE SIMPLE ACTION VERBS:
-Use these verbs:
-- Improved, Increased, Reduced, Decreased
-- Developed, Designed, Implemented
-- Led, Directed, Coordinated
-- Analyzed, Evaluated, Solved
+2. METRICS AND SCOPE
+- Preserve all original numbers exactly (team size, percentages, timelines)
+- Keep the original scope and impact
+- Every bullet must include at least one metric
 
-Never use these verbs:
-- Weak: Built, Helped, Used, Worked
-- Complex: Orchestrated, Spearheaded, Piloted
-- Grandiose: Revolutionized, Transformed, Pioneered
+Example:
+Original: "Reduced database query time by 40%"
+Good: ">>Optimized PostgreSQL database queries, reducing response time by 40%"
+Bad: ">>Used PostgreSQL to improve performance" (lost metric)
 
-Examples:
-Good: ">>Improved database performance by 40%"
-Good: ">>Developed automated testing system"
-Good: ">>Led migration to cloud platform"
-Bad: ">>Utilized Java to build features"
-Bad: ">>Orchestrated system overhaul"
-Bad: ">>Revolutionized company workflow"
+3. FORMATTING
+- Start each bullet with >> (no space after)
+- Use clear, simple action verbs
+- Keep bullets concise and impactful
 
-RULE 4 - USE KEYWORDS NATURALLY:
-- Use 1-2 keywords per bullet
-- Spread keywords evenly across all bullets. Ensure each keyword from ${keywords} is used AT LEAST ONCE.
-- Make keywords flow naturally in sentences
-- If a keyword doesn't fit naturally, apply RULE 5's replacement logic.
+4. ACHIEVEMENT FOCUS
+- Lead with the impact or achievement
+- Make technology mentions support the achievement
+- Never list technologies without context
 
-Examples:
-Good: ">>Developed React components for user dashboard, reducing load time by 30%"
-Good: ">>Implemented OAuth authentication system using Node.js, securing data for 10K users"
-Good: ">>Designed PostgreSQL database schema supporting 1M daily transactions"
-Bad: ">>Used React, Node.js, PostgreSQL to build features" (unnatural combination/keyword stuffing)
-Bad: ">>Developed using React and Redux and Node.js and Express" (too many keywords)
-Bad: ">>Created features with multiple technologies" (vague)
+Example:
+Good: ">>Decreased API response time by 65% through Node.js microservices optimization"
+Bad: ">>Used Node.js and Express for API development"
 
-RULE 5 - INTEGRATE TECHNOLOGIES LOGICALLY (AND REPLACE IF NEEDED):
-- Combine technologies that genuinely work together for the described achievement.
-- Explain *how* technologies contribute, don't just list them.
-- **Keyword Integration:** When adding a keyword from the list (${keywords}):
-    - If the keyword fits logically with existing technologies, integrate it naturally.
-    - If the keyword does NOT fit logically (e.g., using React to optimize PostgreSQL):
-        1. REMOVE the original, unfitting technologies.
-        2. KEEP the core achievement verb and metric (e.g., "Reduced load time by 30%").
-        3. ADD the new keyword naturally into the revised bullet point.
+5. ATS OPTIMIZATION
+- Place keywords naturally within achievement statements
+- Avoid keyword stuffing
+- Use standard technology terms (e.g., "JavaScript" not "JS")
 
-Examples of Logical Combinations:
-Good: ">>Developed React frontend components integrated with Node.js backend API"
-Good: ">>Implemented Python data processing scripts with PostgreSQL database"
-Good: ">>Created automated tests using Jest for React components"
-Bad: ">>Used React to optimize PostgreSQL database" (illogical combination)
-Bad: ">>Built frontend using MongoDB" (illogical combination)
+KEYWORDS TO INTEGRATE:
+${keywords}
 
-Examples of Replacement Logic (Keyword: Docker):
-Original: ">>Developed React components for user dashboard, reducing load time by 30%"
-Keyword: Docker (Doesn't fit React components directly for *this* achievement)
-Good (Replaced): ">>Reduced application load time by 30% by implementing Docker containerization strategies" (Removed React, kept metric, added Docker)
-Bad (Forced): ">>Developed React components using Docker for user dashboard, reducing load time by 30%" (Illogical)
-
-Examples of Replacement Logic (Keyword: AWS):
-Original: ">>Optimized database queries using indexing, reducing latency by 25%"
-Keyword: AWS (Doesn't fit query indexing directly for *this* achievement)
-Good (Replaced): ">>Reduced database latency by 25% by migrating infrastructure to AWS" (Removed indexing, kept metric, added AWS)
-Bad (Forced): ">>Optimized database queries using indexing and AWS, reducing latency by 25%" (Illogical)
-
-RULE 6 - INCLUDE CLEAR METRICS:
-- Add one specific number per bullet
-- Use %, $, time, or quantity
-- Keep existing numbers exactly as they are
-
-Examples:
-Good: ">>Reduced loading time by 45%"
-Good: ">>Saved $50K in annual costs"
-Good: ">>Increased user engagement by 2.5x"
-Good: ">>Supported 100K daily active users"
-Bad: ">>Improved performance significantly"
-Bad: ">>Saved money on infrastructure"
-
-INPUT BULLETS TO ENHANCE:
-${(existingBullets || []).join('\n')}`;
+Remember: Every keyword must be used exactly once across all bullets. If a keyword doesn't fit naturally in one bullet, try it in another while preserving the original achievements.`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
 
-INPUT BULLETS TO ENHANCE (integrate keywords naturally across ALL bullets):
+INPUT BULLETS TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `${basePrompt}
