@@ -206,8 +206,7 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
 
 FORMATTING RULES:
 1. Every bullet MUST start with '>>' (no space after)
-2. Maximum ${wordLimit} words per bullet
-3. One specific metric per bullet (%, $, time, or quantity)
+2. One specific metric per bullet (%, $, time, or quantity)
 
 KEYWORD INTEGRATION RULES:
 1. Use keywords from this list: ${keywords}
@@ -264,7 +263,7 @@ Each bullet must follow ALL formatting rules and include at least one keyword.`;
 
     try {
         const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-thinking-exp-01-21:generateContent?key=${geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
             {
                 system_instruction: {
                     parts: [{
