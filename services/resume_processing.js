@@ -202,59 +202,87 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
         ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
         : '';
 
-    const basePrompt = `You are an expert ATS-optimization specialist. Your task is to enhance resume bullet points with relevant technologies while maintaining authenticity and impact.
+    const basePrompt = `You are an expert resume writer focused on creating achievement-based bullet points that pass ATS systems and increase interview rates.
+
+Your task is to enhance resume bullets by naturally integrating relevant keywords while preserving the core achievements.
+
+KEYWORDS TO INTEGRATE: ${keywords}
 
 CORE RULES:
 
-1. TECHNOLOGY INTEGRATION
-- Use each provided keyword exactly once across all bullets
-- Only combine related technologies (e.g., React with Node.js, Python with PostgreSQL)
-- If a technology doesn't fit naturally, preserve the achievement and remove existing tech
+1. BULLET FORMAT
+- Start every bullet with >> (no space after)
+- Example: ">>Developed"
+- Never use other prefixes or spaces
+
+2. ACTION VERBS
+Use these verbs only:
+- Achievement: Improved, Increased, Reduced, Decreased
+- Technical: Developed, Designed, Implemented
+- Leadership: Led, Directed, Coordinated
+- Analysis: Analyzed, Evaluated, Solved
+
+Never use:
+- Weak verbs: Built, Helped, Used, Worked
+- Complex verbs: Orchestrated, Spearheaded
+- Grandiose verbs: Revolutionized, Transformed
+
+3. TECHNOLOGY INTEGRATION
+Core principle: Only combine technologies that naturally work together
+
+✅ CORRECT EXAMPLES:
+>>Developed React frontend components with Node.js backend integration, reducing load time by 40%
+(React + Node.js: Frontend-backend integration)
+
+>>Implemented PostgreSQL database optimizations and REST API caching, improving query speed by 65%
+(PostgreSQL + REST APIs: Data layer optimization)
+
+❌ INCORRECT EXAMPLES:
+>>Used React to optimize PostgreSQL queries
+(React is frontend, not for database optimization)
+
+>>Built MongoDB interface using React components
+(Direct database-frontend coupling is incorrect)
+
+4. PRESERVING ACHIEVEMENTS
+If a keyword cannot be naturally integrated:
+1. Remove existing technical terms
+2. Keep the core achievement
+3. Rewrite with relevant technology
+
+Example:
+Original: "Optimized database queries reducing load by 50%"
+New keyword to add: React
+Solution: ">>Developed React component caching system, reducing page load time by 50%"
+(Preserved 50% metric, changed context to fit React)
+
+5. METRICS AND SPECIFICS
+- Keep all original numbers exactly as provided
+- Every bullet must include one specific metric:
+  - Percentages (reduced time by 40%)
+  - Numbers (supported 100K users)
+  - Time periods (completed in 3 months)
+  - Team size (led team of 5)
+
+6. KEYWORD DISTRIBUTION
+- Use 1-2 keywords per bullet
+- Spread keywords evenly across all bullets
+- Each keyword must appear at least once
 - Never force unrelated technologies together
 
-Examples:
-Original: "Led team of 5 developers to launch customer portal"
-Good: ">>Led 5-person team to develop React frontend with Node.js backend, launching customer portal"
-Bad: ">>Led team using React and PostgreSQL for portal" (unrelated tech combination)
-
-2. METRICS AND SCOPE
-- Preserve all original numbers exactly (team size, percentages, timelines)
-- Keep the original scope and impact
-- Every bullet must include at least one metric
-
-Example:
-Original: "Reduced database query time by 40%"
-Good: ">>Optimized PostgreSQL database queries, reducing response time by 40%"
-Bad: ">>Used PostgreSQL to improve performance" (lost metric)
-
-3. FORMATTING
-- Start each bullet with >> (no space after)
-- Use clear, simple action verbs
+Remember:
+- Focus on achievements, not just technical details
 - Keep bullets concise and impactful
+- Ensure each technology is used in its correct context
+- Preserve all original metrics and scope
 
-4. ACHIEVEMENT FOCUS
-- Lead with the impact or achievement
-- Make technology mentions support the achievement
-- Never list technologies without context
-
-Example:
-Good: ">>Decreased API response time by 65% through Node.js microservices optimization"
-Bad: ">>Used Node.js and Express for API development"
-
-5. ATS OPTIMIZATION
-- Place keywords naturally within achievement statements
-- Avoid keyword stuffing
-- Use standard technology terms (e.g., "JavaScript" not "JS")
-
-KEYWORDS TO INTEGRATE:
-${keywords}
-
-Remember: Every keyword must be used exactly once across all bullets. If a keyword doesn't fit naturally in one bullet, try it in another while preserving the original achievements.`;
+INPUT BULLETS TO ENHANCE:
+${(existingBullets || []).join('\n')}`;
 
     if (mode === 'tailor') {
         prompt = `${basePrompt}
 
-INPUT BULLETS TO ENHANCE:
+INPUT BULLETS TO ENHANCE (integrate keywords naturally across ALL bullets):
 ${(existingBullets || []).join('\n')}`;
     } else {
         prompt = `${basePrompt}
