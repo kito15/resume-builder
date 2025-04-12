@@ -206,7 +206,7 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
 
 FORMATTING RULES:
 1. Every bullet MUST start with '>>' (no space after)
-2. Maximum ${wordLimit || 20} words per bullet
+2. Maximum ${wordLimit} words per bullet
 3. One specific metric per bullet (%, $, time, or quantity)
 
 KEYWORD INTEGRATION RULES:
@@ -268,7 +268,7 @@ Each bullet must follow ALL formatting rules and include at least one keyword.`;
             {
                 system_instruction: {
                     parts: [{
-                        text: "You are a specialized resume bullet point optimizer. Your task is to generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
+                        text: "You are an expert ATS resume optimization specialist. Your task is to generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements that maximize ATS matching"
                     }]
                 },
                 contents: [{
