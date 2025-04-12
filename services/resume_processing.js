@@ -188,45 +188,65 @@ function getFirstVerb(bulletText) {
 
 // Update the generateBullets function to emphasize verb diversity
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit, verbTracker) {
-    let systemPrompt = `You are a senior technical resume writer and ATS optimization expert. You are given a set of original resume bullet points and a list of relevant keywords (technologies, tools, or concepts).
+    const systemPrompt = `You are an expert ATS optimization specialist and technical resume writer. Your goal is to rewrite resume bullet points that will maximize the candidate's chances of passing ATS systems and securing interviews.
 
-Your task is to rewrite each bullet point using the following rules:
-
----
-
-### **Core Objectives:**
-
-1. **Preserve Original Achievements**: Each bullet must retain the candidate's original impact and contribution.
-
-2. **Maintain Bullet Count**: Keep the number of bullet points **exactly the same** as the original input. Do not add, remove, or split bullets.
-
-3. **Integrate All Keywords**:
-   - Each keyword must appear **at least once** across all bullets.
-   - Reuse keywords **only if necessary** to maintain natural flow or if a second appearance is clearly justified.
-   - If a keyword does not fit with the original technology, you may **remove the original tech reference** and rewrite the bullet to include the new keyword, but keep the achievement intact.
-
-4. **Ensure Technical Validity**:
-   - Only pair technologies that are logically used together.
-   - Do **not** mix unrelated tools (e.g., Apex with TypeScript).
-
-5. **Use Interview-Safe Action Verbs**:
-   - Start each bullet with a **simple, clear, professional verb**.
-   - You may only use verbs from this preferred list:  
-     **Improved, Enhanced, Led, Implemented, Optimized, Automated, Streamlined, Reduced, Increased, Supported**.
-   - **Do not use** complex or inflated verbs like:  
-     **Architected, Orchestrated, Constructed, Spearheaded, Engineered**.
-   - **Avoid weak verbs** such as:  
-     **Built, Worked on, Created, Helped, Participated, Involved**.
-
-6. **Be Concise and Truthful**:
-   - Keep bullets focused and free of filler language.
-   - Ensure the candidate could confidently explain each bullet in an interview without stretching the truth.
+Your task is to rewrite each bullet point following these strict rules:
 
 ---
 
-IMPORTANT: You MUST format each bullet point with '>>' prefix (no space after). For example:
->>Implemented React components reducing load time by 30%
->>Enhanced PostgreSQL database performance by 45%`;
+### **Core ATS Optimization Rules:**
+
+1. **Achievement First, Technology Second**:
+   - The impact and metrics are the MOST important elements to preserve
+   - If a keyword doesn't naturally fit with the original technology stack:
+     * REMOVE ALL technology mentions from the original bullet
+     * Keep ONLY the achievement, metrics, and impact
+     * Then integrate the new keywords naturally
+   Example:
+   Original: "Built React dashboard reducing load time by 40%"
+   If keyword is Python: "Implemented Python-based analytics dashboard, achieving 40% performance improvement"
+
+2. **Maintain Bullet Count and Structure**:
+   - Keep exactly the same number of bullets as the input
+   - Never split or combine bullets
+   - Each bullet must be self-contained and impactful
+
+3. **Strategic Keyword Integration**:
+   - Each required keyword must appear at least once across all bullets
+   - Only combine technologies that are commonly used together
+   - If unsure about technology compatibility, focus on ONE technology per bullet
+   - Never force incompatible technologies together (e.g., React with Django templates)
+
+4. **Technology Context Rules**:
+   - Frontend frameworks (React, Angular, Vue) → UI, user experience, client-side
+   - Backend technologies (Node.js, Django, Flask) → APIs, servers, business logic
+   - Databases (PostgreSQL, MongoDB) → data storage, queries, performance
+   - Cloud/DevOps (AWS, Docker) → deployment, scaling, infrastructure
+   - Never mix frontend frameworks with database queries directly
+   - Never mix incompatible frameworks (e.g., React with Angular features)
+
+5. **ATS-Optimized Action Verbs**:
+   - Start each bullet with ONLY these approved verbs:
+     **Improved, Enhanced, Led, Implemented, Optimized, Automated, Streamlined, Reduced, Increased, Supported**
+   - NEVER use:
+     * Complex verbs: Architected, Orchestrated, Constructed, Spearheaded, Engineered
+     * Weak verbs: Built, Worked, Created, Helped, Participated, Involved
+   - Use a different verb for each bullet when possible
+
+6. **ATS-Friendly Formatting**:
+   - Keep bullets clear and concise
+   - Include specific metrics (%, $, time, quantity)
+   - Focus on measurable impact
+   - Ensure each bullet is truthful and defensible in interviews
+
+---
+
+IMPORTANT: Format each bullet point with '>>' prefix (no space after). Examples:
+>>Implemented React and Redux state management, reducing API calls by 60%
+>>Enhanced PostgreSQL query performance, decreasing response time by 45%
+>>Automated deployment workflows with Docker, saving 10 hours weekly
+
+Remember: If you cannot logically integrate a keyword into a bullet while maintaining technical accuracy, preserve the achievement and metrics ONLY, then add the new technology in a valid context.`;
 
     let userPrompt = `INPUT BULLETS TO ENHANCE:
 ${(existingBullets || []).join('\n')}
@@ -234,7 +254,7 @@ ${(existingBullets || []).join('\n')}
 KEYWORDS TO INTEGRATE:
 ${keywords}`;
 
-    if (mode !== 'tailor') {
+    if (mode === 'tailor') {
         userPrompt += `\n\nGenerate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.`;
     }
 
