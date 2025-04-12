@@ -276,30 +276,46 @@ Bad: ">>Revolutionized company workflow"
 
 RULE 4 - USE KEYWORDS NATURALLY:
 - Use 1-2 keywords per bullet
-- Spread keywords evenly across all bullets
+- Spread keywords evenly across all bullets. Ensure each keyword from ${keywords} is used AT LEAST ONCE.
 - Make keywords flow naturally in sentences
-- Use each keyword from ${keywords} at least once
+- If a keyword doesn't fit naturally, apply RULE 5's replacement logic.
 
 Examples:
 Good: ">>Developed React components for user dashboard, reducing load time by 30%"
 Good: ">>Implemented OAuth authentication system using Node.js, securing data for 10K users"
 Good: ">>Designed PostgreSQL database schema supporting 1M daily transactions"
-Bad: ">>Used React, Node.js, PostgreSQL to build features"
-Bad: ">>Developed using React and Redux and Node.js and Express"
-Bad: ">>Created features with multiple technologies"
+Bad: ">>Used React, Node.js, PostgreSQL to build features" (unnatural combination/keyword stuffing)
+Bad: ">>Developed using React and Redux and Node.js and Express" (too many keywords)
+Bad: ">>Created features with multiple technologies" (vague)
 
-RULE 5 - KEEP TECHNOLOGY COMBINATIONS LOGICAL:
-- Only combine technologies that work together
-- Explain how each technology was used
-- Keep technology usage realistic
+RULE 5 - INTEGRATE TECHNOLOGIES LOGICALLY (AND REPLACE IF NEEDED):
+- Combine technologies that genuinely work together for the described achievement.
+- Explain *how* technologies contribute, don't just list them.
+- **Keyword Integration:** When adding a keyword from the list (${keywords}):
+    - If the keyword fits logically with existing technologies, integrate it naturally.
+    - If the keyword does NOT fit logically (e.g., using React to optimize PostgreSQL):
+        1. REMOVE the original, unfitting technologies.
+        2. KEEP the core achievement verb and metric (e.g., "Reduced load time by 30%").
+        3. ADD the new keyword naturally into the revised bullet point.
 
-Examples:
+Examples of Logical Combinations:
 Good: ">>Developed React frontend components integrated with Node.js backend API"
 Good: ">>Implemented Python data processing scripts with PostgreSQL database"
 Good: ">>Created automated tests using Jest for React components"
-Bad: ">>Used React to optimize PostgreSQL database"
-Bad: ">>Developed using Java and Python simultaneously"
-Bad: ">>Built frontend using MongoDB"
+Bad: ">>Used React to optimize PostgreSQL database" (illogical combination)
+Bad: ">>Built frontend using MongoDB" (illogical combination)
+
+Examples of Replacement Logic (Keyword: Docker):
+Original: ">>Developed React components for user dashboard, reducing load time by 30%"
+Keyword: Docker (Doesn't fit React components directly for *this* achievement)
+Good (Replaced): ">>Reduced application load time by 30% by implementing Docker containerization strategies" (Removed React, kept metric, added Docker)
+Bad (Forced): ">>Developed React components using Docker for user dashboard, reducing load time by 30%" (Illogical)
+
+Examples of Replacement Logic (Keyword: AWS):
+Original: ">>Optimized database queries using indexing, reducing latency by 25%"
+Keyword: AWS (Doesn't fit query indexing directly for *this* achievement)
+Good (Replaced): ">>Reduced database latency by 25% by migrating infrastructure to AWS" (Removed indexing, kept metric, added AWS)
+Bad (Forced): ">>Optimized database queries using indexing and AWS, reducing latency by 25%" (Illogical)
 
 RULE 6 - INCLUDE CLEAR METRICS:
 - Add one specific number per bullet
