@@ -188,139 +188,212 @@ function getFirstVerb(bulletText) {
 
 // Update the generateBullets function to emphasize verb diversity
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit, verbTracker) {
-    const systemPrompt = `You are a senior technical resume writer and ATS optimization expert. Your goal is to optimize resume bullet points to maximize the candidate's chances of passing ATS systems and securing interviews.
+    let prompt;
+    
+    // Get previously used verbs to avoid
+    const usedVerbs = verbTracker ? verbTracker.getUsedVerbs() : [];
+    const mostUsedVerbs = verbTracker ? verbTracker.getMostUsedVerbs(8) : [];
+    
+    const verbAvoidanceText = usedVerbs.length > 0 
+        ? `\nAVOID THESE PREVIOUSLY USED VERBS: ${usedVerbs.join(', ')}\n`
+        : '';
+        
+    const mostUsedVerbsText = mostUsedVerbs.length > 0
+        ? `ESPECIALLY AVOID THESE OVERUSED VERBS: ${mostUsedVerbs.join(', ')}`
+        : '';
 
-Your task is to rewrite each bullet point following these STRICT rules:
+    const basePrompt = `You are an expert resume writer. Your task is to write achievement-focused bullet points.
 
----
+EXAMPLE KEYWORDS TO INTEGRATE:
+React, Node.js, Python, AWS, Docker, PostgreSQL, REST APIs, Agile
 
-### **Core Objectives:**
+RULE 1 - KEEP THE ORIGINAL MEANING:
+- Keep all numbers exactly as they are
+- Keep the same project scope
+- Keep the same team size
+- Keep the same timeline
+- Keep the same technical details
+- Keep the same role level
 
-1. **Preserve Core Achievements**:
-   - Each bullet's fundamental impact and metrics MUST remain unchanged
-   - Keep all numerical achievements exactly as they are (%, $, time savings, team size, etc.)
-   - Maintain the original scope and level of responsibility
+Examples of Keyword Integration While Preserving Meaning:
 
-2. **Maintain Bullet Count**:
-   - Keep the number of bullet points EXACTLY the same as the original input
-   - Do not split, combine, or remove any bullets
-   - Do not add new bullets
+Original: "Led team of 5 developers to launch customer portal reducing response time by 40%"
+Good: ">>Directed 5-person team to develop React-based customer portal, reducing response time by 40%"
+Bad: ">>Led team to build React and Node.js portal" (lost numbers and metrics)
+Bad: ">>Directed 5-person team using React, Node.js, and AWS" (lost achievement focus)
+Bad: ">>Led 10-person team to launch React portal in half the time" (changed numbers)
 
-3. **Technology Integration Rules**:
-   - EVERY provided keyword MUST appear at least once across all bullets - NO EXCEPTIONS
-   - When integrating a keyword that doesn't naturally fit with existing technologies:
-     a) REMOVE ALL existing technology mentions from that bullet
-     b) Keep the core achievement/impact intact
-     c) Rewrite the bullet to incorporate the new keyword naturally
-   - Example:
-     Original: "Built React dashboard reducing load time by 40%"
-     If keyword is "Python":
-     Bad: "Built React and Python dashboard reducing load time by 40%" (illogical combination)
-     Good: "Developed Python-based analytics dashboard reducing load time by 40%" (removed React, kept achievement)
+Original: "Built automated testing system that reduced QA time by 65%"
+Good: ">>Developed Python-based automated testing system, reducing QA time by 65%"
+Bad: ">>Used Python and Docker to build tests" (lost metrics)
+Bad: ">>Created testing system with Python, Docker, and AWS" (keyword stuffing)
+Bad: ">>Developed system reducing time by 80%" (changed metrics)
 
-4. **Technical Accuracy**:
-   - NEVER combine unrelated technologies in the same bullet point
-   - Each bullet should focus on 1-2 related technologies maximum
-   - Technologies mentioned together MUST have a clear, logical relationship
-   - Examples of valid combinations:
-     - "React with TypeScript"
-     - "Python with PostgreSQL"
-     - "Node.js with Express"
-   - Examples of invalid combinations:
-     - "React with Python" (frontend with backend)
-     - "MongoDB with Swift" (database with mobile)
-     - "Java with Photoshop" (programming with design)
+Original: "Improved database performance by optimizing queries and adding caching"
+Good: ">>Enhanced PostgreSQL database performance by implementing optimized queries and REST APIs, reducing latency by 45%"
+Bad: ">>Used PostgreSQL and Redis" (lost context and action)
+Bad: ">>Optimized PostgreSQL, MongoDB, and Redis" (added unrelated technologies)
+Bad: ">>Enhanced database using multiple technologies" (too vague)
 
-5. **Action Verbs**:
-   - Start each bullet with ONLY these approved verbs:
-     **Improved, Enhanced, Led, Implemented, Optimized, Automated, Streamlined, Reduced, Increased, Supported**
-   - NEVER use:
-     - Complex verbs: Architected, Orchestrated, Constructed, Spearheaded, Engineered
-     - Weak verbs: Built, Worked on, Created, Helped, Participated, Involved
-   - Use a different verb for each bullet point
+Original: "Managed development process for mobile application launch"
+Good: ">>Coordinated Agile development process for mobile application launch, implementing AWS cloud infrastructure"
+Bad: ">>Used Agile, AWS, and Docker" (lost management context)
+Bad: ">>Managed using every technology" (keyword stuffing)
+Bad: ">>Led global mobile initiative" (changed scope)
 
-6. **Clarity and Truth**:
-   - Write clear, concise bullets free of jargon
-   - Focus on measurable impact
-   - Ensure each bullet is interview-ready (candidate can explain in detail)
-   - Remove any filler words or unnecessary technical terms
+RULE 2 - FORMAT BULLETS CORRECTLY:
+- Start each line with >>
+- No space after >>
+- No other characters before >>
 
----
+Examples:
+Good: ">>Developed"
+Good: ">>Analyzed"
+Good: ">>Implemented"
+Bad: " >>Developed"
+Bad: "- Developed"
+Bad: "Developed"
 
-IMPORTANT: Format EVERY bullet point with '>>' prefix (no space after). Examples:
->>Implemented React components with TypeScript, reducing load time by 30%
->>Enhanced PostgreSQL query performance through indexing, decreasing latency by 45%
+RULE 3 - USE SIMPLE ACTION VERBS:
+Use these verbs:
+- Improved, Increased, Reduced, Decreased
+- Developed, Designed, Implemented
+- Led, Directed, Coordinated
+- Analyzed, Evaluated, Solved
 
-Remember: If you cannot logically integrate a keyword into an existing bullet, REMOVE the existing technologies and rewrite it with the new keyword while keeping the core achievement intact.`;
+Never use these verbs:
+- Weak: Built, Helped, Used, Worked
+- Complex: Orchestrated, Spearheaded, Piloted
+- Grandiose: Revolutionized, Transformed, Pioneered
 
-    let userPrompt = `INPUT BULLETS TO ENHANCE:
-${(existingBullets || []).join('\n')}
+Examples:
+Good: ">>Improved database performance by 40%"
+Good: ">>Developed automated testing system"
+Good: ">>Led migration to cloud platform"
+Bad: ">>Utilized Java to build features"
+Bad: ">>Orchestrated system overhaul"
+Bad: ">>Revolutionized company workflow"
 
-KEYWORDS TO INTEGRATE:
-${keywords}`;
+RULE 4 - USE KEYWORDS NATURALLY:
+- Use 1-2 keywords per bullet
+- Spread keywords evenly across all bullets
+- Make keywords flow naturally in sentences
+- Use each keyword from ${keywords} at least once
+
+Examples:
+Good: ">>Developed React components for user dashboard, reducing load time by 30%"
+Good: ">>Implemented OAuth authentication system using Node.js, securing data for 10K users"
+Good: ">>Designed PostgreSQL database schema supporting 1M daily transactions"
+Bad: ">>Used React, Node.js, PostgreSQL to build features"
+Bad: ">>Developed using React and Redux and Node.js and Express"
+Bad: ">>Created features with multiple technologies"
+
+RULE 5 - KEEP TECHNOLOGY COMBINATIONS LOGICAL:
+- Only combine technologies that work together
+- Explain how each technology was used
+- Keep technology usage realistic
+
+Examples:
+Good: ">>Developed React frontend components integrated with Node.js backend API"
+Good: ">>Implemented Python data processing scripts with PostgreSQL database"
+Good: ">>Created automated tests using Jest for React components"
+Bad: ">>Used React to optimize PostgreSQL database"
+Bad: ">>Developed using Java and Python simultaneously"
+Bad: ">>Built frontend using MongoDB"
+
+RULE 6 - INCLUDE CLEAR METRICS:
+- Add one specific number per bullet
+- Use %, $, time, or quantity
+- Keep existing numbers exactly as they are
+
+Examples:
+Good: ">>Reduced loading time by 45%"
+Good: ">>Saved $50K in annual costs"
+Good: ">>Increased user engagement by 2.5x"
+Good: ">>Supported 100K daily active users"
+Bad: ">>Improved performance significantly"
+Bad: ">>Saved money on infrastructure"
+
+INPUT BULLETS TO ENHANCE:
+${(existingBullets || []).join('\n')}`;
 
     if (mode === 'tailor') {
-        userPrompt += `\n\nGenerate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.`;
+        prompt = `${basePrompt}
+
+INPUT BULLETS TO ENHANCE (integrate keywords naturally across ALL bullets):
+${(existingBullets || []).join('\n')}`;
+    } else {
+        prompt = `${basePrompt}
+
+Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.
+REMEMBER: EVERY BULLET MUST START WITH >> (no space after) AND USE UNIQUE ACTION VERBS`;
     }
 
-    const response = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
-        {
-            system_instruction: {
-                parts: [{
-                    text: systemPrompt
+    try {
+        const response = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
+            {
+                system_instruction: {
+                    parts: [{
+                        text: "You are a specialized resume optimization AI. Your ONLY task is to generate resume bullet points. You MUST format all bullet points with '>>' prefix (no space after). Do not include ANY other text. Use a DIFFERENT action verb for each bullet point."
+                    }]
+                },
+                contents: [{
+                    parts: [{
+                        text: prompt
+                    }]
+                }],
+                generationConfig: {
+                    temperature: 0.4, // Lower temperature for more predictable formatting
+                    maxOutputTokens: 2000
+                },
+                safetySettings: [{
+                    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    threshold: "BLOCK_ONLY_HIGH"
                 }]
             },
-            contents: [{
-                parts: [{
-                    text: userPrompt
-                }]
-            }],
-            generationConfig: {
-                temperature: 0.5,
-                maxOutputTokens: 6000
+            {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             }
-        },
-        {
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        }
-    );
+        );
 
-    const content = response.data.candidates[0].content.parts[0].text;
-    
-    // Primary matching for ">>" prefixed lines
-    let matched = content.match(/^\>\>(.+)$/gm) || [];
-    
-    // Secondary matching for lines that might be bullet points but missing the prefix
-    if (matched.length < 3) {
-        console.log('Warning: Not enough ">>" prefixed bullets found, applying secondary extraction');
+        const content = response.data.candidates[0].content.parts[0].text;
         
-        // Extract any line that looks like a complete sentence and might be a bullet point
-        const potentialBullets = content.split(/\n+/).filter(line => {
-            // Filter for lines that start with an action verb (capitalized word)
-            // and contain some text (at least 30 chars) and ideally have numbers
-            const trimmed = line.trim();
-            return trimmed.length > 30 && 
-                   /^[A-Z][a-z]+/.test(trimmed) && 
-                   (/\d+/.test(trimmed) || /ed\s/.test(trimmed));
-        });
+        // Primary matching for ">>" prefixed lines
+        let matched = content.match(/^\>\>(.+)$/gm) || [];
         
-        // Add these as properly formatted bullets
-        if (potentialBullets.length > 0) {
-            const formattedBullets = potentialBullets.map(b => `>>${b}`);
-            matched = [...matched, ...formattedBullets];
-            console.log(`Added ${formattedBullets.length} secondary-extracted bullets`);
+        // Secondary matching for lines that might be bullet points but missing the prefix
+        if (matched.length < 3) {
+            console.log('Warning: Not enough ">>" prefixed bullets found, applying secondary extraction');
+            
+            // Extract any line that looks like a complete sentence and might be a bullet point
+            const potentialBullets = content.split(/\n+/).filter(line => {
+                const trimmed = line.trim();
+                return trimmed.length > 30 && 
+                       /^[A-Z][a-z]+/.test(trimmed) && 
+                       (/\d+/.test(trimmed) || /ed\s/.test(trimmed));
+            });
+            
+            // Add these as properly formatted bullets
+            if (potentialBullets.length > 0) {
+                const formattedBullets = potentialBullets.map(b => `>>${b}`);
+                matched = [...matched, ...formattedBullets];
+                console.log(`Added ${formattedBullets.length} secondary-extracted bullets`);
+            }
         }
+        
+        // Clean up the bullets
+        return matched.map(bp =>
+            bp.replace(/^>>\s*/, '')
+              .replace(/\*\*/g, '')
+              .replace(/\s*\([^)]*\)$/, '') // Remove any trailing parenthesis and enclosed keywords
+        );
+    } catch (error) {
+        console.error('Error generating bullets:', error.response?.data || error.message);
+        return []; // Return empty array in case of error
     }
-    
-    // Clean up the bullets
-    return matched.map(bp =>
-        bp.replace(/^>>\s*/, '')
-          .replace(/\*\*/g, '')
-          .replace(/\s*\([^)]*\)$/, '') // Remove any trailing parenthesis and enclosed keywords
-    );
 }
 
 // Add function to shuffle bullets with verb checking
