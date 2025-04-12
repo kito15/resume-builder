@@ -199,27 +199,35 @@ FORMATTING RULES:
 KEYWORD INTEGRATION RULES:
 1. Use keywords from this list: ${keywords}
 2. Use ONLY 1-2 related technologies per bullet
-3. NEVER combine unrelated technologies
+3. NEVER combine unrelated technologies in the same bullet point
 4. Each keyword MUST be used at least once across all bullets
 5. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
+
+TECHNOLOGY COMBINATION RULES:
+1. Keep technologies within their domain (frontend, backend, etc.)
+2. Frontend tools stay with frontend (e.g., React with CSS)
+3. Backend tools stay with backend (e.g., Node.js with MongoDB)
+4. Database operations stay with database tools
+5. NEVER mix frontend tools with backend/database operations
 
 EXAMPLES OF PROPER TECHNOLOGY INTEGRATION:
 
 GOOD (Related Technologies):
->>Developed React frontend with Node.js backend API, reducing load time by 40%
+>>Developed React components with CSS animations, reducing page load time by 40%
 >>Implemented Python data processing pipeline using PostgreSQL, handling 1M daily records
->>Designed REST API endpoints in Node.js, supporting 50K daily users
+>>Optimized Node.js API endpoints with Redis caching, supporting 50K daily users
 
 BAD (Unrelated Technologies):
 >>Used React to optimize PostgreSQL queries (Frontend tool for database tasks)
 >>Implemented Python in React components (Mixing unrelated languages)
->>Built MongoDB interface using React hooks (Database tasks in frontend code)
+>>Built MongoDB interface using CSS Grid (Database tasks with styling tools)
 
 ACTION VERB GUIDELINES:
 Approved Verbs:
 - Performance: Improved, Increased, Reduced, Decreased, Optimized
-- Development: Developed, Designed, Implemented, Created, Launched, Delivered
+- Development: Developed, Designed, Implemented, Created, Launched
 - Leadership: Led, Directed, Coordinated, Managed
+- Analysis: Analyzed, Evaluated, Solved
 
 Prohibited Verbs:
 - Weak: Built, Helped, Used, Worked
@@ -237,7 +245,7 @@ METRICS GUIDELINES:
 INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}
 
-Let's think step by step prior to generating any bullet points. Your final output MUST be bullet points prefixed with >> no matter what.`;
+Let's think step by step prior to generating any bullet points.`;
 
     const prompt = mode === 'tailor' 
         ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`
@@ -258,8 +266,8 @@ Let's think step by step prior to generating any bullet points. Your final outpu
                     }]
                 }],
                 generationConfig: {
-                    temperature: 0.4,
-                    maxOutputTokens: 2000
+                    temperature: 0.5,
+                    maxOutputTokens: 7000
                 }
             },
             {
