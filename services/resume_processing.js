@@ -187,75 +187,76 @@ function getFirstVerb(bulletText) {
 }
 
 // Update the generateBullets function to emphasize verb diversity
-async function generateBullets(mode, existingBullets, keywords, context) {
-    const basePrompt = `You are a specialized resume bullet point optimizer. Your task has TWO PHASES:
+async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
+    const basePrompt = `You are a specialized resume bullet point optimizer. Your task is to enhance or generate achievement-focused resume bullets while following these strict rules:
 
-PHASE 1 - INITIAL GENERATION:
-First, generate achievement-focused resume bullets following these rules:
-1. Each bullet MUST have ONE specific, realistic metric that directly relates to the achievement
-2. Begin with a strong action verb
-3. Use keywords from this list ONLY when they make logical sense together: ${keywords}
-4. Focus on ONE primary technology or TWO closely related technologies per bullet
-5. The achievement must be a direct result of using the mentioned technologies
+FORMATTING RULES:
+1. Every bullet MUST start with '>>' (no space after)
+2. One specific metric per bullet (%, $, time, or quantity)
+3. Each bullet MUST begin with a strong action verb
+4. NEVER reuse the same starting verb across bullet points
 
-PHASE 2 - REFLECTION AND REVISION:
-Review each bullet against these criteria:
-1. TECHNOLOGY CHECK:
-   - Are the technologies naturally related? (e.g., "React with Node.js" ✓, "Python with React" ✗)
-   - Is the achievement directly tied to using these technologies?
-   - If technologies don't pair logically, keep only the primary one
+KEYWORD INTEGRATION RULES:
+1. Use keywords from this list: ${keywords}
+2. Use ONLY 1-2 related technologies per bullet
+3. NEVER combine unrelated technologies
+4. Each keyword MUST be used at least once across all bullets
+5. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
 
-2. METRIC CHECK:
-   - Is the metric specific and realistic?
-   - Does the metric directly result from the technical work?
-   - Metrics must be concrete: time saved, costs reduced, users impacted, performance improved
+EXAMPLES OF PROPER TECHNOLOGY INTEGRATION:
 
-3. CLARITY CHECK:
-   - Is the cause-and-effect relationship clear?
-   - Could another developer understand exactly what was accomplished?
-   - Remove any buzzwords or vague terminology
+GOOD (Related Technologies):
+>>Developed React frontend with Node.js backend API, reducing load time by 40%
+>>Implemented Python data processing pipeline using PostgreSQL, handling 1M daily records
+>>Designed REST API endpoints in Node.js, supporting 50K daily users
 
-EXAMPLES OF STRONG BULLETS:
-✓ "Developed React frontend components with Redux state management, reducing page load time by 45%"
-   [Clear relationship: React/Redux → faster loading]
-   
-✓ "Optimized PostgreSQL database queries and indexes, decreasing average query time from 2.5s to 200ms"
-   [Single technology focus, specific before/after metric]
-   
-✓ "Built Node.js REST API with Express.js caching layer, handling 50K daily requests with 99.9% uptime"
-   [Related technologies, concrete usage metrics]
+BAD (Unrelated Technologies):
+>>Used React to optimize PostgreSQL queries (Frontend tool for database tasks)
+>>Implemented Python in React components (Mixing unrelated languages)
+>>Built MongoDB interface using React hooks (Database tasks in frontend code)
 
-EXAMPLES OF WEAK BULLETS (WITH PROBLEMS):
-✗ "Used React and SQL to improve performance by 30%"
-   [Problem: Unrelated technologies, vague improvement]
-   
-✗ "Developed Python scripts and JavaScript modules"
-   [Problem: No metric, unrelated technologies]
-   
-✗ "Increased efficiency using various tools and best practices"
-   [Problem: No specific technologies, vague metric]
+ACTION VERB GUIDELINES:
+Approved Verbs:
+- Performance: Improved, Increased, Reduced, Decreased, Optimized
+- Development: Developed, Designed, Implemented, Created, Launched, Delivered
+- Leadership: Led, Directed, Coordinated, Managed
 
-FINAL OUTPUT FORMAT:
-After revision, prefix each FINAL bullet with '>>' (no space after prefix)
+Prohibited Verbs:
+- Weak: Built, Helped, Used, Worked
+- Complex: Orchestrated, Spearheaded, Piloted
+- Grandiose: Revolutionized, Transformed, Pioneered
+
+METRICS GUIDELINES:
+1. Keep all existing numbers EXACTLY as provided
+2. Each bullet MUST include ONE specific metric:
+   - Percentages (e.g., "reduced costs by 40%")
+   - Time (e.g., "decreased load time by 2.5 seconds")
+   - Quantity (e.g., "supported 100K users")
+   - Money (e.g., "saved $50K annually")
 
 INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
     const prompt = mode === 'tailor' 
-        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements. Follow the two-phase process to ensure quality.`
-        : `${basePrompt}\n\nTASK: Generate achievement-focused bullets ${context} with concrete metrics and clear technology usage. Follow the two-phase process to ensure quality.`;
+        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.\n\nLet's think step by step prior to generating any bullet points.`
+        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.\n\nLet's think step by step prior to generating any bullet points.`;
 
     try {
         const response = await axios.post(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
             {
+                system_instruction: {
+                    parts: [{
+                        text: "You are a specialized resume bullet point optimizer. Your task is to generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
+                    }]
+                },
                 contents: [{
                     parts: [{
                         text: prompt
                     }]
                 }],
                 generationConfig: {
-                    temperature: 0.5,
+                    temperature: 0.4,
                     maxOutputTokens: 6000
                 }
             },
@@ -290,8 +291,6 @@ ${(existingBullets || []).join('\n')}`;
             bullet.replace(/^>>\s*/, '')
                   .replace(/\*\*/g, '')
                   .replace(/\s*\([^)]*\)$/, '')
-                  .replace(/\n/g, ' ') // Ensure no line breaks in bullets
-                  .trim()
         );
     } catch (error) {
         console.error('Error generating bullets:', error.response?.data || error.message);
@@ -442,8 +441,7 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                 
             bulletPoints = await generateBullets(
                 'tailor', existingBullets,
-                keywords, context,
-                verbTracker
+                keywords, context, wordLimit, verbTracker
             );
             
             // Add tailored bullets to cache
