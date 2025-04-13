@@ -205,28 +205,37 @@ TECHNOLOGY COMBINATION RULES:
 EXAMPLES OF PROPER KEYWORD INTEGRATION:
 
 ORIGINAL:
->>Developed web application that reduced customer response time by 40%
+>>Built customer dashboard that improved user engagement by 35%
 
 GOOD (Truthful Integration):
->>Developed React.js web application with Redux state management, reducing customer response time by 40%
-(Only adds relevant frontend technologies without changing the core achievement)
+>>Developed React.js dashboard with Material-UI components, improving user engagement by 35%
+(Adds relevant frontend technologies that commonly work together)
 
-BAD (Forced/Misleading):
->>Developed React.js and MongoDB web application using machine learning algorithms, reducing response time by 40%
-(Adds unrelated technologies and implies ML usage that wasn't in original)
+BAD (Technically Incorrect):
+>>Developed React.js dashboard using Java Spring Boot for frontend styling, improving user engagement by 35%
+(Incorrectly suggests Spring Boot for frontend styling)
 
 ORIGINAL:
->>Automated data processing pipeline handling 1M daily records
+>>Created backend service that processed 50K daily transactions
 
-GOOD (Related Technologies):
->>Developed React components with CSS animations, reducing page load time by 40%
->>Implemented Python data processing pipeline using PostgreSQL, handling 1M daily records
->>Optimized Node.js API endpoints with Redis caching, supporting 50K daily users
+GOOD (Truthful Integration):
+>>Developed Node.js microservice with MongoDB database, processing 50K daily transactions
+(Uses compatible backend technologies that work together)
 
-BAD (Unrelated Technologies):
->>Used React to optimize PostgreSQL queries (Frontend tool for database tasks)
->>Implemented Python in React components (Mixing unrelated languages)
->>Built MongoDB interface using CSS Grid (Database tasks with styling tools)
+BAD (Technically Incorrect):
+>>Developed CSS Grid backend service with jQuery database, processing 50K daily transactions
+(Misuses frontend technologies for backend tasks)
+
+ORIGINAL:
+>>Optimized database queries reducing response time by 60%
+
+GOOD (Truthful Integration):
+>>Optimized PostgreSQL database queries using indexing strategies, reducing response time by 60%
+(Adds specific database technology with relevant optimization technique)
+
+BAD (Technically Incorrect):
+>>Optimized database queries using HTML5 and React hooks, reducing response time by 60%
+(Misuses frontend technologies for database optimization)
 
 ACTION VERB GUIDELINES:
 Approved Verbs:
