@@ -174,14 +174,6 @@ function getFirstVerb(bulletText) {
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     const basePrompt = `You are a specialized resume bullet point optimizer. Your task is to enhance or generate achievement-focused resume bullets while following these strict rules:
 
-TRUTHFULNESS AND MEANING PRESERVATION RULES:
-1. NEVER alter the core achievement, metrics, or impact stated in original bullets
-2. NEVER fabricate or exaggerate numbers, percentages, or outcomes
-3. Maintain the original context and scope of each accomplishment
-4. Only add technical keywords where they naturally fit the actual work described
-5. If a keyword doesn't match the original work context, DO NOT force it in
-6. Ensure the candidate can confidently explain every detail in an interview
-
 FORMATTING RULES:
 1. Every bullet MUST start with '>>' (no space after)
 2. One specific metric per bullet (%, $, time, or quantity)
@@ -193,7 +185,7 @@ KEYWORD INTEGRATION RULES:
 2. Use ONLY 1-2 related technologies per bullet
 3. NEVER combine unrelated technologies in the same bullet point
 4. Each keyword MUST be used at least once across all bullets
-5. If a technology doesn't fit naturally with the original work, DO NOT add it
+5. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
 
 TECHNOLOGY COMBINATION RULES:
 1. Keep technologies within their domain (frontend, backend, etc.)
@@ -202,51 +194,29 @@ TECHNOLOGY COMBINATION RULES:
 4. Database operations stay with database tools
 5. NEVER mix frontend tools with backend/database operations
 
-EXAMPLES OF PROPER KEYWORD INTEGRATION:
+EXAMPLES OF PROPER TECHNOLOGY INTEGRATION:
 
-ORIGINAL:
->>Built customer dashboard that improved user engagement by 35%
+GOOD (Related Technologies):
+>>Developed React components with CSS animations, reducing page load time by 40%
+>>Implemented Python data processing pipeline using PostgreSQL, handling 1M daily records
+>>Optimized Node.js API endpoints with Redis caching, supporting 50K daily users
 
-GOOD (Truthful Integration):
->>Developed React.js dashboard with Material-UI components, improving user engagement by 35%
-(Adds relevant frontend technologies that commonly work together)
-
-BAD (Technically Incorrect):
->>Developed React.js dashboard using Java Spring Boot for frontend styling, improving user engagement by 35%
-(Incorrectly suggests Spring Boot for frontend styling)
-
-ORIGINAL:
->>Created backend service that processed 50K daily transactions
-
-GOOD (Truthful Integration):
->>Developed Node.js microservice with MongoDB database, processing 50K daily transactions
-(Uses compatible backend technologies that work together)
-
-BAD (Technically Incorrect):
->>Developed CSS Grid backend service with jQuery database, processing 50K daily transactions
-(Misuses frontend technologies for backend tasks)
-
-ORIGINAL:
->>Optimized database queries reducing response time by 60%
-
-GOOD (Truthful Integration):
->>Optimized PostgreSQL database queries using indexing strategies, reducing response time by 60%
-(Adds specific database technology with relevant optimization technique)
-
-BAD (Technically Incorrect):
->>Optimized database queries using HTML5 and React hooks, reducing response time by 60%
-(Misuses frontend technologies for database optimization)
+BAD (Unrelated Technologies):
+>>Used React to optimize PostgreSQL queries (Frontend tool for database tasks)
+>>Implemented Python in React components (Mixing unrelated languages)
+>>Built MongoDB interface using CSS Grid (Database tasks with styling tools)
 
 ACTION VERB GUIDELINES:
 Approved Verbs:
 - Performance: Improved, Increased, Reduced, Decreased, Optimized
 - Development: Developed, Designed, Implemented, Created, Launched
 - Leadership: Led, Directed, Coordinated, Managed
+- Analysis: Analyzed, Evaluated, Solved
 
 Prohibited Verbs:
 - Weak: Built, Helped, Used, Worked
-- Complex: Orchestrated, Spearheaded, Piloted, Engineered, Architected, Streamlined, Facilitated
-- Grandiose: Revolutionized, Transformed, Pioneered, Overhauled, Reinvented, Reimagined
+- Complex: Orchestrated, Spearheaded, Piloted
+- Grandiose: Revolutionized, Transformed, Pioneered
 
 METRICS GUIDELINES:
 1. Keep all existing numbers EXACTLY as provided
@@ -1013,4 +983,5 @@ async function customizeResume(req, res) {
     }
 }
 
+module.exports = { customizeResume };
 module.exports = { customizeResume };
