@@ -174,6 +174,14 @@ function getFirstVerb(bulletText) {
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     const basePrompt = `You are a specialized resume bullet point optimizer. Your task is to enhance or generate achievement-focused resume bullets while following these strict rules:
 
+TRUTHFULNESS AND MEANING PRESERVATION RULES:
+1. NEVER alter the core achievement, metrics, or impact stated in original bullets
+2. NEVER fabricate or exaggerate numbers, percentages, or outcomes
+3. Maintain the original context and scope of each accomplishment
+4. Only add technical keywords where they naturally fit the actual work described
+5. If a keyword doesn't match the original work context, DO NOT force it in
+6. Ensure the candidate can confidently explain every detail in an interview
+
 FORMATTING RULES:
 1. Every bullet MUST start with '>>' (no space after)
 2. One specific metric per bullet (%, $, time, or quantity)
@@ -185,7 +193,7 @@ KEYWORD INTEGRATION RULES:
 2. Use ONLY 1-2 related technologies per bullet
 3. NEVER combine unrelated technologies in the same bullet point
 4. Each keyword MUST be used at least once across all bullets
-5. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
+5. If a technology doesn't fit naturally with the original work, DO NOT add it
 
 TECHNOLOGY COMBINATION RULES:
 1. Keep technologies within their domain (frontend, backend, etc.)
@@ -194,7 +202,21 @@ TECHNOLOGY COMBINATION RULES:
 4. Database operations stay with database tools
 5. NEVER mix frontend tools with backend/database operations
 
-EXAMPLES OF PROPER TECHNOLOGY INTEGRATION:
+EXAMPLES OF PROPER KEYWORD INTEGRATION:
+
+ORIGINAL:
+>>Developed web application that reduced customer response time by 40%
+
+GOOD (Truthful Integration):
+>>Developed React.js web application with Redux state management, reducing customer response time by 40%
+(Only adds relevant frontend technologies without changing the core achievement)
+
+BAD (Forced/Misleading):
+>>Developed React.js and MongoDB web application using machine learning algorithms, reducing response time by 40%
+(Adds unrelated technologies and implies ML usage that wasn't in original)
+
+ORIGINAL:
+>>Automated data processing pipeline handling 1M daily records
 
 GOOD (Related Technologies):
 >>Developed React components with CSS animations, reducing page load time by 40%
@@ -983,5 +1005,4 @@ async function customizeResume(req, res) {
     }
 }
 
-module.exports = { customizeResume };
 module.exports = { customizeResume };
