@@ -233,12 +233,11 @@ Approved Verbs:
 - Performance: Improved, Increased, Reduced, Decreased, Optimized
 - Development: Developed, Designed, Implemented, Created, Launched
 - Leadership: Led, Directed, Coordinated, Managed
-- Analysis: Analyzed, Evaluated, Solved
 
 Prohibited Verbs:
 - Weak: Built, Helped, Used, Worked
-- Complex: Orchestrated, Spearheaded, Piloted
-- Grandiose: Revolutionized, Transformed, Pioneered
+- Complex: Orchestrated, Spearheaded, Piloted, Engineered, Architected, Streamlined, Facilitated
+- Grandiose: Revolutionized, Transformed, Pioneered, Overhauled, Reinvented, Reimagined
 
 METRICS GUIDELINES:
 1. Keep all existing numbers EXACTLY as provided
