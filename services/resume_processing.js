@@ -179,7 +179,6 @@ FORMATTING RULES:
 2. One specific metric per bullet (%, $, time, or quantity)
 3. Each bullet MUST begin with a strong action verb
 4. NEVER reuse the same starting verb across bullet points
-5. Each bullet MUST be ${wordLimit} words or less
 
 KEYWORD INTEGRATION RULES:
 1. Use keywords from this list: ${keywords}
