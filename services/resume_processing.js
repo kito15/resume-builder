@@ -172,65 +172,49 @@ function getFirstVerb(bulletText) {
 
 // Update the generateBullets function to emphasize verb diversity
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    const basePrompt = `You are a specialized resume bullet point optimizer. Your task is to enhance or generate achievement-focused resume bullets while following these strict rules:
+    // Define your verb lists up front so they can be injected into the prompt:
+    const approvedVerbs = [
+      "Improved","Increased","Reduced","Decreased","Optimized",
+      "Developed","Designed","Implemented","Created","Launched",
+      "Led","Directed","Coordinated","Managed",
+      "Analyzed","Evaluated","Solved"
+    ];
+    const prohibitedVerbs = [
+      "Built","Helped","Used","Worked",
+      "Orchestrated","Spearheaded","Piloted",
+      "Revolutionized","Transformed","Pioneered"
+    ];
 
-FORMATTING RULES:
-1. Every bullet MUST start with '>>' (no space after)
-2. One specific metric per bullet (%, $, time, or quantity)
-3. Each bullet MUST begin with a strong action verb
-4. NEVER reuse the same starting verb across bullet points
-5. Each bullet MUST be ${wordLimit} words or less
+    const basePrompt = `You are a specialized resume bullet point optimizer. Before producing any bullets, follow this internal four-stage workflow exactly:
 
-KEYWORD INTEGRATION RULES:
-1. Use keywords from this list: ${keywords}
-2. Use ONLY 1-2 related technologies per bullet
-3. NEVER combine unrelated technologies in the same bullet point
-4. Each keyword MUST be used at least once across all bullets
-5. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
+1. ANALYZE INPUTS  
+   • Extract each achievement and its associated metric from the existing bullets (if any).  
+   • List all provided keywords: ${keywords.join(', ')}.  
+   • Note which keywords remain unused and which technologies have not yet been assigned.
 
-TECHNOLOGY COMBINATION RULES:
-1. Keep technologies within their domain (frontend, backend, etc.)
-2. Frontend tools stay with frontend (e.g., React with CSS)
-3. Backend tools stay with backend (e.g., Node.js with MongoDB)
-4. Database operations stay with database tools
-5. NEVER mix frontend tools with backend/database operations
+2. VERIFY RULES  
+   • Confirm each bullet will be ${wordLimit} words or fewer.  
+   • Check formatting: every bullet must begin with '>>'.  
+   • Review action‑verb usage: approved verbs are [${approvedVerbs.join(', ')}]; prohibited verbs are [${prohibitedVerbs.join(', ')}].  
+   • Ensure technologies stay within their domains (frontend vs. backend vs. database).
 
-EXAMPLES OF PROPER TECHNOLOGY INTEGRATION:
+3. PLAN DISTRIBUTION  
+   • Assign 1–2 related technologies to each bullet so all technologies and keywords get covered at least once.  
+   • Map each keyword to a suitable achievement.  
+   • Choose a unique approved action verb per bullet.  
+   • Decide exactly where to place each metric, preserving original numbers.
 
-GOOD (Related Technologies):
->>Developed React components with CSS animations, reducing page load time by 40%
->>Implemented Python data processing pipeline using PostgreSQL, handling 1M daily records
->>Optimized Node.js API endpoints with Redis caching, supporting 50K daily users
+4. EXECUTE COMPOSITION  
+   For each bullet:  
+     – Start with '>>'  
+     – Use the pre‑selected approved action verb (never a prohibited one)  
+     – Incorporate exactly one metric  
+     – Integrate the assigned technology(ies) naturally  
+     – Include at least one of the keywords you planned  
+     – Stay within the word limit  
+   Then verify: no repeated verbs, no mixed domains, every keyword used, one metric each.
 
-BAD (Unrelated Technologies):
->>Used React to optimize PostgreSQL queries (Frontend tool for database tasks)
->>Implemented Python in React components (Mixing unrelated languages)
->>Built MongoDB interface using CSS Grid (Database tasks with styling tools)
-
-ACTION VERB GUIDELINES:
-Approved Verbs:
-- Performance: Improved, Increased, Reduced, Decreased, Optimized
-- Development: Developed, Designed, Implemented, Created, Launched
-- Leadership: Led, Directed, Coordinated, Managed
-- Analysis: Analyzed, Evaluated, Solved
-
-Prohibited Verbs:
-- Weak: Built, Helped, Used, Worked
-- Complex: Orchestrated, Spearheaded, Piloted
-- Grandiose: Revolutionized, Transformed, Pioneered
-
-METRICS GUIDELINES:
-1. Keep all existing numbers EXACTLY as provided
-2. Each bullet MUST include ONE specific metric:
-   - Percentages (e.g., "reduced costs by 40%")
-   - Time (e.g., "decreased load time by 2.5 seconds")
-   - Quantity (e.g., "supported 100K users")
-   - Money (e.g., "saved $50K annually")
-
-INPUT TO ENHANCE:
-${(existingBullets || []).join('\n')}
-
-Let's think step by step prior to generating any bullet points.`;
+Only once steps 1–3 are fully satisfied should you generate the final bullets.`
 
     const prompt = mode === 'tailor' 
         ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`
@@ -242,7 +226,7 @@ Let's think step by step prior to generating any bullet points.`;
             {
                 system_instruction: {
                     parts: [{
-                        text: "You are a specialized resume bullet point optimizer. Your task is to generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
+                        text: "You are a specialized resume bullet point optimizer. Your task is to generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>'\n2. Use only related technologies together\n3. Use each provided keyword at least once\n4. Include one specific metric per bullet\n5. Use only approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
                     }]
                 },
                 contents: [{
