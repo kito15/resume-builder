@@ -172,70 +172,102 @@ function getFirstVerb(bulletText) {
 
 // Update the generateBullets function to emphasize verb diversity
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    const basePrompt = `You are a specialized resume bullet point optimizer tasked with crafting high-impact achievement statements. Approach each bullet point with comprehensive analysis using this structured framework:
+    const basePrompt = `You are a specialized resume bullet point optimizer with advanced ATS optimization capabilities. Your task is to enhance or generate achievement-focused resume bullets through a systematic analytical process. Follow this structured approach:
 
-ANALYSIS FRAMEWORK:
-1. Achievement Analysis
-   - Identify the core accomplishment
-   - Extract quantifiable metrics and their significance
-   - Evaluate the impact scope (individual, team, organization)
-   - Consider both immediate and long-term outcomes
+ANALYSIS PHASE:
+1. KEYWORD EVALUATION
+   - Analyze provided keywords: ${keywords}
+   - Categorize each keyword by domain (frontend, backend, infrastructure, etc.)
+   - Identify primary and secondary skills within each category
+   - Map relationships between complementary technologies
 
-2. Technical Integration Assessment
-   - Review available keywords: ${keywords}
-   - Map technologies to their domains:
-     * Frontend: UI/UX, client-side frameworks
-     * Backend: Server architecture, APIs
-     * Database: Data storage, queries
-     * DevOps: Deployment, optimization
-   - Evaluate technical synergies and conflicts
-   - Validate domain-appropriate combinations
+2. CONTEXT ASSESSMENT
+   - Evaluate the role context and industry standards
+   - Identify critical technical competencies
+   - Determine relevant metrics and achievements that matter for this domain
+   - Consider the target company's tech stack (if provided)
 
-3. Impact Articulation Strategy
-   - Select metrics that best demonstrate value:
-     * Performance improvements (%, time)
-     * Scale indicators (users, transactions)
-     * Resource optimization (cost, efficiency)
-     * Business outcomes (revenue, savings)
-   - Ensure metric-achievement alignment
-   - Verify metric specificity and credibility
+3. ATS OPTIMIZATION STRATEGY
+   - Prioritize natural keyword placement for maximum ATS score
+   - Use industry-standard terminology
+   - Maintain keyword-to-content ratio of 3-5%
+   - Ensure proper capitalization of technical terms (e.g., JavaScript, React.js)
+   - Place critical keywords in the first 80% of each bullet
 
-4. Linguistic Optimization Process
-   - Action Verb Selection:
-     * Performance: Improved, Increased, Reduced, Decreased, Optimized
-     * Development: Developed, Designed, Implemented, Created, Launched
-     * Leadership: Led, Directed, Coordinated, Managed
-     * Analysis: Analyzed, Evaluated, Solved
-     * Avoid: Built, Helped, Used, Worked, Orchestrated, Revolutionized
-   - Word economy (${wordLimit} words max)
-   - Technical terminology precision
-   - Achievement clarity
+BULLET POINT CONSTRUCTION RULES:
 
-OUTPUT REQUIREMENTS:
-1. Format: Each bullet MUST start with '>>' (no space after)
-2. Metrics: ONE specific measurement per bullet (%, $, time, quantity)
-3. Technology: 1-2 related tools per bullet, domain-appropriate only
-4. Structure: Action verb + achievement + metric + context
-5. Coverage: Each keyword must appear at least once across all bullets
+1. STRUCTURAL REQUIREMENTS:
+   - Begin each bullet with '>>' (no space after)
+   - Maximum length: ${wordLimit} words per bullet
+   - Format: Action Verb + Technical Achievement + Quantifiable Impact
+   - Include exactly ONE specific metric (%, $, time, or quantity)
 
-TECHNOLOGY INTEGRATION EXAMPLES:
+2. TECHNICAL INTEGRATION:
+   Step 1: Technology Selection
+   - Choose 1-2 related technologies per bullet
+   - Verify technology compatibility before combining
+   - Ensure selected tools belong to the same domain
 
-Strong Integration (Domain-Aligned):
->>Optimized React component rendering with Redux state management, reducing page load time by 45%
->>Engineered PostgreSQL query optimization pipeline, processing 2M records daily
->>Implemented Redis caching layer for Node.js microservices, cutting API response time by 75%
+   Step 2: Domain Alignment
+   - Frontend stack: UI/UX tools, frameworks, styling
+   - Backend stack: Server, API, business logic
+   - Database stack: Storage, queries, optimization
+   - DevOps: Deployment, monitoring, scaling
 
-Weak Integration (Domain-Mismatched):
->>Used React for database optimization (Domain mismatch)
->>Applied CSS Grid to MongoDB queries (Incompatible domains)
->>Implemented Python scripts in React components (Framework conflict)
+   Step 3: Validation
+   - Confirm logical technology pairings
+   - Verify achievement aligns with chosen stack
+   - Ensure metrics match the technical context
+
+3. ACTION VERB HIERARCHY:
+   Technical Impact:
+   - Performance: Optimized, Accelerated, Enhanced
+   - Development: Architected, Engineered, Implemented
+   - Innovation: Designed, Developed, Created
+   
+   Business Impact:
+   - Scale: Scaled, Expanded, Grew
+   - Efficiency: Streamlined, Automated, Simplified
+   - ROI: Generated, Reduced, Increased
+
+4. METRICS FRAMEWORK:
+   Performance Metrics:
+   - Response time: ms, seconds
+   - Throughput: requests/second
+   - Resource utilization: CPU, memory %
+   
+   Business Metrics:
+   - Cost reduction: $, %
+   - User impact: MAU, conversion %
+   - Efficiency gains: time saved, productivity %
+
+EXAMPLES OF ATS-OPTIMIZED BULLETS:
+
+STRONG (High ATS Score):
+>>Engineered React.js component library with TypeScript, reducing development time by 40% across 5 teams
+>>Optimized PostgreSQL query performance using materialized views, decreasing response time by 300ms
+>>Implemented Redis caching layer for Node.js microservices, scaling to handle 200K daily requests
+
+WEAK (Low ATS Score):
+>>Used React and SQL (Too vague, missing specific impact)
+>>Worked with various technologies to improve performance (Non-specific, weak verb)
+>>Helped team with coding tasks (No technical detail or metric)
+
+ITERATIVE IMPROVEMENT PROCESS:
+1. Draft initial bullet points
+2. Verify technical accuracy and relationships
+3. Optimize for ATS keyword detection
+4. Validate metrics and achievements
+5. Refine language for clarity and impact
 
 INPUT TO ENHANCE:
-${(existingBullets || []).join('\n')}`;
+${(existingBullets || []).join('\n')}
+
+Let's proceed through each analytical step before generating the final bullet points.`;
 
     const prompt = mode === 'tailor' 
-        ? `${basePrompt}\n\nTASK: Apply the analysis framework to enhance these bullets, preserving original metrics while integrating keywords naturally.`
-        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} by following the analysis framework for each bullet point.`;
+        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`
+        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.`;
 
     try {
         const response = await axios.post(
@@ -253,7 +285,7 @@ ${(existingBullets || []).join('\n')}`;
                 }],
                 generationConfig: {
                     temperature: 0.5,
-                    maxOutputTokens: 7000
+                    maxOutputTokens: 8000
                 }
             },
             {
