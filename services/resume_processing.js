@@ -246,11 +246,12 @@ ${(existingBullets || []).join('\n')}
                 },
                 contents: [{
                     parts: [{
-                        text: prompt
+                        text: prompt,
+                        tokens:65000
                     }]
                 }],
                 generationConfig: {
-                    temperature: 0.5
+                    temperature: 0.6
                 }
             },
             {
