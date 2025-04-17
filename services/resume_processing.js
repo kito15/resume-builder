@@ -172,64 +172,34 @@ function getFirstVerb(bulletText) {
 
 // Update the generateBullets function to emphasize verb diversity
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    const basePrompt = `You are a specialized resume bullet point optimizer. Your task is to enhance or generate achievement-focused resume bullets while following these strict rules:
+    const basePrompt = `You are a specialized resume bullet point optimizer. Your objective is to produce (or refine) achievement‑focused bullets under these exacting constraints by following this internal workflow before any generation:
 
-FORMATTING RULES:
-1. Every bullet MUST start with '>>' (no space after)
-2. One specific metric per bullet (%, $, time, or quantity)
-3. Each bullet MUST begin with a strong action verb
-4. NEVER reuse the same starting verb across bullet points
-5. Each bullet MUST be ${wordLimit} words or less
+1. ANALYZE INPUTS  
+   • Extract each achievement and its associated metric from the existing bullets (if any).  
+   • List all provided keywords and technologies; note which are still unused.
 
-KEYWORD INTEGRATION RULES:
-1. Use keywords from this list: ${keywords}
-2. Use ONLY 1-2 related technologies per bullet
-3. NEVER combine unrelated technologies in the same bullet point
-4. Each keyword MUST be used at least once across all bullets
-5. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
+2. VERIFY RULES  
+   • Confirm the word limit (${wordLimit} words or fewer per bullet).  
+   • Review action‑verb guidelines and mark off verbs already used.  
+   • Ensure formatting: every bullet must begin with '>>'.  
+   • Check technology domains (frontend vs. backend vs. database).
 
-TECHNOLOGY COMBINATION RULES:
-1. Keep technologies within their domain (frontend, backend, etc.)
-2. Frontend tools stay with frontend (e.g., React with CSS)
-3. Backend tools stay with backend (e.g., Node.js with MongoDB)
-4. Database operations stay with database tools
-5. NEVER mix frontend tools with backend/database operations
+3. PLAN DISTRIBUTION  
+   • Assign 1–2 related technologies to each bullet so they all get covered once.  
+   • Allocate each keyword at least once, mapping them to relevant achievements.  
+   • Prepare a unique strong action verb for every bullet.  
+   • Decide where each metric will appear, preserving original numbers exactly.
 
-EXAMPLES OF PROPER TECHNOLOGY INTEGRATION:
+4. EXECUTE COMPOSITION  
+   • For each bullet, apply your plan:  
+     – Start with '>>'  
+     – Use the pre‑selected action verb  
+     – Incorporate exactly one metric  
+     – Integrate the assigned technology(ies) naturally  
+     – Stay within the word limit  
+   • Double‑check: no repeated verbs, no mixed domains, all keywords used, one metric each.
 
-GOOD (Related Technologies):
->>Developed React components with CSS animations, reducing page load time by 40%
->>Implemented Python data processing pipeline using PostgreSQL, handling 1M daily records
->>Optimized Node.js API endpoints with Redis caching, supporting 50K daily users
-
-BAD (Unrelated Technologies):
->>Used React to optimize PostgreSQL queries (Frontend tool for database tasks)
->>Implemented Python in React components (Mixing unrelated languages)
->>Built MongoDB interface using CSS Grid (Database tasks with styling tools)
-
-ACTION VERB GUIDELINES:
-Approved Verbs:
-- Performance: Improved, Increased, Reduced, Decreased, Optimized
-- Development: Developed, Designed, Implemented, Created, Launched
-- Leadership: Led, Directed, Coordinated, Managed
-- Analysis: Analyzed, Evaluated, Solved
-
-Prohibited Verbs:
-- Weak: Built, Helped, Used, Worked
-- Complex: Orchestrated, Spearheaded, Piloted
-- Grandiose: Revolutionized, Transformed, Pioneered
-
-METRICS GUIDELINES:
-1. Keep all existing numbers EXACTLY as provided
-2. Each bullet MUST include ONE specific metric:
-   - Percentages (e.g., "reduced costs by 40%")
-   - Time (e.g., "decreased load time by 2.5 seconds")
-   - Quantity (e.g., "supported 100K users")
-   - Money (e.g., "saved $50K annually")
-
-INPUT TO ENHANCE:
-${(existingBullets || []).join('\n')}
-`;
+Only after you've run through steps 1–3 should you generate the final bullets, each fully compliant with the above.`
 
     const prompt = mode === 'tailor' 
         ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`
@@ -237,7 +207,7 @@ ${(existingBullets || []).join('\n')}
 
     try {
         const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview:generateContent?key=${geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
             {
                 system_instruction: {
                     parts: [{
@@ -246,12 +216,12 @@ ${(existingBullets || []).join('\n')}
                 },
                 contents: [{
                     parts: [{
-                        text: prompt,
-                        tokens:65000
+                        text: prompt
                     }]
                 }],
                 generationConfig: {
-                    temperature: 0.6
+                    temperature: 0.5,
+                    maxOutputTokens: 7000
                 }
             },
             {
