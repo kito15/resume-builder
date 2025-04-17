@@ -250,8 +250,7 @@ ${(existingBullets || []).join('\n')}
                     }]
                 }],
                 generationConfig: {
-                    temperature: 0.5,
-                    maxOutputTokens: 7000
+                    temperature: 0.5
                 }
             },
             {
