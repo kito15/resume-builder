@@ -179,6 +179,7 @@ FORMATTING RULES:
 2. One specific metric per bullet (%, $, time, or quantity)
 3. Each bullet MUST begin with a strong action verb
 4. NEVER reuse the same starting verb across bullet points
+5. Each bullet MUST be ${wordLimit} words or less
 
 KEYWORD INTEGRATION RULES:
 1. Use keywords from this list: ${keywords}
@@ -228,8 +229,7 @@ METRICS GUIDELINES:
 
 INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}
-
-Let's think step by step prior to generating any bullet points.`;
+`;
 
     const prompt = mode === 'tailor' 
         ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`
@@ -237,7 +237,7 @@ Let's think step by step prior to generating any bullet points.`;
 
     try {
         const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview:generateContent?key=${geminiApiKey}`,
             {
                 system_instruction: {
                     parts: [{
