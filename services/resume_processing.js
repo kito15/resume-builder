@@ -172,53 +172,70 @@ function getFirstVerb(bulletText) {
 
 // Update the generateBullets function to emphasize verb diversity
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    // Define your verb lists up front so they can be injected into the prompt:
-    const approvedVerbs = [
-      "Improved","Increased","Reduced","Decreased","Optimized",
-      "Developed","Designed","Implemented","Created","Launched",
-      "Led","Directed","Coordinated","Managed",
-      "Analyzed","Evaluated","Solved"
-    ];
-    const prohibitedVerbs = [
-      "Built","Helped","Used","Worked",
-      "Orchestrated","Spearheaded","Piloted",
-      "Revolutionized","Transformed","Pioneered"
-    ];
+    const basePrompt = `You are a specialized resume bullet point optimizer tasked with crafting high-impact achievement statements. Approach each bullet point with comprehensive analysis using this structured framework:
 
-    const basePrompt = `You are a specialized resume bullet point optimizer. Before producing any bullets, follow this internal four-stage workflow exactly:
+ANALYSIS FRAMEWORK:
+1. Achievement Analysis
+   - Identify the core accomplishment
+   - Extract quantifiable metrics and their significance
+   - Evaluate the impact scope (individual, team, organization)
+   - Consider both immediate and long-term outcomes
 
-1. ANALYZE INPUTS  
-   • Extract each achievement and its associated metric from the existing bullets (if any).  
-   • List all provided keywords: ${keywords.join(', ')}.  
-   • Note which keywords remain unused and which technologies have not yet been assigned.
+2. Technical Integration Assessment
+   - Review available keywords: ${keywords}
+   - Map technologies to their domains:
+     * Frontend: UI/UX, client-side frameworks
+     * Backend: Server architecture, APIs
+     * Database: Data storage, queries
+     * DevOps: Deployment, optimization
+   - Evaluate technical synergies and conflicts
+   - Validate domain-appropriate combinations
 
-2. VERIFY RULES  
-   • Confirm each bullet will be ${wordLimit} words or fewer.  
-   • Check formatting: every bullet must begin with '>>'.  
-   • Review action‑verb usage: approved verbs are [${approvedVerbs.join(', ')}]; prohibited verbs are [${prohibitedVerbs.join(', ')}].  
-   • Ensure technologies stay within their domains (frontend vs. backend vs. database).
+3. Impact Articulation Strategy
+   - Select metrics that best demonstrate value:
+     * Performance improvements (%, time)
+     * Scale indicators (users, transactions)
+     * Resource optimization (cost, efficiency)
+     * Business outcomes (revenue, savings)
+   - Ensure metric-achievement alignment
+   - Verify metric specificity and credibility
 
-3. PLAN DISTRIBUTION  
-   • Assign 1–2 related technologies to each bullet so all technologies and keywords get covered at least once.  
-   • Map each keyword to a suitable achievement.  
-   • Choose a unique approved action verb per bullet.  
-   • Decide exactly where to place each metric, preserving original numbers.
+4. Linguistic Optimization Process
+   - Action Verb Selection:
+     * Performance: Improved, Increased, Reduced, Decreased, Optimized
+     * Development: Developed, Designed, Implemented, Created, Launched
+     * Leadership: Led, Directed, Coordinated, Managed
+     * Analysis: Analyzed, Evaluated, Solved
+     * Avoid: Built, Helped, Used, Worked, Orchestrated, Revolutionized
+   - Word economy (${wordLimit} words max)
+   - Technical terminology precision
+   - Achievement clarity
 
-4. EXECUTE COMPOSITION  
-   For each bullet:  
-     – Start with '>>'  
-     – Use the pre‑selected approved action verb (never a prohibited one)  
-     – Incorporate exactly one metric  
-     – Integrate the assigned technology(ies) naturally  
-     – Include at least one of the keywords you planned  
-     – Stay within the word limit  
-   Then verify: no repeated verbs, no mixed domains, every keyword used, one metric each.
+OUTPUT REQUIREMENTS:
+1. Format: Each bullet MUST start with '>>' (no space after)
+2. Metrics: ONE specific measurement per bullet (%, $, time, quantity)
+3. Technology: 1-2 related tools per bullet, domain-appropriate only
+4. Structure: Action verb + achievement + metric + context
+5. Coverage: Each keyword must appear at least once across all bullets
 
-Only once steps 1–3 are fully satisfied should you generate the final bullets.`
+TECHNOLOGY INTEGRATION EXAMPLES:
+
+Strong Integration (Domain-Aligned):
+>>Optimized React component rendering with Redux state management, reducing page load time by 45%
+>>Engineered PostgreSQL query optimization pipeline, processing 2M records daily
+>>Implemented Redis caching layer for Node.js microservices, cutting API response time by 75%
+
+Weak Integration (Domain-Mismatched):
+>>Used React for database optimization (Domain mismatch)
+>>Applied CSS Grid to MongoDB queries (Incompatible domains)
+>>Implemented Python scripts in React components (Framework conflict)
+
+INPUT TO ENHANCE:
+${(existingBullets || []).join('\n')}`;
 
     const prompt = mode === 'tailor' 
-        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`
-        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.`;
+        ? `${basePrompt}\n\nTASK: Apply the analysis framework to enhance these bullets, preserving original metrics while integrating keywords naturally.`
+        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} by following the analysis framework for each bullet point.`;
 
     try {
         const response = await axios.post(
@@ -226,7 +243,7 @@ Only once steps 1–3 are fully satisfied should you generate the final bullets.
             {
                 system_instruction: {
                     parts: [{
-                        text: "You are a specialized resume bullet point optimizer. Your task is to generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>'\n2. Use only related technologies together\n3. Use each provided keyword at least once\n4. Include one specific metric per bullet\n5. Use only approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
+                        text: "You are a specialized resume bullet point optimizer. Your task is to generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
                     }]
                 },
                 contents: [{
