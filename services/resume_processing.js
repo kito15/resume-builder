@@ -172,34 +172,36 @@ function getFirstVerb(bulletText) {
 
 // Update the generateBullets function to emphasize verb diversity
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    const basePrompt = `You are a specialized resume bullet point optimizer. Your objective is to produce (or refine) achievement‑focused bullets under these exacting constraints by following this internal workflow before any generation:
+    const basePrompt = `You are a specialized resume bullet point optimizer. Before producing any bullets, follow this internal four-stage workflow exactly:
 
 1. ANALYZE INPUTS  
    • Extract each achievement and its associated metric from the existing bullets (if any).  
-   • List all provided keywords and technologies; note which are still unused.
+   • List all provided keywords: ${keywords.join(', ')}.  
+   • Note which keywords remain unused and which technologies have not yet been assigned.
 
 2. VERIFY RULES  
-   • Confirm the word limit (${wordLimit} words or fewer per bullet).  
-   • Review action‑verb guidelines and mark off verbs already used.  
-   • Ensure formatting: every bullet must begin with '>>'.  
-   • Check technology domains (frontend vs. backend vs. database).
+   • Confirm each bullet will be ${wordLimit} words or fewer.  
+   • Check formatting: every bullet must begin with '>>'.  
+   • Review action‑verb usage: approved verbs are [${approvedVerbs.join(', ')}]; prohibited verbs are [${prohibitedVerbs.join(', ')}].  
+   • Ensure technologies stay within their domains (frontend vs. backend vs. database).
 
 3. PLAN DISTRIBUTION  
-   • Assign 1–2 related technologies to each bullet so they all get covered once.  
-   • Allocate each keyword at least once, mapping them to relevant achievements.  
-   • Prepare a unique strong action verb for every bullet.  
-   • Decide where each metric will appear, preserving original numbers exactly.
+   • Assign 1–2 related technologies to each bullet so all technologies and keywords get covered at least once.  
+   • Map each keyword to a suitable achievement.  
+   • Choose a unique approved action verb per bullet.  
+   • Decide exactly where to place each metric, preserving original numbers.
 
 4. EXECUTE COMPOSITION  
-   • For each bullet, apply your plan:  
+   For each bullet:  
      – Start with '>>'  
-     – Use the pre‑selected action verb  
+     – Use the pre‑selected approved action verb (never a prohibited one)  
      – Incorporate exactly one metric  
      – Integrate the assigned technology(ies) naturally  
+     – Include at least one of the keywords you planned  
      – Stay within the word limit  
-   • Double‑check: no repeated verbs, no mixed domains, all keywords used, one metric each.
+   Then verify: no repeated verbs, no mixed domains, every keyword used, one metric each.
 
-Only after you've run through steps 1–3 should you generate the final bullets, each fully compliant with the above.`
+Only once steps 1–3 are fully satisfied should you generate the final bullets.`;
 
     const prompt = mode === 'tailor' 
         ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`
