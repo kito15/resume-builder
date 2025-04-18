@@ -238,7 +238,7 @@ ${(existingBullets || []).join('\n')}`;
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
-                model: "gpt-4.1-mini",
+                model: "gpt-4.1-nano",
                 messages: [
                     {
                         role: "system",
@@ -782,7 +782,7 @@ Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. Use 
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
-                model: "gpt-4.1-mini",
+                model: "gpt-4.1-nano",
                 messages: [
                     {
                         role: "system",
