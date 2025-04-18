@@ -172,98 +172,64 @@ function getFirstVerb(bulletText) {
 
 // Update the generateBullets function to emphasize verb diversity
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    const basePrompt = `You are a specialized resume bullet point optimizer with advanced ATS optimization capabilities. Your task is to enhance or generate achievement-focused resume bullets through a systematic analytical process. Follow this structured approach:
+    const basePrompt = `You are a specialized resume bullet point optimizer. Your task is to enhance or generate achievement-focused resume bullets while following these strict rules:
 
-ANALYSIS PHASE:
-1. KEYWORD EVALUATION
-   - Analyze provided keywords: ${keywords}
-   - Categorize each keyword by domain (frontend, backend, infrastructure, etc.)
-   - Identify primary and secondary skills within each category
-   - Map relationships between complementary technologies
+FORMATTING RULES:
+1. Every bullet MUST start with '>>' (no space after)
+2. One specific metric per bullet (%, $, time, or quantity)
+3. Each bullet MUST begin with a strong action verb
+4. NEVER reuse the same starting verb across bullet points
+5. Each bullet MUST be ${wordLimit} words or less
 
-2. CONTEXT ASSESSMENT
-   - Evaluate the role context and industry standards
-   - Identify critical technical competencies
-   - Determine relevant metrics and achievements that matter for this domain
-   - Consider the target company's tech stack (if provided)
+KEYWORD INTEGRATION RULES:
+1. Use keywords from this list: ${keywords}
+2. Use ONLY 1-2 related technologies per bullet
+3. NEVER combine unrelated technologies in the same bullet point
+4. Each keyword MUST be used at least once across all bullets
+5. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
 
-3. ATS OPTIMIZATION STRATEGY
-   - Prioritize natural keyword placement for maximum ATS score
-   - Use industry-standard terminology
-   - Maintain keyword-to-content ratio of 3-5%
-   - Ensure proper capitalization of technical terms (e.g., JavaScript, React.js)
-   - Place critical keywords in the first 80% of each bullet
+TECHNOLOGY COMBINATION RULES:
+1. Keep technologies within their domain (frontend, backend, etc.)
+2. Frontend tools stay with frontend (e.g., React with CSS)
+3. Backend tools stay with backend (e.g., Node.js with MongoDB)
+4. Database operations stay with database tools
+5. NEVER mix frontend tools with backend/database operations
 
-BULLET POINT CONSTRUCTION RULES:
+EXAMPLES OF PROPER TECHNOLOGY INTEGRATION:
 
-1. STRUCTURAL REQUIREMENTS:
-   - Begin each bullet with '>>' (no space after)
-   - Maximum length: ${wordLimit} words per bullet
-   - Format: Action Verb + Technical Achievement + Quantifiable Impact
-   - Include exactly ONE specific metric (%, $, time, or quantity)
+GOOD (Related Technologies):
+>>Developed React components with CSS animations, reducing page load time by 40%
+>>Implemented Python data processing pipeline using PostgreSQL, handling 1M daily records
+>>Optimized Node.js API endpoints with Redis caching, supporting 50K daily users
 
-2. TECHNICAL INTEGRATION:
-   Step 1: Technology Selection
-   - Choose 1-2 related technologies per bullet
-   - Verify technology compatibility before combining
-   - Ensure selected tools belong to the same domain
+BAD (Unrelated Technologies):
+>>Used React to optimize PostgreSQL queries (Frontend tool for database tasks)
+>>Implemented Python in React components (Mixing unrelated languages)
+>>Built MongoDB interface using CSS Grid (Database tasks with styling tools)
 
-   Step 2: Domain Alignment
-   - Frontend stack: UI/UX tools, frameworks, styling
-   - Backend stack: Server, API, business logic
-   - Database stack: Storage, queries, optimization
-   - DevOps: Deployment, monitoring, scaling
+ACTION VERB GUIDELINES:
+Approved Verbs:
+- Performance: Improved, Increased, Reduced, Decreased, Optimized
+- Development: Developed, Designed, Implemented, Created, Launched
+- Leadership: Led, Directed, Coordinated, Managed
+- Analysis: Analyzed, Evaluated, Solved
 
-   Step 3: Validation
-   - Confirm logical technology pairings
-   - Verify achievement aligns with chosen stack
-   - Ensure metrics match the technical context
+Prohibited Verbs:
+- Weak: Built, Helped, Used, Worked
+- Complex: Orchestrated, Spearheaded, Piloted
+- Grandiose: Revolutionized, Transformed, Pioneered
 
-3. ACTION VERB HIERARCHY:
-   Technical Impact:
-   - Performance: Optimized, Accelerated, Enhanced
-   - Development: Architected, Engineered, Implemented
-   - Innovation: Designed, Developed, Created
-   
-   Business Impact:
-   - Scale: Scaled, Expanded, Grew
-   - Efficiency: Streamlined, Automated, Simplified
-   - ROI: Generated, Reduced, Increased
-
-4. METRICS FRAMEWORK:
-   Performance Metrics:
-   - Response time: ms, seconds
-   - Throughput: requests/second
-   - Resource utilization: CPU, memory %
-   
-   Business Metrics:
-   - Cost reduction: $, %
-   - User impact: MAU, conversion %
-   - Efficiency gains: time saved, productivity %
-
-EXAMPLES OF ATS-OPTIMIZED BULLETS:
-
-STRONG (High ATS Score):
->>Engineered React.js component library with TypeScript, reducing development time by 40% across 5 teams
->>Optimized PostgreSQL query performance using materialized views, decreasing response time by 300ms
->>Implemented Redis caching layer for Node.js microservices, scaling to handle 200K daily requests
-
-WEAK (Low ATS Score):
->>Used React and SQL (Too vague, missing specific impact)
->>Worked with various technologies to improve performance (Non-specific, weak verb)
->>Helped team with coding tasks (No technical detail or metric)
-
-ITERATIVE IMPROVEMENT PROCESS:
-1. Draft initial bullet points
-2. Verify technical accuracy and relationships
-3. Optimize for ATS keyword detection
-4. Validate metrics and achievements
-5. Refine language for clarity and impact
+METRICS GUIDELINES:
+1. Keep all existing numbers EXACTLY as provided
+2. Each bullet MUST include ONE specific metric:
+   - Percentages (e.g., "reduced costs by 40%")
+   - Time (e.g., "decreased load time by 2.5 seconds")
+   - Quantity (e.g., "supported 100K users")
+   - Money (e.g., "saved $50K annually")
 
 INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}
-
-Let's proceed through each analytical step before generating the final bullet points.`;
+`;
 
     const prompt = mode === 'tailor' 
         ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`
@@ -271,7 +237,7 @@ Let's proceed through each analytical step before generating the final bullet po
 
     try {
         const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${geminiApiKey}`,
             {
                 system_instruction: {
                     parts: [{
@@ -282,11 +248,7 @@ Let's proceed through each analytical step before generating the final bullet po
                     parts: [{
                         text: prompt
                     }]
-                }],
-                generationConfig: {
-                    temperature: 0.5,
-                    maxOutputTokens: 8000
-                }
+                }]
             },
             {
                 headers: {
