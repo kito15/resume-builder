@@ -3,8 +3,8 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimilarity } = require('../config/util'); // Fixed from '../config/utils'
 
-// Add new API key reference for Gemini
-const geminiApiKey = process.env.GEMINI_API_KEY;
+// Add new API key reference for OpenAI
+const openaiApiKey = process.env.OPENAI_API_KEY;
 const lmCache = new Map();
 
 function countWordsInBullet(text) {
@@ -172,7 +172,7 @@ function getFirstVerb(bulletText) {
 
 // Update the generateBullets function to emphasize verb diversity
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    const basePrompt = `You are a specialized resume bullet point optimizer. Your task is to enhance or generate achievement-focused resume bullets while following these strict rules:
+    const basePrompt = `You are a specialized resume bullet point optimizer. Engage in chain-of-thought reasoning: before generating or enhancing resume bullets, think out loud—reflect step by step on the user's input, context, and keywords, justifying each keyword and technology choice to ensure coherent, ATS-friendly, and relevant results. Avoid illogical pairings (e.g., Apex with Java). After your chain-of-thought, generate or enhance resume bullets following these strict rules:
 
 FORMATTING RULES:
 1. Every bullet MUST start with '>>' (no space after)
@@ -228,8 +228,7 @@ METRICS GUIDELINES:
    - Money (e.g., "saved $50K annually")
 
 INPUT TO ENHANCE:
-${(existingBullets || []).join('\n')}
-`;
+${(existingBullets || []).join('\n')}`;
 
     const prompt = mode === 'tailor' 
         ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`
@@ -237,27 +236,32 @@ ${(existingBullets || []).join('\n')}
 
     try {
         const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${geminiApiKey}`,
+            'https://api.openai.com/v1/chat/completions',
             {
-                system_instruction: {
-                    parts: [{
-                        text: "You are a specialized resume bullet point optimizer. Your task is to generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
-                    }]
-                },
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }]
+                model: "gpt-4.1-mini",
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are a specialized resume bullet point optimizer. First, think out loud: analyze the user's input, context, and keyword list step by step, reflecting on which keywords and technologies should be included or omitted, and justify each decision to ensure logical, ATS-friendly, and relevant results. Avoid illogical pairings (e.g., Apex with Java). After your chain-of-thought, generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
+                    },
+                    {
+                        role: "user",
+                        content: prompt
+                    }
+                ],
+                temperature: 0.5,
+                max_tokens: 4096,
+                top_p: 1
             },
             {
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${openaiApiKey}`
                 }
             }
         );
 
-        const content = response.data.candidates[0].content.parts[0].text;
+        const content = response.data.choices[0].message.content;
         
         // Extract bullets that start with ">>"
         let bullets = content.match(/^\>\>(.+)$/gm) || [];
@@ -735,7 +739,7 @@ async function adjustBulletPoints($, sections, currentBulletCount) {
     return currentBulletCount - 1;
 }
 
-// Add this new function after the lmCache declaration
+// Update categorizeKeywords function to use OpenAI API
 async function categorizeKeywords(keywords) {
     if (!keywords || keywords.length === 0) return null;
     
@@ -776,26 +780,32 @@ Keywords to analyze and select from: ${keywords.join(', ')}
 Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. Use these exact category names as keys: "Languages", "Frameworks/Libraries", "Others", "Machine Learning Libraries". The values should be arrays of the selected keywords. Every selected keyword MUST be placed in exactly one category. Do not include any keywords from the original list that fail the inclusion criteria or meet the exclusion criteria. Ensure the output is clean, valid JSON. Example format: {"Languages": ["Python", "SQL"], "Frameworks/Libraries": ["React"], "Others": ["AWS", "Git", "REST APIs"], "Machine Learning Libraries": ["Tensorflow"]}`;
 
         const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${geminiApiKey}`,
+            'https://api.openai.com/v1/chat/completions',
             {
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }],
-                generationConfig: {
-                    temperature: 0.1,
-                    maxOutputTokens: 1000
-                }
+                model: "gpt-4.1-mini",
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are an AI trained to categorize technical keywords for resumes."
+                    },
+                    {
+                        role: "user",
+                        content: prompt
+                    }
+                ],
+                temperature: 0.4,
+                max_tokens: 2000,
+                top_p: 1
             },
             {
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${openaiApiKey}`
                 }
             }
         );
 
-        const content = response.data.candidates[0].content.parts[0].text;
+        const content = response.data.choices[0].message.content;
         
         // Extract JSON from response
         const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/{[\s\S]*?}/);
