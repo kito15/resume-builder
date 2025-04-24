@@ -20,167 +20,33 @@ function countWordsInBullet(text) {
     return words.length;
 }
 
-function findResumeSections($) {
-    const sections = {
-        job: null,
-        project: null,
-        education: null,
-        skills: null
-    };
+// Function to get average word count for a section's bullet points
+function getAverageWordCount($, selector) {
+    let total = 0;
+    let count = 0;
     
-    // Common section identifiers
-    const sectionPatterns = {
-        job: /^(work|professional|employment|experience|history)$/i,
-        project: /^(projects|portfolio|technical projects)$/i,
-        education: /^(education|academic|academics|qualifications)$/i,
-        skills: /^(skills|technical skills|expertise|competencies|technologies)$/i
-    };
-
-    // Find sections by heading text
-    $('h1, h2, h3, h4, .section-heading, [class*="heading"], [class*="section-title"]').each((_, element) => {
-        const $heading = $(element);
-        const headingText = $heading.text().trim().toLowerCase();
-        
-        // Check each section type
-        Object.entries(sectionPatterns).forEach(([type, pattern]) => {
-            if (pattern.test(headingText)) {
-                // Find the container - either the next sibling or parent's next sibling or a nearby div
-                let $container = $heading.next();
-                if (!$container.length || !$container.find('li').length) {
-                    $container = $heading.parent().next();
-                }
-                if (!$container.length || !$container.find('li').length) {
-                    $container = $heading.closest('section, div');
-                }
-                
-                // Only set if we found a container with bullet points
-                if ($container.length && $container.find('li').length) {
-                    sections[type] = $container;
-                }
-            }
-        });
+    $(selector).find('li').each((_, el) => {
+        const wordCount = countWordsInBullet($(el).text());
+        total += wordCount;
+        count++;
     });
-
-    // Fallback: Look for sections by class names if headings weren't found
-    if (!sections.job) {
-        $('[class*="experience"], [class*="job"], [class*="work"]').each((_, el) => {
-            const $el = $(el);
-            if ($el.find('li').length) sections.job = $el;
-        });
-    }
     
-    if (!sections.project) {
-        $('[class*="project"]').each((_, el) => {
-            const $el = $(el);
-            if ($el.find('li').length) sections.project = $el;
-        });
-    }
-    
-    if (!sections.education) {
-        $('[class*="education"]').each((_, el) => {
-            const $el = $(el);
-            if ($el.find('li').length) sections.education = $el;
-        });
-    }
-    
-    if (!sections.skills) {
-        $('[class*="skill"]').each((_, el) => {
-            const $el = $(el);
-            if ($el.find('p, li').length) sections.skills = $el;
-        });
-    }
-
-    return sections;
+    return count > 0 ? Math.round(total / count) : 15; // Default to 15 if no bullets found
 }
 
-function getSectionWordCounts($) {
-    const sections = findResumeSections($);
-    const counts = {
-        job: { total: 0, bullets: 0 },
-        project: { total: 0, bullets: 0 },
-        education: { total: 0, bullets: 0 }
-    };
-
-    // Process each section type
-    Object.entries(sections).forEach(([type, $section]) => {
-        if ($section && type !== 'skills') {  // Skip skills section
-            $section.find('li').each((_, el) => {
-                const wordCount = countWordsInBullet($(el).text());
-                counts[type].total += wordCount;
-                counts[type].bullets++;
-            });
+// Function to extract bullet points from a section
+function extractBullets($, selector) {
+    const bullets = [];
+    if (!selector) return bullets;
+    
+    $(selector).find('li').each((_, bullet) => {
+        const bulletText = $(bullet).text().trim();
+        if (bulletText && !bullets.includes(bulletText)) {
+            bullets.push(bulletText);
         }
     });
-
-    // Calculate average word count per section, defaulting to 15 if no bullets found
-    return {
-        job: counts.job.bullets > 0 ? Math.round(counts.job.total / counts.job.bullets) : 15,
-        project: counts.project.bullets > 0 ? Math.round(counts.project.total / counts.project.bullets) : 15,
-        education: counts.education.bullets > 0 ? Math.round(counts.education.total / counts.education.bullets) : 15
-    };
-}
-
-// Add new function to extract and store original bullets
-function extractOriginalBullets($) {
-    const sections = findResumeSections($);
-    const originalBullets = {
-        job: [],
-        project: [],
-        education: [],
-        unassigned: [] // For any bullets not in a specific section
-    };
-
-    // Process each section type
-    Object.entries(sections).forEach(([type, $section]) => {
-        if ($section && type !== 'skills') {  // Skip skills section as it's not bullet-based
-            $section.find('li').each((_, bullet) => {
-                const bulletText = $(bullet).text().trim();
-                if (bulletText && !originalBullets[type].includes(bulletText)) {
-                    originalBullets[type].push(bulletText);
-                }
-            });
-        }
-    });
-
-    // Find any unassigned bullet points that might be in the document
-    $('li').each((_, bullet) => {
-        const $bullet = $(bullet);
-        const bulletText = $bullet.text().trim();
-        
-        // Check if this bullet is already in any section
-        const isAssigned = Object.values(originalBullets).some(
-            sectionBullets => sectionBullets.includes(bulletText)
-        );
-        
-        // If not assigned and not empty, add to unassigned
-        if (!isAssigned && bulletText && !originalBullets.unassigned.includes(bulletText)) {
-            originalBullets.unassigned.push(bulletText);
-        }
-    });
-
-    return originalBullets;
-}
-
-// Add new class to track section-specific bullets
-class SectionBulletTracker {
-    constructor() {
-        this.bulletMap = new Map(); // Maps bullet text to section type
-        this.usedBullets = new Set(); // Tracks all used bullets
-    }
-
-    addBullet(bulletText, sectionType) {
-        this.bulletMap.set(bulletText, sectionType);
-        this.usedBullets.add(bulletText);
-    }
-
-    canUseBulletInSection(bulletText, sectionType) {
-        if (!this.bulletMap.has(bulletText)) return true;
-        return this.bulletMap.get(bulletText) === sectionType;
-    }
-
-    isUsed(bulletText) {
-        return this.usedBullets.has(bulletText);
-    }
+    
+    return bullets;
 }
 
 // Improve the ActionVerbTracker class to be more effective at preventing duplicate verbs
@@ -424,20 +290,10 @@ function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
 class BulletCache {
     constructor() {
         this.cache = new Map();
-        this.sectionPools = {
-            job: new Set(),
-            project: new Set(),
-            education: new Set()
-        };
-        this.targetBulletCounts = {
-            job: 7,
-            project: 6,
-            education: 5
-        };
+        this.sectionPools = new Map();
     }
 
     async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
-        const sections = ['job', 'project', 'education'];
         const cacheKey = `${keywords.join(',')}_${context}`;
 
         if (this.cache.has(cacheKey)) {
@@ -445,58 +301,66 @@ class BulletCache {
         }
 
         const allBullets = {};
-        const promises = sections.map(async (section) => {
-            const targetCount = this.targetBulletCounts[section];
+        const promises = [];
+        
+        // Generate bullets for each section type
+        for (const [sectionType, selector] of Object.entries(await identifySectionElements($.html()))) {
+            if (!selector) continue;
+            
+            if (!this.sectionPools.has(sectionType)) {
+                this.sectionPools.set(sectionType, new Set());
+            }
+            
+            const targetCount = 7; // Default target count
             const bullets = await generateBullets(
                 'generate',
                 null,
                 keywords,
-                `for ${section} experience`,
+                `for ${sectionType} experience`,
                 wordLimit,
                 verbTracker
             );
-            allBullets[section] = bullets.slice(0, targetCount);
-            bullets.forEach(bullet => this.sectionPools[section].add(bullet));
-        });
+            allBullets[sectionType] = bullets.slice(0, targetCount);
+            bullets.forEach(bullet => this.sectionPools.get(sectionType).add(bullet));
+        }
 
         await Promise.all(promises);
         this.cache.set(cacheKey, allBullets);
         return allBullets;
     }
 
-    getBulletsForSection(section, count) {
-        return Array.from(this.sectionPools[section]).slice(0, count);
+    getBulletsForSection(sectionType, count) {
+        const pool = this.sectionPools.get(sectionType);
+        return pool ? Array.from(pool).slice(0, count) : [];
     }
 
-    addBulletToSection(bullet, section) {
+    addBulletToSection(bullet, sectionType) {
         if (bullet && bullet.trim().length > 0) {
-            this.sectionPools[section].add(bullet);
+            if (!this.sectionPools.has(sectionType)) {
+                this.sectionPools.set(sectionType, new Set());
+            }
+            this.sectionPools.get(sectionType).add(bullet);
         }
     }
 
     clear() {
         this.cache.clear();
-        Object.values(this.sectionPools).forEach(pool => pool.clear());
+        this.sectionPools.clear();
     }
 }
 
-async function updateResumeSection($, $section, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount, verbTracker, bulletCache) {
-    if (!$section) return;  // Skip if section not found
+async function updateResumeSection($, section, keywords, context, fullTailoring, wordLimit, sectionType, originalBullets, targetBulletCount, verbTracker, bulletCache) {
+    let bulletList = section.find('ul, ol');
 
-    // Find or create bullet list
-    let $bulletList = $section.find('ul');
-    if ($bulletList.length === 0) {
-        $bulletList = $section.find('ol');
-    }
-    if ($bulletList.length === 0) {
-        $section.append('<ul></ul>');
-        $bulletList = $section.find('ul');
+    if (bulletList.length === 0) {
+        section.append('<ul></ul>');
+        bulletList = section.find('ul');
     }
 
     let bulletPoints = bulletCache.getBulletsForSection(sectionType, targetBulletCount);
     
-    if (fullTailoring && $bulletList.find('li').length > 0) {
-        const existingBullets = $bulletList.find('li')
+    if (fullTailoring && bulletList.find('li').length > 0) {
+        const existingBullets = bulletList.find('li')
             .map((_, el) => $(el).text())
             .get();
             
@@ -508,47 +372,37 @@ async function updateResumeSection($, $section, keywords, context, fullTailoring
         bulletPoints.forEach(bp => bulletCache.addBulletToSection(bp, sectionType));
     }
 
-    bulletPoints = bulletPoints
-        .filter(bp => !bulletTracker.isUsed(bp) || 
-                    bulletTracker.canUseBulletInSection(bp, sectionType))
-        .slice(0, targetBulletCount);
-
+    bulletPoints = bulletPoints.slice(0, targetBulletCount);
     bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, sectionType, verbTracker);
 
-    $bulletList.empty();
+    bulletList.empty();
     bulletPoints.forEach(point => {
-        bulletTracker.addBullet(point, sectionType);
+        // Add the point's action verb to the verb tracker
         verbTracker.addVerb(getFirstVerb(point), sectionType);
-        $bulletList.append(`<li>${point}</li>`);
+        bulletList.append(`<li>${point}</li>`);
     });
 }
 
 // Update adjustSectionBullets to use BulletCache
-async function adjustSectionBullets($, $section, targetCount, sectionType, bulletTracker, keywords, context, bulletCache) {
-    if (!$section) return;  // Skip if section not found
+async function adjustSectionBullets($, selector, targetCount, sectionType, keywords, context, bulletCache) {
+    const section = $(selector);
+    if (!section.length) return;
 
-    // Find bullet list (ul or ol)
-    let $bulletList = $section.find('ul');
-    if ($bulletList.length === 0) {
-        $bulletList = $section.find('ol');
-    }
-    if ($bulletList.length === 0) return;  // Skip if no bullet list found
+    const bulletList = section.find('ul, ol');
+    if (!bulletList.length) return;
 
-    const $bullets = $bulletList.find('li');
-    const currentCount = $bullets.length;
+    const bullets = bulletList.find('li');
+    const currentCount = bullets.length;
 
     if (currentCount > targetCount) {
         // Remove excess bullets from the end
-        $bullets.slice(targetCount).remove();
+        bullets.slice(targetCount).remove();
     } else if (currentCount < targetCount) {
         const cachedBullets = bulletCache.getBulletsForSection(sectionType, targetCount - currentCount);
-        const validBullets = cachedBullets
-            .filter(bp => !bulletTracker.isUsed(bp))
-            .slice(0, targetCount - currentCount);
+        const validBullets = cachedBullets.slice(0, targetCount - currentCount);
 
         validBullets.forEach(bullet => {
-            bulletTracker.addBullet(bullet, sectionType);
-            $bulletList.append(`<li>${bullet}</li>`);
+            bulletList.append(`<li>${bullet}</li>`);
         });
     }
 }
@@ -599,15 +453,13 @@ async function convertHtmlToPdf(htmlContent) {
     });
     const page = await browser.newPage();
 
-    // Set content and wait for any dynamic content to load
+    // Set content without injecting custom CSS
     await page.setContent(htmlContent);
-    await page.waitForSelector('body', { timeout: 5000 });
 
-    // Check page height for overflow detection
+    // Check page height
     const height = await checkPageHeight(page);
     const MAX_HEIGHT = 1056; // 11 inches * 96 DPI
-
-    // Generate PDF with original styling preserved
+    
     const pdfBuffer = await page.pdf({
         format: 'Letter',
         printBackground: true,
@@ -733,22 +585,20 @@ Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. Use 
     }
 }
 
-// Update the updateSkillsSection function to use the section map from findResumeSections
+// Add this function to update the skills section in the resume
 function updateSkillsSection($, keywords) {
     return new Promise(async (resolve, reject) => {
         try {
-            const sections = findResumeSections($);
-            const $skillsSection = sections.skills;
-            
-            if (!$skillsSection) {
-                console.warn('Skills section not found in resume');
-                resolve($);
-                return;
-            }
-
             const categorizedKeywords = await categorizeKeywords(keywords);
             if (!categorizedKeywords) {
                 console.warn('Could not categorize keywords, skills section unchanged');
+                resolve($);
+                return;
+            }
+            
+            const skillsSection = $('.section-content').eq(0);
+            if (skillsSection.length === 0) {
+                console.warn('Skills section not found in resume');
                 resolve($);
                 return;
             }
@@ -760,13 +610,16 @@ function updateSkillsSection($, keywords) {
                 "Machine Learning Libraries": "Machine Learning Libraries:"
             };
             
-            // Clear existing content while preserving the section's structure
-            $skillsSection.children().not('h1,h2,h3,h4,h5,h6').remove();
-            
             Object.entries(categoryMapping).forEach(([dataKey, htmlLabel]) => {
                 if (categorizedKeywords[dataKey] && categorizedKeywords[dataKey].length > 0) {
                     const keywords = categorizedKeywords[dataKey].join(', ');
-                    $skillsSection.append(`<p><strong>${htmlLabel}</strong> ${keywords}</p>`);
+                    const paragraph = skillsSection.find(`p:contains("${htmlLabel}")`);
+                    
+                    if (paragraph.length > 0) {
+                        paragraph.html(`<strong>${htmlLabel}</strong> ${keywords}`);
+                    } else {
+                        skillsSection.append(`<p><strong>${htmlLabel}</strong> ${keywords}</p>`);
+                    }
                 }
             });
             
@@ -781,17 +634,18 @@ function updateSkillsSection($, keywords) {
 // Update the updateResume function to include skill section modification
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
-    const sections = findResumeSections($);
-    const sectionWordCounts = getSectionWordCounts($);
-    const bulletTracker = new SectionBulletTracker();
     const verbTracker = new ActionVerbTracker();
     const bulletCache = new BulletCache();
     
-    // Extract original bullets before any modifications
-    const originalBullets = extractOriginalBullets($);
+    // Identify sections dynamically
+    const sectionSelectors = await identifySectionElements(htmlContent);
     
-    // Update the skills section with keywords
-    await updateSkillsSection($, keywords);
+    // Get word counts for each section
+    const sectionWordCounts = {
+        job: getAverageWordCount($, sectionSelectors.job),
+        project: getAverageWordCount($, sectionSelectors.project),
+        education: getAverageWordCount($, sectionSelectors.education)
+    };
     
     const INITIAL_BULLET_COUNT = 6;
     const MIN_BULLETS = 3;
@@ -803,19 +657,37 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     // Generate all bullets upfront
     const allBullets = await bulletCache.generateAllBullets($, keywords, 'resume section', 15, verbTracker);
 
-    const sectionConfigs = [
-        { type: 'job', context: 'for a job experience', bullets: originalBullets.job },
-        { type: 'project', context: 'for a project', bullets: originalBullets.project },
-        { type: 'education', context: 'for education', bullets: originalBullets.education }
-    ];
+    const sections = [
+        { 
+            selector: sectionSelectors.job, 
+            type: 'job', 
+            context: 'for a job experience', 
+            bullets: extractBullets($, sectionSelectors.job),
+            wordLimit: sectionWordCounts.job
+        },
+        { 
+            selector: sectionSelectors.project, 
+            type: 'project', 
+            context: 'for a project', 
+            bullets: extractBullets($, sectionSelectors.project),
+            wordLimit: sectionWordCounts.project
+        },
+        { 
+            selector: sectionSelectors.education, 
+            type: 'education', 
+            context: 'for education', 
+            bullets: extractBullets($, sectionSelectors.education),
+            wordLimit: sectionWordCounts.education
+        }
+    ].filter(section => section.selector !== null); // Only process sections that were found
 
     // Update each section with its specific context
-    for (const config of sectionConfigs) {
-        if (sections[config.type]) {
+    for (const section of sections) {
+        if ($(section.selector).length > 0) {
             await updateResumeSection(
-                $, sections[config.type], keywordString, config.context,
-                fullTailoring, sectionWordCounts[config.type],
-                bulletTracker, config.type, config.bullets,
+                $, $(section.selector), keywordString, section.context,
+                fullTailoring, section.wordLimit,
+                section.type, section.bullets,
                 INITIAL_BULLET_COUNT, verbTracker, bulletCache
             );
         }
@@ -831,16 +703,16 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
 
         // Reduce bullets proportionally based on section importance
         currentBulletCount--;
-        for (const config of sectionConfigs) {
-            if (sections[config.type]) {
+        for (const section of sections) {
+            if ($(section.selector).length > 0) {
                 const adjustedCount = Math.max(
                     MIN_BULLETS,
-                    Math.floor(currentBulletCount * (config.type === 'job' ? 1 : 0.8))
+                    Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8))
                 );
                 await adjustSectionBullets(
-                    $, sections[config.type], adjustedCount,
-                    config.type, bulletTracker, keywordString,
-                    config.context, bulletCache
+                    $, section.selector, adjustedCount,
+                    section.type, keywordString,
+                    section.context, bulletCache
                 );
             }
         }
@@ -887,6 +759,89 @@ async function customizeResume(req, res) {
 
     } catch (error) {
         res.status(500).send('Error processing resume: ' + error.message);
+    }
+}
+
+// Function to identify resume sections using GPT
+async function identifySectionElements(htmlContent) {
+    const prompt = `Analyze the following HTML content and identify the CSS selectors for job experience, project, and education sections. Each section should contain bullet points (ul/ol with li elements). Return a JSON object with selectors for each section type.
+
+HTML Content to analyze:
+${htmlContent}
+
+Return ONLY a JSON object in this exact format:
+{
+    "job": "selector for job experience section with bullet points",
+    "project": "selector for projects section with bullet points",
+    "education": "selector for education section with bullet points"
+}
+
+Rules for selector identification:
+1. Use the most specific and reliable selector that will uniquely identify each section
+2. Selectors can use classes, IDs, or element hierarchies
+3. Each selector should target the parent element containing the bullet list
+4. If a section type is not found, use null as the value
+5. Consider common section identifiers like "experience", "work", "employment", "projects", "education", "academic"
+6. Look for structural hints like headings (h1-h6) with relevant text
+7. The selector should be specific enough to exclude unrelated sections`;
+
+    try {
+        const response = await axios.post(
+            'https://api.openai.com/v1/chat/completions',
+            {
+                model: "gpt-4.1-nano",
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are a specialized HTML analyzer that identifies resume section selectors."
+                    },
+                    {
+                        role: "user",
+                        content: prompt
+                    }
+                ],
+                temperature: 0.3,
+                max_tokens: 1000
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${openaiApiKey}`
+                }
+            }
+        );
+
+        const content = response.data.choices[0].message.content;
+        
+        // Extract JSON from response
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            throw new Error('Invalid response format from GPT');
+        }
+        
+        const selectors = JSON.parse(jsonMatch[0]);
+        
+        // Validate selectors using cheerio
+        const $ = cheerio.load(htmlContent);
+        const validatedSelectors = {};
+        
+        for (const [type, selector] of Object.entries(selectors)) {
+            if (selector && $(selector).find('li').length > 0) {
+                validatedSelectors[type] = selector;
+            } else {
+                validatedSelectors[type] = null;
+            }
+        }
+        
+        return validatedSelectors;
+    } catch (error) {
+        console.error('Error identifying section elements:', error.response?.data || error.message);
+        // Return null values if identification fails
+        return {
+            job: null,
+            project: null,
+            education: null
+        };
     }
 }
 
