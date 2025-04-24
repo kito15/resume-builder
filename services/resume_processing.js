@@ -24,13 +24,13 @@ function countWordsInBullet(text) {
 function getAverageWordCount($, selector) {
     let total = 0;
     let count = 0;
-    
+
     $(selector).find('li').each((_, el) => {
         const wordCount = countWordsInBullet($(el).text());
         total += wordCount;
         count++;
     });
-    
+
     return count > 0 ? Math.round(total / count) : 15; // Default to 15 if no bullets found
 }
 
@@ -38,14 +38,14 @@ function getAverageWordCount($, selector) {
 function extractBullets($, selector) {
     const bullets = [];
     if (!selector) return bullets;
-    
+
     $(selector).find('li').each((_, bullet) => {
-        const bulletText = $(bullet).text().trim();
+            const bulletText = $(bullet).text().trim();
         if (bulletText && !bullets.includes(bulletText)) {
             bullets.push(bulletText);
-        }
+            }
     });
-    
+
     return bullets;
 }
 
@@ -352,35 +352,35 @@ class BulletCache {
 async function updateResumeSection($, section, keywords, context, fullTailoring, wordLimit, sectionType, originalBullets, targetBulletCount, verbTracker, bulletCache) {
     let bulletList = section.find('ul, ol');
 
-    if (bulletList.length === 0) {
-        section.append('<ul></ul>');
-        bulletList = section.find('ul');
-    }
+        if (bulletList.length === 0) {
+            section.append('<ul></ul>');
+            bulletList = section.find('ul');
+        }
 
-    let bulletPoints = bulletCache.getBulletsForSection(sectionType, targetBulletCount);
-    
-    if (fullTailoring && bulletList.find('li').length > 0) {
-        const existingBullets = bulletList.find('li')
-            .map((_, el) => $(el).text())
-            .get();
-            
-        bulletPoints = await generateBullets(
-            'tailor', existingBullets,
-            keywords, context, wordLimit, verbTracker
-        );
+        let bulletPoints = bulletCache.getBulletsForSection(sectionType, targetBulletCount);
         
-        bulletPoints.forEach(bp => bulletCache.addBulletToSection(bp, sectionType));
-    }
+        if (fullTailoring && bulletList.find('li').length > 0) {
+            const existingBullets = bulletList.find('li')
+                .map((_, el) => $(el).text())
+                .get();
+                
+            bulletPoints = await generateBullets(
+                'tailor', existingBullets,
+                keywords, context, wordLimit, verbTracker
+            );
+            
+            bulletPoints.forEach(bp => bulletCache.addBulletToSection(bp, sectionType));
+        }
 
     bulletPoints = bulletPoints.slice(0, targetBulletCount);
-    bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, sectionType, verbTracker);
+        bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, sectionType, verbTracker);
 
-    bulletList.empty();
-    bulletPoints.forEach(point => {
+        bulletList.empty();
+        bulletPoints.forEach(point => {
         // Add the point's action verb to the verb tracker
-        verbTracker.addVerb(getFirstVerb(point), sectionType);
-        bulletList.append(`<li>${point}</li>`);
-    });
+            verbTracker.addVerb(getFirstVerb(point), sectionType);
+            bulletList.append(`<li>${point}</li>`);
+        });
 }
 
 // Update adjustSectionBullets to use BulletCache
@@ -391,20 +391,20 @@ async function adjustSectionBullets($, selector, targetCount, sectionType, keywo
     const bulletList = section.find('ul, ol');
     if (!bulletList.length) return;
 
-    const bullets = bulletList.find('li');
-    const currentCount = bullets.length;
+        const bullets = bulletList.find('li');
+        const currentCount = bullets.length;
 
-    if (currentCount > targetCount) {
-        // Remove excess bullets from the end
-        bullets.slice(targetCount).remove();
-    } else if (currentCount < targetCount) {
-        const cachedBullets = bulletCache.getBulletsForSection(sectionType, targetCount - currentCount);
+        if (currentCount > targetCount) {
+            // Remove excess bullets from the end
+            bullets.slice(targetCount).remove();
+        } else if (currentCount < targetCount) {
+            const cachedBullets = bulletCache.getBulletsForSection(sectionType, targetCount - currentCount);
         const validBullets = cachedBullets.slice(0, targetCount - currentCount);
 
-        validBullets.forEach(bullet => {
-            bulletList.append(`<li>${bullet}</li>`);
-        });
-    }
+            validBullets.forEach(bullet => {
+                bulletList.append(`<li>${bullet}</li>`);
+            });
+        }
 }
 
 async function ensureBulletRange(bulletPoints, usedBullets, generateFn, minCount, maxCount) {
@@ -684,12 +684,12 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     // Update each section with its specific context
     for (const section of sections) {
         if ($(section.selector).length > 0) {
-            await updateResumeSection(
+        await updateResumeSection(
                 $, $(section.selector), keywordString, section.context,
                 fullTailoring, section.wordLimit,
                 section.type, section.bullets,
-                INITIAL_BULLET_COUNT, verbTracker, bulletCache
-            );
+            INITIAL_BULLET_COUNT, verbTracker, bulletCache
+        );
         }
     }
 
@@ -705,15 +705,15 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         currentBulletCount--;
         for (const section of sections) {
             if ($(section.selector).length > 0) {
-                const adjustedCount = Math.max(
-                    MIN_BULLETS,
-                    Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8))
-                );
-                await adjustSectionBullets(
-                    $, section.selector, adjustedCount,
+            const adjustedCount = Math.max(
+                MIN_BULLETS,
+                Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8))
+            );
+            await adjustSectionBullets(
+                $, section.selector, adjustedCount,
                     section.type, keywordString,
-                    section.context, bulletCache
-                );
+                section.context, bulletCache
+            );
             }
         }
         attempts++;
@@ -764,26 +764,29 @@ async function customizeResume(req, res) {
 
 // Function to identify resume sections using GPT
 async function identifySectionElements(htmlContent) {
-    const prompt = `Analyze the following HTML content and identify the CSS selectors for job experience, project, and education sections. Each section should contain bullet points (ul/ol with li elements). Return a JSON object with selectors for each section type.
+    const prompt = `Analyze this HTML resume and return ONLY CSS selectors that will uniquely identify each major section containing bullet points (ul/ol with li elements).
 
-HTML Content to analyze:
-${htmlContent}
+Focus on finding these sections:
+1. Work/Professional Experience section (containing job entries with bullet points)
+2. Projects section (containing project entries with bullet points)
+3. Education section (containing education details with bullet points)
 
-Return ONLY a JSON object in this exact format:
+IMPORTANT RULES:
+1. Each selector must target the parent element that contains the bullet list (ul/ol)
+2. Use the most specific selector possible (class names, IDs, or element hierarchies)
+3. Look for sections by their title/heading text (e.g., "Experience", "Projects", "Education")
+4. The selector should ONLY match the intended section
+5. Return ONLY the JSON object with the selectors
+
+Example response format:
 {
-    "job": "selector for job experience section with bullet points",
-    "project": "selector for projects section with bullet points",
-    "education": "selector for education section with bullet points"
+    "job": ".section:has(.section-title:contains('Experience')) .entry",
+    "project": ".section:has(.section-title:contains('Projects')) .project",
+    "education": ".section:has(.section-title:contains('Education')) .entry"
 }
 
-Rules for selector identification:
-1. Use the most specific and reliable selector that will uniquely identify each section
-2. Selectors can use classes, IDs, or element hierarchies
-3. Each selector should target the parent element containing the bullet list
-4. If a section type is not found, use null as the value
-5. Consider common section identifiers like "experience", "work", "employment", "projects", "education", "academic"
-6. Look for structural hints like headings (h1-h6) with relevant text
-7. The selector should be specific enough to exclude unrelated sections`;
+HTML to analyze:
+${htmlContent}`;
 
     try {
         const response = await axios.post(
@@ -793,15 +796,15 @@ Rules for selector identification:
                 messages: [
                     {
                         role: "system",
-                        content: "You are a specialized HTML analyzer that identifies resume section selectors."
+                        content: "You are a specialized HTML analyzer that identifies CSS selectors for resume sections. Return ONLY the JSON object with the selectors, nothing else."
                     },
                     {
                         role: "user",
                         content: prompt
                     }
                 ],
-                temperature: 0.3,
-                max_tokens: 1000
+                temperature: 0.1,
+                max_tokens: 500
             },
             {
                 headers: {
@@ -825,10 +828,55 @@ Rules for selector identification:
         const $ = cheerio.load(htmlContent);
         const validatedSelectors = {};
         
+        // Common section titles and their variations
+        const sectionMappings = {
+            job: ['Experience', 'Employment', 'Work History', 'Professional Experience'],
+            project: ['Projects', 'Portfolio', 'Works'],
+            education: ['Education', 'Academic Background', 'Educational Background']
+        };
+        
+        // Validate and fix selectors
         for (const [type, selector] of Object.entries(selectors)) {
-            if (selector && $(selector).find('li').length > 0) {
-                validatedSelectors[type] = selector;
-            } else {
+            if (selector) {
+                const section = $(selector);
+                if (section.length > 0 && section.find('ul li, ol li').length > 0) {
+                    validatedSelectors[type] = selector;
+                    continue;
+                }
+            }
+            
+            // Fallback: Try to find section by title
+            const titles = sectionMappings[type];
+            let found = false;
+            
+            for (const title of titles) {
+                // Try different selector patterns
+                const patterns = [
+                    `.section:has(.section-title:contains("${title}"))`,
+                    `.section:has(div:contains("${title}"))`,
+                    `div:has(> div:contains("${title}"))`
+                ];
+                
+                for (const pattern of patterns) {
+                    const section = $(pattern);
+                    if (section.length > 0 && section.find('ul li, ol li').length > 0) {
+                        // For job and education sections, target the entry div
+                        if (type === 'job' || type === 'education') {
+                            validatedSelectors[type] = `${pattern} .entry`;
+                        }
+                        // For project section, target the project div
+                        else if (type === 'project') {
+                            validatedSelectors[type] = `${pattern} .project`;
+                        }
+                        found = true;
+                        break;
+                    }
+                }
+                
+                if (found) break;
+            }
+            
+            if (!found) {
                 validatedSelectors[type] = null;
             }
         }
@@ -836,7 +884,6 @@ Rules for selector identification:
         return validatedSelectors;
     } catch (error) {
         console.error('Error identifying section elements:', error.response?.data || error.message);
-        // Return null values if identification fails
         return {
             job: null,
             project: null,
