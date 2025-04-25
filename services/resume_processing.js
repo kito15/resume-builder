@@ -453,81 +453,116 @@ If a category has no selected keywords, write 'None'. Do NOT include explanation
 }
 
 // Update updateSkillsSection to handle the new categorizedKeywords format and find skills section dynamically
+// Update updateSkillsSection to handle the new categorizedKeywords format and find skills section dynamically (Improved Logic)
 async function updateSkillsSection($, keywords) {
     try {
         const categorizedKeywords = await categorizeKeywords(keywords);
         if (!categorizedKeywords) {
             console.warn('Could not categorize keywords, skills section unchanged');
-            return $; // Return $ directly
+            return $;
         }
 
-        // Dynamically find the skills section container
-        // This assumes a common pattern like a heading "Skills" followed by content.
-        // More robust: Use LM to find the skills container selector if needed.
+        // Improved dynamic finding for the skills section container
         let skillsSectionContainer = null;
+        const potentialHeadings = ['skills', 'technical skills', 'technologies']; // Add more variations if needed
+
         $('h1, h2, h3, h4, h5, h6').each((_, el) => {
-            const headingText = $(el).text().trim().toLowerCase();
-            if (headingText === 'skills' || headingText === 'technical skills') {
-                // Assume the content is in the next sibling div or section, or the parent's next sibling
-                skillsSectionContainer = $(el).next('div, section, p');
-                if (!skillsSectionContainer || skillsSectionContainer.length === 0) {
-                     skillsSectionContainer = $(el).parent().next('div, section');
-                }
-                 if (!skillsSectionContainer || skillsSectionContainer.length === 0) {
-                     skillsSectionContainer = $(el).parent(); // Fallback to parent if no clear container
-                }
-                return false; // Stop searching once found
+            const headingElement = $(el);
+            const headingText = headingElement.text().trim().toLowerCase();
+
+            if (potentialHeadings.includes(headingText)) {
+                // Strategy 1: Check immediate next sibling (div, section, p)
+                skillsSectionContainer = headingElement.next('div, section, p').first();
+                if (skillsSectionContainer.length > 0) return false; // Found
+
+                // Strategy 2: Check parent's next sibling (div, section)
+                skillsSectionContainer = headingElement.parent().next('div, section').first();
+                 if (skillsSectionContainer.length > 0) return false; // Found
+
+                // Strategy 3: Check parent element itself if it contains the heading directly
+                 // Avoid selecting the whole body or html
+                 const parentTag = headingElement.parent().prop('tagName')?.toLowerCase();
+                 if (parentTag && parentTag !== 'body' && parentTag !== 'html') {
+                    skillsSectionContainer = headingElement.parent();
+                    if (skillsSectionContainer.length > 0) return false; // Found
+                 }
+
+                 // Strategy 4: Check next sibling of the parent's parent (less common)
+                 skillsSectionContainer = headingElement.parent().parent().next('div, section').first();
+                 if (skillsSectionContainer.length > 0) return false; // Found
             }
         });
+
+        // If still not found, try finding a section/div with an ID or class containing "skill"
+        if (!skillsSectionContainer || skillsSectionContainer.length === 0) {
+             $('div[id*="skill"], section[id*="skill"], div[class*="skill"], section[class*="skill"]').each((_, el) => {
+                 // Basic check to avoid selecting huge containers; refine if needed
+                 if ($(el).find('h1, h2, h3').length > 0 && $(el).children().length < 20) {
+                     skillsSectionContainer = $(el);
+                     return false; // Found potential container
+                 }
+             });
+        }
 
 
         if (!skillsSectionContainer || skillsSectionContainer.length === 0) {
             console.warn('Skills section container not found dynamically. Cannot update skills.');
-            return $; // Return $ if section not found
+            return $;
         }
 
-        // Clear existing skills content within the found container? (Optional, depends on desired behavior)
-        // skillsSectionContainer.empty(); // Uncomment to replace entirely
+        console.log('Dynamically identified skills container:', skillsSectionContainer.prop('outerHTML')?.substring(0, 100) + '...'); // Log found container start
 
         const categoryMapping = {
             "Languages": "Languages:",
             "Frameworks/Libraries": "Frameworks/Libraries:",
             "Machine Learning Libraries": "Machine Learning Libraries:",
-            "Others": "Others (Tools, Platforms, Concepts):" // Updated label slightly
+            "Others": "Others (Tools, Platforms, Concepts):"
         };
 
-        // Remove existing paragraphs that match our labels to avoid duplicates if not clearing
-         Object.values(categoryMapping).forEach(htmlLabel => {
-             skillsSectionContainer.find(`p:contains("${htmlLabel}")`).remove();
-         });
+        // Remove existing paragraphs matching our labels within the identified container
+        Object.values(categoryMapping).forEach(htmlLabel => {
+            // More specific selector to avoid removing unintended paragraphs
+            skillsSectionContainer.find(`p > strong:contains("${htmlLabel}")`).parent('p').remove();
+        });
 
-
-        // Append new/updated skills paragraphs
+        // Append new/updated skills paragraphs to the identified container
         Object.entries(categoryMapping).forEach(([dataKey, htmlLabel]) => {
             if (categorizedKeywords[dataKey] && categorizedKeywords[dataKey].length > 0) {
                 const keywordsList = categorizedKeywords[dataKey].join(', ');
-                // Append new paragraph - ensures structure consistency
                 skillsSectionContainer.append(`<p><strong>${htmlLabel}</strong> ${keywordsList}</p>`);
             }
         });
 
-        return $; // Return the modified Cheerio object
+        return $;
     } catch (error) {
         console.error('Error updating skills section:', error);
-        return $; // Return original $ on error
+        return $;
     }
 }
 
 // New function to identify bullet list containers using LM
+// New function to identify bullet list containers using LM (Improved Prompt)
 async function findBulletContainersWithLM(htmlContent) {
-    const prompt = `Analyze the following HTML resume content. Identify the main container elements (div, section, etc.) for each distinct "Experience" (or "Work History"), "Projects", and "Education" section. Within each of these main containers, identify the primary 'ul' or 'ol' element that holds the list of bullet points describing accomplishments or details.
+    // Simplified HTML for prompt if too long? (Optional)
+    // const simplifiedHtml = htmlContent.length > 10000 ? htmlContent.substring(0, 10000) + '...' : htmlContent;
 
-Return ONLY a simple list of CSS selectors, one per line, that uniquely targets each identified bullet point list ('ul' or 'ol'). Prioritize selectors using IDs if available, then unique class combinations, or fallback to structural selectors (e.g., 'section.experience > ul'). Do NOT return JSON or explanations.
+    const prompt = `Analyze the following HTML resume content. Identify the primary 'ul' or 'ol' elements that contain lists of accomplishments or details within the main "Experience" (or "Work History"), "Projects", and "Education" sections.
+
+Return ONLY a list of CSS selectors, one per line, that uniquely and reliably target EACH identified bullet point list ('ul' or 'ol').
+
+RULES FOR SELECTORS:
+1.  **Prioritize IDs:** If a list or its direct parent has a unique ID, use it (e.g., '#experience-list', '#job-1 > ul').
+2.  **Use Classes:** If no ID is suitable, use a combination of classes on the list or its parent (e.g., 'section.experience ul.details', '.project-item > .description-list').
+3.  **Avoid nth-of-type/nth-child:** Do NOT use ':nth-of-type()' or ':nth-child()' selectors as they are unreliable.
+4.  **Avoid overly complex paths:** Prefer shorter, more direct selectors over deep descendant paths (e.g., prefer '.job-entry .bullets' over 'body > div#main > section.content > div.experience > div:nth-of-type(2) > ul').
+5.  **Verification:** Ensure the generated selectors actually exist and target a 'ul' or 'ol' in the provided HTML.
+6.  **Format:** Return ONLY the selectors, one per line. No explanations, no JSON, no markdown.
 
 Example Output:
-#experience-section > ul
-.project-item .details > ul
-#education > div > ul.details-list
+#experience-section ul
+.job-entry .bullet-points
+#project-abc .details-list
+section.education ul
 
 HTML Content:
 \`\`\`html
@@ -536,20 +571,22 @@ ${htmlContent}
 `;
 
     try {
-        const cacheKey = `find_containers_${generateHash(htmlContent)}`;
+        const cacheKey = `find_containers_v2_${generateHash(htmlContent)}`; // Updated cache key
         if (lmCache.has(cacheKey)) {
+            console.log("Using cached selectors for bullet containers.");
             return lmCache.get(cacheKey);
         }
+        console.log("Querying LM to find bullet containers...");
 
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
-                model: "gpt-4.1-nano", // Or another suitable model
+                model: "gpt-4.1-nano", // Or gpt-4-turbo-preview
                 messages: [
-                    { role: "system", content: "You are an AI assistant that extracts CSS selectors for specific list elements from HTML." },
+                    { role: "system", content: "You are an AI assistant that extracts reliable CSS selectors for specific list elements ('ul' or 'ol') from HTML, following strict rules." },
                     { role: "user", content: prompt }
                 ],
-                temperature: 0.2,
+                temperature: 0.1, // Very low temperature for consistency
                 max_tokens: 500,
                 top_p: 1
             },
@@ -562,19 +599,44 @@ ${htmlContent}
         );
 
         const content = response.data.choices[0].message.content;
-        const selectors = content.split('\n').map(s => s.trim()).filter(s => s.length > 0 && (s.includes('ul') || s.includes('ol'))); // Basic validation
+        console.log("Raw LM response for selectors:\n---\n", content, "\n---"); // Log the raw response
+
+        // Parse selectors, stricter filtering
+        const selectors = content.split('\n')
+            .map(s => s.trim())
+            .filter(s => s.length > 2 && // Basic length check
+                         (s.includes('ul') || s.includes('ol')) && // Must target ul/ol
+                         !s.includes(':nth-child') && // Explicitly filter out nth-child/type
+                         !s.includes(':nth-of-type') &&
+                         !s.startsWith('//') && // Ignore comments
+                         !s.startsWith('Example') && // Ignore example lines
+                         !s.startsWith('HTML Content:') && // Ignore prompt remnants
+                         s !== '```'); // Ignore markdown fences
+
+        console.log("Parsed selectors:", selectors); // Log parsed selectors
 
         if (selectors.length === 0) {
-             console.warn("LM did not return any valid selectors for bullet containers.");
-             return []; // Return empty array if no selectors found
+             console.warn("LM did not return any valid selectors matching the criteria for bullet containers.");
+             return [];
         }
 
-        lmCache.set(cacheKey, selectors);
+        // Optional: Basic verification with Cheerio (might be slow)
+        // const $temp = cheerio.load(htmlContent);
+        // const verifiedSelectors = selectors.filter(sel => $temp(sel).length > 0);
+        // console.log("Verified selectors (basic check):", verifiedSelectors);
+        // if (verifiedSelectors.length !== selectors.length) {
+        //     console.warn("Some selectors returned by LM could not be found in the HTML.");
+        // }
+        // lmCache.set(cacheKey, verifiedSelectors);
+        // return verifiedSelectors;
+
+
+        lmCache.set(cacheKey, selectors); // Cache the parsed selectors
         return selectors;
 
     } catch (error) {
         console.error('Error finding bullet containers with LM:', error.response?.data || error.message);
-        return []; // Return empty on error
+        return [];
     }
 }
 
