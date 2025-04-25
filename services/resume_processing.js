@@ -5,7 +5,7 @@ const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimila
 
 // Add new API key reference for OpenAI
 const openaiApiKey = process.env.OPENAI_API_KEY;
-const lmCache = new Map();
+// lmCache removed as per request
 
 function countWordsInBullet(text) {
     const cleaned = text.trim()
@@ -20,30 +20,36 @@ function countWordsInBullet(text) {
     return words.length;
 }
 
-function getSectionWordCounts($) {
+// Update getSectionWordCounts to use dynamic selectors
+function getSectionWordCounts($, dynamicSelectors) {
     const counts = {
         job: { total: 0, bullets: 0 },
         project: { total: 0, bullets: 0 },
         education: { total: 0, bullets: 0 }
     };
 
-    $('.job-details li').each((_, el) => {
-        const wordCount = countWordsInBullet($(el).text());
-        counts.job.total += wordCount;
-        counts.job.bullets++;
-    });
+    // Helper function to count words in bullets for a given selector
+    const countWordsForSelector = (selector, sectionType) => {
+        if (selector && typeof selector === 'string') {
+            // Find list items (li) within the identified selector (ul or ol)
+            // This assumes the selector points to the list container (ul/ol)
+            try {
+                 $(selector).find('li').each((_, el) => {
+                    const wordCount = countWordsInBullet($(el).text());
+                    counts[sectionType].total += wordCount;
+                    counts[sectionType].bullets++;
+                });
+            } catch (e) {
+                 console.error(`Error processing selector "${selector}" for section ${sectionType}:`, e);
+            }
+        } else {
+             console.warn(`Invalid or missing selector for section ${sectionType} in getSectionWordCounts.`);
+        }
+    };
 
-    $('.project-details li').each((_, el) => {
-        const wordCount = countWordsInBullet($(el).text());
-        counts.project.total += wordCount;
-        counts.project.bullets++;
-    });
-
-    $('.education-details li').each((_, el) => {
-        const wordCount = countWordsInBullet($(el).text());
-        counts.education.total += wordCount;
-        counts.education.bullets++;
-    });
+    countWordsForSelector(dynamicSelectors.job, 'job');
+    countWordsForSelector(dynamicSelectors.project, 'project');
+    countWordsForSelector(dynamicSelectors.education, 'education');
 
     return {
         job: counts.job.bullets > 0 ? Math.round(counts.job.total / counts.job.bullets) : 15,
@@ -51,42 +57,154 @@ function getSectionWordCounts($) {
         education: counts.education.bullets > 0 ? Math.round(counts.education.total / counts.education.bullets) : 15
     };
 }
+// New function to dynamically identify bullet list selectors using LLM
+async function identifyBulletListSelectors($) {
+    const htmlBody = $('body').html(); // Get the main content
+    if (!htmlBody || htmlBody.trim().length < 100) {
+        console.error("HTML body content is too short or missing for LLM analysis.");
+        // Return default selectors as a fallback, though this contradicts the goal
+        // Consider throwing an error or returning null/empty object
+        return {
+            job: '.job-details ul', 
+            project: '.project-details ul', 
+            education: '.education-details ul'
+        };
+    }
 
-// Add new function to extract and store original bullets
-function extractOriginalBullets($) {
+    // Limit the HTML size sent to the LLM if necessary (e.g., first 15000 chars)
+    const truncatedHtml = htmlBody.length > 15000 ? htmlBody.substring(0, 15000) + '...' : htmlBody;
+
+    const prompt = `Analyze the following HTML structure of a resume. Identify the most specific CSS selectors for the unordered lists (ul) or ordered lists (ol) that contain the main achievement bullet points for each of the standard resume sections: Professional Experience (or Work Experience), Projects, and Education.
+
+Return ONLY a JSON object mapping the section type ("job", "project", "education") to its corresponding bullet list CSS selector.
+
+Example HTML Snippet:
+<div class="experience-section">
+  <h2>Work Experience</h2>
+  <div class="job-entry">
+    <h3>Software Engineer</h3>
+    <ul class="achievements">
+      <li>Developed feature X...</li>
+      <li>Optimized Y...</li>
+    </ul>
+  </div>
+</div>
+<section id="projects">
+  <h2>Projects</h2>
+  <div class="project-item">
+    <h4>My Awesome App</h4>
+    <ol class="project-bullets">
+      <li>Built using React...</li>
+    </ol>
+  </div>
+</section>
+
+Expected JSON Output for Example:
+{
+  "job": ".experience-section .job-entry ul.achievements",
+  "project": "#projects .project-item ol.project-bullets",
+  "education": ".education-section .school-details ul" // Example if education section existed
+}
+
+If a section or its bullet list cannot be reliably identified, return null for that section's selector.
+
+HTML to analyze:
+\`\`\`html
+${truncatedHtml}
+\`\`\`
+`;
+
+    try {
+        const response = await axios.post(
+            'https://api.openai.com/v1/chat/completions',
+            {
+                model: "gpt-4.1-nano", // Or another suitable model
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are an AI assistant specialized in parsing HTML resume structures to find CSS selectors for bullet point lists within standard sections (job experience, projects, education)."
+                    },
+                    {
+                        role: "user",
+                        content: prompt
+                    }
+                ],
+                temperature: 0.2, // Lower temperature for more deterministic selector identification
+                max_tokens: 500,
+                top_p: 1
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${openaiApiKey}`
+                }
+            }
+        );
+
+        const content = response.data.choices[0].message.content;
+        const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/{[\s\S]*?}/);
+        const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
+
+        try {
+            const selectors = JSON.parse(jsonString);
+            // Basic validation
+            if (typeof selectors.job === 'string' && typeof selectors.project === 'string' && typeof selectors.education === 'string') {
+                 console.log("LLM identified selectors:", selectors);
+                 return selectors;
+            } else {
+                 console.error('LLM response did not contain valid string selectors for all sections:', selectors);
+                 // Fallback or throw error
+                 return { job: null, project: null, education: null };
+            }
+        } catch (jsonError) {
+            console.error('Error parsing JSON selectors from LLM response:', jsonError, 'Raw content:', content);
+            // Fallback or throw error
+            return { job: null, project: null, education: null };
+        }
+    } catch (error) {
+        console.error('Error calling OpenAI for selector identification:', error.response?.data || error.message);
+         // Fallback or throw error
+        return { job: null, project: null, education: null };
+    }
+}
+
+// Update extractOriginalBullets to use dynamic selectors
+function extractOriginalBullets($, dynamicSelectors) {
     const originalBullets = {
         job: [],
         project: [],
         education: [],
-        unassigned: [] // For any bullets not in a specific section
+        unassigned: [] // Keep unassigned for potential future use or manual fallback
     };
 
-    $('.job-details').each((_, section) => {
-        $(section).find('li').each((_, bullet) => {
-            const bulletText = $(bullet).text().trim();
-            if (bulletText && !originalBullets.job.includes(bulletText)) {
-                originalBullets.job.push(bulletText);
-            }
-        });
-    });
+    // Helper function to extract bullets for a given selector
+    const extractForSelector = (selector, sectionType) => {
+         if (selector && typeof selector === 'string') {
+             try {
+                 // Find list items (li) within the identified selector (ul or ol)
+                 $(selector).find('li').each((_, bullet) => {
+                     const bulletText = $(bullet).text().trim();
+                     // Add to the specific section if text exists and is not duplicate
+                     if (bulletText && !originalBullets[sectionType].includes(bulletText)) {
+                         originalBullets[sectionType].push(bulletText);
+                     }
+                 });
+             } catch (e) {
+                 console.error(`Error processing selector "${selector}" for section ${sectionType} in extractOriginalBullets:`, e);
+             }
+         } else {
+              console.warn(`Invalid or missing selector for section ${sectionType} in extractOriginalBullets.`);
+         }
+    };
 
-    $('.project-details').each((_, section) => {
-        $(section).find('li').each((_, bullet) => {
-            const bulletText = $(bullet).text().trim();
-            if (bulletText && !originalBullets.project.includes(bulletText)) {
-                originalBullets.project.push(bulletText);
-            }
-        });
-    });
+    // Extract bullets using dynamic selectors
+    extractForSelector(dynamicSelectors.job, 'job');
+    extractForSelector(dynamicSelectors.project, 'project');
+    extractForSelector(dynamicSelectors.education, 'education');
 
-    $('.education-details').each((_, section) => {
-        $(section).find('li').each((_, bullet) => {
-            const bulletText = $(bullet).text().trim();
-            if (bulletText && !originalBullets.education.includes(bulletText)) {
-                originalBullets.education.push(bulletText);
-            }
-        });
-    });
+    // Note: The 'unassigned' part is tricky without knowing the structure.
+    // We could potentially find all 'li' elements and subtract the ones already assigned,
+    // but that might be unreliable. Leaving it empty for now.
 
     return originalBullets;
 }
@@ -350,78 +468,25 @@ function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
     return sortedBullets;
 }
 
-// Add BulletCache class for efficient bullet point management
-class BulletCache {
-    constructor() {
-        this.cache = new Map();
-        this.sectionPools = {
-            job: new Set(),
-            project: new Set(),
-            education: new Set()
-        };
-        this.targetBulletCounts = {
-            job: 7,
-            project: 6,
-            education: 5
-        };
-    }
+// BulletCache class removed as per request
 
-    async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
-        const sections = ['job', 'project', 'education'];
-        const cacheKey = `${keywords.join(',')}_${context}`;
+async function updateResumeSection($, listElements, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount, verbTracker /*, bulletCache removed */) {
+    // The 'listElements' argument is now a Cheerio object containing the identified <ul> or <ol> elements
+    for (let i = 0; i < listElements.length; i++) {
+        const bulletList = listElements.eq(i); // This is the actual <ul> or <ol> element
 
-        if (this.cache.has(cacheKey)) {
-            return this.cache.get(cacheKey);
+        // No need to find 'ul' within the section, as 'bulletList' is the list itself.
+        // Also, no need to append a 'ul' because the selector should have found an existing one.
+        // If the selector was null/invalid, this function wouldn't be called from updateResume.
+        // We might add a check here just in case the selector found something unexpected.
+        if (!bulletList.is('ul, ol')) {
+             console.warn(`Selector for ${sectionType} did not resolve to a list element. Skipping bullet update for this element.`);
+             continue;
         }
 
-        const allBullets = {};
-        const promises = sections.map(async (section) => {
-            const targetCount = this.targetBulletCounts[section];
-            const bullets = await generateBullets(
-                'generate',
-                null,
-                keywords,
-                `for ${section} experience`,
-                wordLimit,
-                verbTracker
-            );
-            allBullets[section] = bullets.slice(0, targetCount);
-            bullets.forEach(bullet => this.sectionPools[section].add(bullet));
-        });
+        // let bulletPoints = bulletCache.getBulletsForSection(sectionType, targetBulletCount); // Removed BulletCache usage
+        let bulletPoints = []; // Initialize empty, will generate below
 
-        await Promise.all(promises);
-        this.cache.set(cacheKey, allBullets);
-        return allBullets;
-    }
-
-    getBulletsForSection(section, count) {
-        return Array.from(this.sectionPools[section]).slice(0, count);
-    }
-
-    addBulletToSection(bullet, section) {
-        if (bullet && bullet.trim().length > 0) {
-            this.sectionPools[section].add(bullet);
-        }
-    }
-
-    clear() {
-        this.cache.clear();
-        Object.values(this.sectionPools).forEach(pool => pool.clear());
-    }
-}
-
-async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount, verbTracker, bulletCache) {
-    for (let i = 0; i < sections.length; i++) {
-        const section = sections.eq(i);
-        let bulletList = section.find('ul');
-
-        if (bulletList.length === 0) {
-            section.append('<ul></ul>');
-            bulletList = section.find('ul');
-        }
-
-        let bulletPoints = bulletCache.getBulletsForSection(sectionType, targetBulletCount);
-        
         if (fullTailoring && bulletList.find('li').length > 0) {
             const existingBullets = bulletList.find('li')
                 .map((_, el) => $(el).text())
@@ -432,7 +497,17 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
                 keywords, context, wordLimit, verbTracker
             );
             
-            bulletPoints.forEach(bp => bulletCache.addBulletToSection(bp, sectionType));
+            // bulletPoints.forEach(bp => bulletCache.addBulletToSection(bp, sectionType)); // Removed BulletCache usage
+        } else {
+             // If not tailoring existing or no existing bullets, generate new ones directly
+             bulletPoints = await generateBullets(
+                'generate',
+                null, // No existing bullets to enhance
+                keywords,
+                context,
+                wordLimit,
+                verbTracker
+            );
         }
 
         bulletPoints = bulletPoints
@@ -452,22 +527,35 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
     }
 }
 
-// Update adjustSectionBullets to use BulletCache
-async function adjustSectionBullets($, selector, targetCount, sectionType, bulletTracker, keywords, context, bulletCache) {
-    const sections = $(selector);
-    sections.each((_, section) => {
-        const bulletList = $(section).find('ul');
-        const bullets = bulletList.find('li');
+// Update adjustSectionBullets to use passed Cheerio object (removed BulletCache)
+async function adjustSectionBullets($, listElements, targetCount, sectionType, bulletTracker, keywords, context /*, bulletCache removed */) {
+    // The 'listElements' argument is now a Cheerio object containing the identified <ul> or <ol> elements
+    // The 'listElements' argument is now a Cheerio object containing the identified <ul> or <ol> elements
+    listElements.each((_, listElement) => {
+        const bulletList = $(listElement); // This is the actual <ul> or <ol> element
+
+        // Check if it's actually a list element
+        if (!bulletList.is('ul, ol')) {
+             console.warn(`Element passed to adjustSectionBullets for ${sectionType} is not a list. Skipping adjustment.`);
+             return; // Skip to the next element in the Cheerio object
+        }
+
+        const bullets = bulletList.find('li'); // Find li elements within the list
         const currentCount = bullets.length;
 
         if (currentCount > targetCount) {
             // Remove excess bullets from the end
             bullets.slice(targetCount).remove();
         } else if (currentCount < targetCount) {
-            const cachedBullets = bulletCache.getBulletsForSection(sectionType, targetCount - currentCount);
-            const validBullets = cachedBullets
-                .filter(bp => !bulletTracker.isUsed(bp))
-                .slice(0, targetCount - currentCount);
+            // TODO: Need a way to get additional bullets without BulletCache
+            // For now, just log a warning or potentially call generateBullets again?
+            // Let's leave it empty for now, as the primary goal is removal.
+            const validBullets = [];
+            console.warn(`Section ${sectionType} needs ${targetCount - currentCount} more bullets, but BulletCache is removed. Add logic to fetch/generate more.`);
+            // const cachedBullets = []; // bulletCache.getBulletsForSection(sectionType, targetCount - currentCount); // Removed
+            // const validBullets = cachedBullets
+            //     .filter(bp => !bulletTracker.isUsed(bp))
+            //     .slice(0, targetCount - currentCount);
 
             validBullets.forEach(bullet => {
                 bulletTracker.addBullet(bullet, sectionType);
@@ -523,189 +611,8 @@ async function convertHtmlToPdf(htmlContent) {
     });
     const page = await browser.newPage();
 
-    const customCSS = `
-        @page {
-            size: Letter;
-            margin: 0.25in;
-        }
-        body {
-            font-family: 'Calibri', 'Arial', sans-serif;
-            font-size: 10pt;
-            line-height: 1.15;
-            margin: 0;
-            padding: 0;
-            color: #000;
-            max-width: 100%;
-        }
-        
-        /* Header Styling */
-        h1 {
-            text-align: center;
-            margin: 0 0 2px 0;
-            font-size: 22pt;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #000;
-            font-weight: bold;
-        }
-        
-        .contact-info {
-            text-align: center;
-            margin-bottom: 5px;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            gap: 3px;
-            align-items: center;
-            color: #000;
-            font-size: 8.5pt;
-        }
-        
-        /* Keep only the separator in gray */
-        .contact-info > *:not(:last-child)::after {
-            content: "|";
-            margin-left: 3px;
-            color: #333;
-        }
-        
-        /* Section Styling */
-        h2 {
-            text-transform: uppercase;
-            border-bottom: 1.25px solid #000;
-            margin: 7px 0 3px 0;
-            padding: 0;
-            font-size: 12pt;
-            font-weight: bold;
-            letter-spacing: 0.5px;
-            color: #000;
-        }
-        
-        /* Experience Section */
-        .job-details, .project-details, .education-details {
-            margin-bottom: 4px;
-        }
-        
-        .position-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            margin-bottom: 1px;
-            flex-wrap: nowrap;
-            width: 100%;
-        }
-        
-        .position-left {
-            display: flex;
-            gap: 3px;
-            align-items: baseline;
-            flex: 1;
-        }
-        
-        .company-name {
-            font-weight: bold;
-            font-style: italic;
-            margin-right: 3px;
-            font-size: 10.5pt;
-        }
-        
-        .location {
-            font-style: normal;
-            margin-left: auto;
-            padding-right: 3px;
-        }
-        
-        /* Bullet Points */
-        ul {
-            margin: 0;
-            padding-left: 15px;
-            margin-bottom: 3px;
-        }
-        
-        li {
-            margin-bottom: 0;
-            padding-left: 0;
-            line-height: 1.2;
-            text-align: justify;
-            margin-top: 1px;
-            font-size: 9.5pt;
-        }
-        
-        /* Links */
-        a {
-            color: #000;
-            text-decoration: none;
-        }
-        
-        /* Date Styling */
-        .date {
-            font-style: italic;
-            white-space: nowrap;
-            min-width: fit-content;
-            font-size: 9pt;
-        }
-        
-        /* Skills Section */
-        .skills-section {
-            margin-bottom: 4px;
-        }
-        
-        .skills-section p {
-            margin: 1px 0;
-            line-height: 1.2;
-        }
-        
-        /* Adjust spacing between sections */
-        section {
-            margin-bottom: 5px;
-        }
-        
-        /* Project Section */
-        .project-title {
-            font-weight: bold;
-            font-style: italic;
-            font-size: 10.5pt;
-        }
-        
-        /* Education Section */
-        .degree {
-            font-style: italic;
-            font-weight: bold;
-            font-size: 10pt;
-        }
-        
-        /* Position Title */
-        .position-title {
-            font-style: italic;
-            font-weight: bold;
-            font-size: 10.5pt;
-        }
-        
-        /* Improved spacing for skills section */
-        .skills-section p strong {
-            font-weight: bold;
-            font-size: 10pt;
-        }
-        
-        /* Make section headings more prominent */
-        .section-heading {
-            font-size: 12pt;
-            font-weight: bold;
-            text-transform: uppercase;
-            margin-bottom: 2px;
-        }
-
-        /* Skills items should be slightly larger than bullet points */
-        .skills-section p {
-            font-size: 9.5pt;
-        }
-    `;
-
-    await page.setContent(htmlContent);
-    await page.evaluate((css) => {
-        const style = document.createElement('style');
-        style.textContent = css;
-        document.head.appendChild(style);
-    }, customCSS);
+    // Removed customCSS block to preserve original styling
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' }); // Wait for content and network
 
     // Check page height
     const height = await checkPageHeight(page);
@@ -743,14 +650,7 @@ async function adjustBulletPoints($, sections, currentBulletCount) {
 async function categorizeKeywords(keywords) {
     if (!keywords || keywords.length === 0) return null;
     
-    // Create cache key for this specific set of keywords
-    const cacheKey = `categorize_v2_${keywords.sort().join(',')}`; // Added v2 to key for new prompt logic
-    
-    // Check cache first
-    if (lmCache.has(cacheKey)) {
-        return lmCache.get(cacheKey);
-    }
-    
+    // Caching removed as per request
     try {
         const prompt = `Analyze the provided keywords for relevance to Applicant Tracking Systems (ATS) focused on technical roles. Your goal is to select ONLY the most impactful technical skills, tools, platforms, and specific methodologies.
 
@@ -813,7 +713,7 @@ Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. Use 
         
         try {
             const categorized = JSON.parse(jsonString);
-            lmCache.set(cacheKey, categorized);
+            // lmCache.set(cacheKey, categorized); // Caching removed
             return categorized;
         } catch (jsonError) {
             console.error('Error parsing JSON from LLM response:', jsonError);
@@ -827,7 +727,7 @@ Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. Use 
             
             // Add all keywords to Others as fallback
             fallbackCategories["Others"] = keywords;
-            lmCache.set(cacheKey, fallbackCategories);
+            // lmCache.set(cacheKey, fallbackCategories); // Caching removed
             return fallbackCategories;
         }
     } catch (error) {
@@ -882,18 +782,24 @@ function updateSkillsSection($, keywords) {
     });
 }
 
-// Update the updateResume function to include skill section modification
+// Update the updateResume function to use dynamic selectors
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
-    const sectionWordCounts = getSectionWordCounts($);
+
+    // Dynamically identify selectors first
+    const dynamicSelectors = await identifyBulletListSelectors($);
+    // TODO: Add robust error handling if selectors are null
+
+    // Pass dynamic selectors to functions that need them
+    const sectionWordCounts = getSectionWordCounts($, dynamicSelectors);
     const bulletTracker = new SectionBulletTracker();
     const verbTracker = new ActionVerbTracker();
-    const bulletCache = new BulletCache();
+    // const bulletCache = new BulletCache(); // Removed BulletCache instantiation
     
-    // Extract original bullets before any modifications
-    const originalBullets = extractOriginalBullets($);
+    // Extract original bullets using dynamic selectors
+    const originalBullets = extractOriginalBullets($, dynamicSelectors);
     
-    // Update the skills section with keywords
+    // Update the skills section with keywords (Skills section identification might also need to be dynamic later)
     await updateSkillsSection($, keywords);
     
     const INITIAL_BULLET_COUNT = 6;
@@ -903,23 +809,27 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         keywords.join(', ') : 
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
 
-    // Generate all bullets upfront
-    const allBullets = await bulletCache.generateAllBullets($, keywords, 'resume section', 15, verbTracker);
-
+    // Use dynamic selectors for section processing
     const sections = [
-        { selector: $('.job-details'), type: 'job', context: 'for a job experience', bullets: originalBullets.job },
-        { selector: $('.project-details'), type: 'project', context: 'for a project', bullets: originalBullets.project },
-        { selector: $('.education-details'), type: 'education', context: 'for education', bullets: originalBullets.education }
+        // Use the selector identified by the LLM. Fallback needed if null.
+        { selectorString: dynamicSelectors.job, type: 'job', context: 'for a job experience', bullets: originalBullets.job },
+        { selectorString: dynamicSelectors.project, type: 'project', context: 'for a project', bullets: originalBullets.project },
+        { selectorString: dynamicSelectors.education, type: 'education', context: 'for education', bullets: originalBullets.education }
     ];
 
-    // Update each section with its specific context
+    // Update each section with its specific context using dynamic selectors
     for (const section of sections) {
-        await updateResumeSection(
-            $, section.selector, keywordString, section.context,
-            fullTailoring, sectionWordCounts[section.type],
-            bulletTracker, section.type, section.bullets,
-            INITIAL_BULLET_COUNT, verbTracker, bulletCache
-        );
+         if (section.selectorString) { // Only process if a selector was found
+            await updateResumeSection(
+                $, $(section.selectorString), // Pass the Cheerio object for the identified section(s)
+                keywordString, section.context,
+                fullTailoring, sectionWordCounts[section.type], // sectionWordCounts needs update for dynamic selectors
+                bulletTracker, section.type, section.bullets, // originalBullets needs update for dynamic selectors
+                INITIAL_BULLET_COUNT, verbTracker
+            );
+        } else {
+             console.warn(`Skipping update for section type '${section.type}' as no selector was identified.`);
+        }
     }
 
     // Check and adjust page length with smarter space management
@@ -933,20 +843,24 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         // Reduce bullets proportionally based on section importance
         currentBulletCount--;
         for (const section of sections) {
-            const adjustedCount = Math.max(
-                MIN_BULLETS,
-                Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8))
-            );
-            await adjustSectionBullets(
-                $, section.selector, adjustedCount,
-                section.type, bulletTracker, keywordString,
-                section.context, bulletCache
-            );
+             if (section.selectorString) { // Only adjust if a selector was found
+                const adjustedCount = Math.max(
+                    MIN_BULLETS,
+                    Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8)) // Adjust ratio as needed
+                );
+                await adjustSectionBullets(
+                    $, $(section.selectorString), // Pass the Cheerio object
+                    adjustedCount,
+                    section.type, bulletTracker, keywordString,
+                    section.context
+                );
+            }
         }
         attempts++;
     }
 
-    return $.html();
+    // Return both the updated HTML and the selectors used
+    return { updatedHtml: $.html(), selectors: dynamicSelectors };
 }
 
 async function customizeResume(req, res) {
@@ -965,14 +879,32 @@ async function customizeResume(req, res) {
             return res.status(400).send('Invalid HTML content: Content too short');
         }
 
-        const updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
+        // updateResume now returns an object: { updatedHtml, selectors }
+        const result = await updateResume(htmlContent, keywords, fullTailoring);
+        const updatedHtmlContent = result.updatedHtml;
+        const finalSelectors = result.selectors; // Selectors used in the update process
         
         const $ = cheerio.load(updatedHtmlContent);
-        const jobBullets = $('.job-details li').length;
-        const projectBullets = $('.project-details li').length;
-        const educationBullets = $('.education-details li').length;
+
+        // Helper function to safely count bullets using dynamic selectors
+        const countBullets = (selector) => {
+            if (selector && typeof selector === 'string') {
+                try {
+                    return $(selector).find('li').length;
+                } catch (e) {
+                    console.error(`Error counting bullets with selector "${selector}":`, e);
+                    return 0; // Return 0 if selector is invalid
+                }
+            }
+            return 0; // Return 0 if selector is null or not a string
+        };
+
+        const jobBullets = countBullets(finalSelectors.job);
+        const projectBullets = countBullets(finalSelectors.project);
+        const educationBullets = countBullets(finalSelectors.education);
         
-        console.log(`Generated bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}, Education=${educationBullets}`);
+        console.log(`Generated bullet counts (using dynamic selectors): Jobs=${jobBullets}, Projects=${projectBullets}, Education=${educationBullets}`);
+        console.log(`Selectors used: Job='${finalSelectors.job}', Project='${finalSelectors.project}', Education='${finalSelectors.education}'`);
         
         const { pdfBuffer, exceedsOnePage } = await convertHtmlToPdf(updatedHtmlContent);
 
