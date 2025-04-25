@@ -20,20 +20,251 @@ function countWordsInBullet(text) {
     return words.length;
 }
 
+// Updated to use dynamically found sections
+function getSectionWordCounts($, foundSections) {
+    const counts = {
+        job: { total: 0, bullets: 0 },
+        project: { total: 0, bullets: 0 },
+        education: { total: 0, bullets: 0 }
+    };
+
+    // Helper to process bullets within a found section element
+    const processSection = (sectionElement, sectionType) => {
+        if (sectionElement) {
+            // Find list items directly within or nested inside the found element
+            sectionElement.find('li').each((_, el) => {
+                const wordCount = countWordsInBullet($(el).text());
+                counts[sectionType].total += wordCount;
+                counts[sectionType].bullets++;
+            });
+        }
+    };
+
+    processSection(foundSections.job, 'job');
+    processSection(foundSections.project, 'project');
+    processSection(foundSections.education, 'education');
+
+    // Calculate average word count or default
+    const calculateAverage = (type) => {
+        return counts[type].bullets > 0 ? Math.round(counts[type].total / counts[type].bullets) : 15;
+    };
+
+    return {
+        job: calculateAverage('job'),
+        project: calculateAverage('project'),
+        education: calculateAverage('education')
+    };
+}
+
+// Updated to use dynamically found sections
+function extractOriginalBullets($, foundSections) {
+    const originalBullets = {
+        job: [],
+        project: [],
+        education: [],
+        // Consider adding logic later to find bullets outside identified sections if needed
+        // unassigned: []
+    };
+
+    // Helper to extract bullets from a found section element
+    const extractFromSection = (sectionElement, sectionType) => {
+        if (sectionElement) {
+            // Find list items directly within or nested inside the found element
+            sectionElement.find('li').each((_, bullet) => {
+                const bulletText = $(bullet).text().trim();
+                // Add only if non-empty and not already present
+                if (bulletText && !originalBullets[sectionType].includes(bulletText)) {
+                    originalBullets[sectionType].push(bulletText);
+                }
+            });
+        }
+    };
+
+    extractFromSection(foundSections.job, 'job');
+    extractFromSection(foundSections.project, 'project');
+    extractFromSection(foundSections.education, 'education');
+
+    // Potential enhancement: Find any 'li' elements not within the identified sections
+    // $('li').each((_, bullet) => {
+    //     const bulletText = $(bullet).text().trim();
+    //     let foundInSection = false;
+    //     for (const type in foundSections) {
+    //         if (foundSections[type] && foundSections[type].find(bullet).length > 0) {
+    //             foundInSection = true;
+    //             break;
+    //         }
+    //     }
+    //     if (!foundInSection && bulletText && !Object.values(originalBullets).flat().includes(bulletText)) {
+    //         // Add to a general 'unassigned' category if needed
+    //     }
+    // });
+
+
+    return originalBullets;
+}
+
+// Function to dynamically find resume sections based on headings
+function findResumeSections($) {
+    const sections = {
+        job: null,
+        project: null,
+        education: null,
+        skills: null
+    };
+    const sectionKeywords = {
+        job: /experience|employment|work/i,
+        project: /projects?/i,
+        education: /education|academic/i,
+        skills: /skills|technologies|competencies/i
+    };
+
+    $('h2, h3').each((_, heading) => {
+        const headingText = $(heading).text().trim();
+        for (const type in sectionKeywords) {
+            if (sectionKeywords[type].test(headingText)) {
+                // Find the next sibling ul/ol or a ul/ol within the heading's parent next sibling div/section
+                let listContainer = $(heading).next('ul, ol');
+                if (listContainer.length === 0) {
+                    listContainer = $(heading).next('div, section').find('ul, ol').first();
+                     // If still not found, check within the heading's parent for ul/ol
+                     if (listContainer.length === 0) {
+                         listContainer = $(heading).parent().find('ul, ol').first();
+                     }
+                     // As a last resort for skills, look for a div/section container often used without lists
+                     if (listContainer.length === 0 && type === 'skills') {
+                         listContainer = $(heading).next('div, section, p');
+                         if (listContainer.length === 0) {
+                            listContainer = $(heading).parent().find('div, section, p').first();
+                         }
+                     }
+                }
+
+
+                // If we found a list or container, assign it. Prioritize more specific finds.
+                if (listContainer.length > 0 && !sections[type]) {
+                     // For sections other than skills, we ideally want the list itself or its direct parent container
+                     if (type !== 'skills') {
+                         // Check if the found element is the list itself or contains the list
+                         let targetElement = listContainer.is('ul, ol') ? listContainer.parent() : listContainer;
+                         // If the parent doesn't seem right (e.g., body), take the list itself or the container
+                         if (targetElement.is('body') || targetElement.length === 0) {
+                            targetElement = listContainer; // Fallback to the list or container itself
+                         }
+                         // Ensure we select a block-level container if possible
+                         if (!targetElement.is('div, section, article, aside')) {
+                             targetElement = listContainer.closest('div, section, article, aside');
+                             if (targetElement.length === 0) targetElement = listContainer; // Fallback if no container found
+                         }
+                         sections[type] = targetElement;
+                     } else {
+                         // For skills, accept the container directly
+                         sections[type] = listContainer.first();
+                     }
+                }
+                break; // Move to the next heading once a match is found
+            }
+        }
+    });
+
+    // Basic validation/logging
+    for (const type in sections) {
+        if (!sections[type]) {
+            console.warn(`Could not dynamically find section for: ${type}`);
+        } else {
+             // console.log(`Found section for ${type}: ${sections[type].prop('tagName')}`);
+        }
+    }
+
+    return sections;
+}
+// Add new class to track section-specific bullets
+class SectionBulletTracker {
+    constructor() {
+        this.bulletMap = new Map(); // Maps bullet text to section type
+        this.usedBullets = new Set(); // Tracks all used bullets
+    }
+
+    addBullet(bulletText, sectionType) {
+        this.bulletMap.set(bulletText, sectionType);
+        this.usedBullets.add(bulletText);
+    }
+
+    canUseBulletInSection(bulletText, sectionType) {
+        if (!this.bulletMap.has(bulletText)) return true;
+        return this.bulletMap.get(bulletText) === sectionType;
+    }
+
+    isUsed(bulletText) {
+        return this.usedBullets.has(bulletText);
+    }
+}
+
+// Improve the ActionVerbTracker class to be more effective at preventing duplicate verbs
+class ActionVerbTracker {
+    constructor() {
+        this.usedVerbs = new Map(); // Maps section type to Set of used verbs
+        this.globalVerbs = new Set(); // Tracks verbs used across all sections
+        this.verbSynonyms = new Map(); // Maps common verbs to their usage count
+    }
+
+    addVerb(verb, sectionType) {
+        verb = verb.toLowerCase().trim();
+        
+        if (!verb || !verb.match(/^[a-z]+$/)) return;
+        
+        if (!this.usedVerbs.has(sectionType)) {
+            this.usedVerbs.set(sectionType, new Set());
+        }
+        this.usedVerbs.get(sectionType).add(verb);
+        this.globalVerbs.add(verb);
+        
+        if (!this.verbSynonyms.has(verb)) {
+            this.verbSynonyms.set(verb, 1);
+        } else {
+            this.verbSynonyms.set(verb, this.verbSynonyms.get(verb) + 1);
+        }
+    }
+
+    isVerbUsedInSection(verb, sectionType) {
+        verb = verb.toLowerCase().trim();
+        return this.usedVerbs.get(sectionType)?.has(verb) || false;
+    }
+
+    isVerbUsedGlobally(verb) {
+        verb = verb.toLowerCase().trim();
+        return this.globalVerbs.has(verb);
+    }
+
+    getUsedVerbs() {
+        return Array.from(this.globalVerbs);
+    }
+
+    getMostUsedVerbs(limit = 10) {
+        return Array.from(this.verbSynonyms.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, limit)
+            .map(entry => entry[0]);
+    }
+
+    clearSection(sectionType) {
+        this.usedVerbs.set(sectionType, new Set());
+    }
+}
+
 // Add function to get first verb from bullet point
 function getFirstVerb(bulletText) {
     return bulletText.trim().split(/\s+/)[0].toLowerCase();
 }
 
-// Generate or tailor bullet points using OpenAI API
-async function generateBullets(mode, existingBullets, keywords, context, wordLimit = 15) { // Default wordLimit
+// Update the generateBullets function to emphasize verb diversity
+async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     const basePrompt = `You are a specialized resume bullet point optimizer. Engage in chain-of-thought reasoning: before generating or enhancing resume bullets, think out loud—reflect step by step on the user's input, context, and keywords, justifying each keyword and technology choice to ensure coherent, ATS-friendly, and relevant results. Avoid illogical pairings (e.g., Apex with Java). After your chain-of-thought, generate or enhance resume bullets following these strict rules:
 
 FORMATTING RULES:
 1. Every bullet MUST start with '>>' (no space after)
 2. One specific metric per bullet (%, $, time, or quantity)
 3. Each bullet MUST begin with a strong action verb
-4. Try to avoid reusing the same starting verb across bullet points
+4. NEVER reuse the same starting verb across bullet points
 5. Each bullet MUST be ${wordLimit} words or less
 
 KEYWORD INTEGRATION RULES:
@@ -85,17 +316,11 @@ METRICS GUIDELINES:
 INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
-    const prompt = mode === 'tailor'
+    const prompt = mode === 'tailor' 
         ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally integrating the provided keywords. Maintain original metrics and achievements.`
-        : `${basePrompt}\n\nTASK: Generate up to 10 achievement-focused bullets ${context} with concrete metrics and varied action verbs.`; // Reduced default generation count
+        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs.`;
 
     try {
-        // Use a simple cache for generated bullets based on prompt hash
-        const promptHash = generateHash(prompt);
-        if (lmCache.has(promptHash)) {
-            return lmCache.get(promptHash);
-        }
-
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
@@ -147,88 +372,222 @@ ${(existingBullets || []).join('\n')}`;
                   .replace(/\*\*/g, '')
                   .replace(/\s*\([^)]*\)$/, '')
         );
-        const generatedBullets = bullets.map(bullet =>
-            bullet.replace(/^>>\s*/, '')
-                  .replace(/\*\*/g, '')
-                  .replace(/\s*\([^)]*\)$/, '')
-        );
-
-        // Cache the result
-        lmCache.set(promptHash, generatedBullets);
-        return generatedBullets;
-
     } catch (error) {
         console.error('Error generating bullets:', error.response?.data || error.message);
         return [];
     }
 }
 
+// Add function to shuffle bullets with verb checking
+function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
+    let attempts = 0;
+    const maxAttempts = 15;
+    
+    while (attempts < maxAttempts) {
+        bullets = shuffleArray([...bullets]);
+        
+        let isValid = true;
+        let previousVerbs = new Set();
+        
+        for (let i = 0; i < bullets.length; i++) {
+            const currentVerb = getFirstVerb(bullets[i]);
+            
+            // Skip empty bullets
+            if (!currentVerb) continue;
+            
+            // Check if verb is same as any previous bullet or already used as first verb globally
+            if (previousVerbs.has(currentVerb) || 
+                (verbTracker.isVerbUsedGlobally(currentVerb) && i === 0)) {
+                isValid = false;
+                break;
+            }
+            
+            previousVerbs.add(currentVerb);
+        }
+        
+        if (isValid) {
+            // Add first verb to tracker
+            if (bullets.length > 0) {
+                verbTracker.addVerb(getFirstVerb(bullets[0]), sectionType);
+            }
+            return bullets;
+        }
+        
+        attempts++;
+    }
+    
+    const sortedBullets = [...bullets].sort((a, b) => {
+        const verbA = getFirstVerb(a);
+        const verbB = getFirstVerb(b);
+        
+        if (!verbTracker.isVerbUsedGlobally(verbA) && verbTracker.isVerbUsedGlobally(verbB)) {
+            return -1;
+        }
+        if (verbTracker.isVerbUsedGlobally(verbA) && !verbTracker.isVerbUsedGlobally(verbB)) {
+            return 1;
+        }
+        return 0;
+    });
+    
+    if (sortedBullets.length > 0) {
+        verbTracker.addVerb(getFirstVerb(sortedBullets[0]), sectionType);
+    }
+    
+    return sortedBullets;
+}
 
-// Function to update a specific section's bullet points using dynamically identified container
-async function updateResumeSection($, containerSelector, keywords, context, fullTailoring, targetBulletCount, wordLimit = 15) {
-    const sectionContainer = $(containerSelector);
-    if (sectionContainer.length === 0) {
-        console.warn(`Container not found for selector: ${containerSelector}`);
-        return;
+// Add BulletCache class for efficient bullet point management
+class BulletCache {
+    constructor() {
+        this.cache = new Map();
+        this.sectionPools = {
+            job: new Set(),
+            project: new Set(),
+            education: new Set()
+        };
+        this.targetBulletCounts = {
+            job: 7,
+            project: 6,
+            education: 5
+        };
     }
 
-    let bulletList = sectionContainer.find('ul, ol').first(); // Find first ul or ol
+    async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
+        const sections = ['job', 'project', 'education'];
+        const cacheKey = `${keywords.join(',')}_${context}`;
 
-    // If no list exists, try to append one to the container
-    if (bulletList.length === 0) {
-        sectionContainer.append('<ul></ul>');
-        bulletList = sectionContainer.find('ul').first();
-        if (bulletList.length === 0) {
-             console.warn(`Could not find or create bullet list in container: ${containerSelector}`);
-             return; // Cannot proceed without a list
+        if (this.cache.has(cacheKey)) {
+            return this.cache.get(cacheKey);
+        }
+
+        const allBullets = {};
+        const promises = sections.map(async (section) => {
+            const targetCount = this.targetBulletCounts[section];
+            const bullets = await generateBullets(
+                'generate',
+                null,
+                keywords,
+                `for ${section} experience`,
+                wordLimit,
+                verbTracker
+            );
+            allBullets[section] = bullets.slice(0, targetCount);
+            bullets.forEach(bullet => this.sectionPools[section].add(bullet));
+        });
+
+        await Promise.all(promises);
+        this.cache.set(cacheKey, allBullets);
+        return allBullets;
+    }
+
+    getBulletsForSection(section, count) {
+        return Array.from(this.sectionPools[section]).slice(0, count);
+    }
+
+    addBulletToSection(bullet, section) {
+        if (bullet && bullet.trim().length > 0) {
+            this.sectionPools[section].add(bullet);
         }
     }
 
-    let bulletPoints = [];
-    const existingBulletElements = bulletList.find('li');
-    const existingBulletsText = existingBulletElements.map((_, el) => $(el).text()).get();
-
-    if (fullTailoring && existingBulletsText.length > 0) {
-        // Tailor existing bullets
-        bulletPoints = await generateBullets(
-            'tailor',
-            existingBulletsText,
-            keywords,
-            context,
-            wordLimit
-        );
-    } else {
-        // Generate new bullets
-        bulletPoints = await generateBullets(
-            'generate',
-            null, // No existing bullets to enhance
-            keywords,
-            context,
-            wordLimit
-        );
+    clear() {
+        this.cache.clear();
+        Object.values(this.sectionPools).forEach(pool => pool.clear());
     }
-
-    // Limit to target count and shuffle
-    bulletPoints = shuffleArray(bulletPoints).slice(0, targetBulletCount);
-
-    // Replace existing bullets
-    bulletList.empty();
-    bulletPoints.forEach(point => {
-        bulletList.append(`<li>${point}</li>`);
-    });
 }
 
-// Function to adjust bullet count in a specific section's container
-async function adjustSectionBullets($, containerSelector, targetCount, keywords, context, wordLimit = 15) {
-    const sectionContainer = $(containerSelector);
-     if (sectionContainer.length === 0) {
-        console.warn(`Container not found for selector: ${containerSelector}`);
-        return;
+// Updated to accept a single dynamically found section element
+async function updateResumeSection($, sectionElement, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount, verbTracker, bulletCache) {
+
+    // Ensure the passed element is valid
+    if (!sectionElement || sectionElement.length === 0) {
+        console.warn(`Invalid or missing section element provided for type: ${sectionType}. Skipping update.`);
+        return; // Exit if the element is not valid
     }
-    const bulletList = sectionContainer.find('ul, ol').first();
-     if (bulletList.length === 0) {
-        console.warn(`Bullet list not found in container: ${containerSelector}`);
-        return; // Cannot adjust if no list
+
+    // Find the primary bullet list (ul or ol) within the section element.
+    // Prioritize direct children, then look deeper.
+    let bulletList = sectionElement.children('ul, ol').first();
+    if (bulletList.length === 0) {
+        bulletList = sectionElement.find('ul, ol').first();
+    }
+
+    // If no list exists, create one within the section element.
+    // Append it rather than replacing content if possible.
+    if (bulletList.length === 0) {
+        console.log(`No bullet list found in ${sectionType} section, creating one.`);
+        sectionElement.append('<ul></ul>'); // Append ensures it goes inside the section container
+        bulletList = sectionElement.find('ul').last(); // Find the newly added list
+    }
+
+    // Get bullets from cache or generate/tailor them
+    let bulletPoints = bulletCache.getBulletsForSection(sectionType, targetBulletCount);
+
+    // If tailoring and the list has existing items
+    if (fullTailoring && bulletList.find('li').length > 0) {
+        const existingBullets = bulletList.find('li')
+            .map((_, el) => $(el).text().trim()) // Trim text
+            .get()
+            .filter(text => text.length > 0); // Filter out empty strings
+
+        // Only tailor if there are actual existing bullets
+        if (existingBullets.length > 0) {
+             console.log(`Tailoring ${existingBullets.length} existing bullets for ${sectionType} section.`);
+             bulletPoints = await generateBullets(
+                 'tailor', existingBullets,
+                 keywords, context, wordLimit, verbTracker // Pass verbTracker here if needed by generateBullets
+             );
+             // Add newly tailored points back to the cache pool for this section
+             bulletPoints.forEach(bp => bulletCache.addBulletToSection(bp, sectionType));
+        } else {
+             console.log(`Full tailoring enabled but no existing bullets found in ${sectionType}, using generated bullets.`);
+        }
+
+    }
+
+    // Filter and slice bullets based on usage and target count
+    bulletPoints = bulletPoints
+        .filter(bp => bp && bp.trim().length > 0) // Ensure bullets are not empty/null
+        .filter(bp => !bulletTracker.isUsed(bp) ||
+                      bulletTracker.canUseBulletInSection(bp, sectionType))
+        .slice(0, targetBulletCount);
+
+    // Shuffle remaining bullets, ensuring verb diversity
+    bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, sectionType, verbTracker);
+
+    // Clear the existing list content and append the new/updated points
+    bulletList.empty();
+    bulletPoints.forEach(point => {
+        if (point && point.trim().length > 0) { // Double-check point validity
+            bulletTracker.addBullet(point, sectionType);
+            // Verb tracker is handled within shuffleBulletsWithVerbCheck now
+            // verbTracker.addVerb(getFirstVerb(point), sectionType);
+            bulletList.append(`<li>${point}</li>`);
+        }
+    });
+
+     console.log(`Updated ${sectionType} section with ${bulletPoints.length} bullets.`);
+}
+
+// Updated to accept a single dynamically found section element
+async function adjustSectionBullets($, sectionElement, targetCount, sectionType, bulletTracker, keywords, context, bulletCache) {
+
+    // Ensure the passed element is valid
+    if (!sectionElement || sectionElement.length === 0) {
+        console.warn(`Invalid or missing section element provided for adjustment: ${sectionType}. Skipping.`);
+        return; // Exit if the element is not valid
+    }
+
+    // Find the primary bullet list (ul or ol) within the section element.
+    let bulletList = sectionElement.children('ul, ol').first();
+    if (bulletList.length === 0) {
+        bulletList = sectionElement.find('ul, ol').first();
+    }
+
+    // If no bullet list exists, we can't adjust bullets. Log and return.
+    if (bulletList.length === 0) {
+        console.warn(`No bullet list found in ${sectionType} section during adjustment. Cannot adjust bullets.`);
+        return;
     }
 
     const bullets = bulletList.find('li');
@@ -236,30 +595,31 @@ async function adjustSectionBullets($, containerSelector, targetCount, keywords,
 
     if (currentCount > targetCount) {
         // Remove excess bullets from the end
+        console.log(`Reducing bullets in ${sectionType} from ${currentCount} to ${targetCount}`);
         bullets.slice(targetCount).remove();
     } else if (currentCount < targetCount) {
-        // Generate additional bullets needed
-        const bulletsToAddCount = targetCount - currentCount;
-        const existingBulletsText = bullets.map((_, el) => $(el).text()).get(); // Get current bullets to avoid duplicates if possible
-        
-        // Generate slightly more bullets than needed to allow filtering
-        const newBullets = await generateBullets(
-            'generate',
-            null, // Generate fresh ones
-            keywords,
-            context,
-            wordLimit
-        );
+        // Add missing bullets from the cache
+        const needed = targetCount - currentCount;
+        console.log(`Adding ${needed} bullets to ${sectionType} (currently ${currentCount}, target ${targetCount})`);
+        const cachedBullets = bulletCache.getBulletsForSection(sectionType, needed * 2); // Get more than needed initially
+        const validBullets = cachedBullets
+            .filter(bp => bp && bp.trim().length > 0) // Ensure valid bullet text
+            .filter(bp => !bulletTracker.isUsed(bp)) // Check if already used globally
+            .slice(0, needed); // Take only the number needed
 
-        // Filter out bullets already present (simple text match)
-        const uniqueNewBullets = newBullets.filter(bp => !existingBulletsText.includes(bp));
-
-        // Append the required number of unique new bullets
-        uniqueNewBullets.slice(0, bulletsToAddCount).forEach(bullet => {
+        validBullets.forEach(bullet => {
+            bulletTracker.addBullet(bullet, sectionType); // Mark as used
             bulletList.append(`<li>${bullet}</li>`);
         });
+
+        if (validBullets.length < needed) {
+             console.warn(`Could only add ${validBullets.length} out of ${needed} needed bullets to ${sectionType} from cache.`);
+             // Optionally, could attempt to generate more here if strictly required
+        }
     }
+    // If currentCount === targetCount, do nothing.
 }
+
 async function ensureBulletRange(bulletPoints, usedBullets, generateFn, minCount, maxCount) {
     let attempts = 0;
     const originalBullets = [...bulletPoints];
@@ -306,8 +666,9 @@ async function convertHtmlToPdf(htmlContent) {
     });
     const page = await browser.newPage();
 
-    // Set content - The user's HTML should contain its own styling
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' }); // Wait for potential external resources
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' }); // Wait for external resources like CSS
+
+    // No longer injecting custom CSS. Rely on the HTML's own styles.
 
     // Check page height
     const height = await checkPageHeight(page);
@@ -341,19 +702,20 @@ async function adjustBulletPoints($, sections, currentBulletCount) {
     return currentBulletCount - 1;
 }
 
-// Update categorizeKeywords function to use OpenAI API (Simplified Prompt & Parsing)
+// Update categorizeKeywords function to use OpenAI API
 async function categorizeKeywords(keywords) {
     if (!keywords || keywords.length === 0) return null;
-
-    const cacheKey = `categorize_v3_${keywords.sort().join(',')}`; // Updated cache key version
-
+    
+    // Create cache key for this specific set of keywords
+    const cacheKey = `categorize_v2_${keywords.sort().join(',')}`; // Added v2 to key for new prompt logic
+    
+    // Check cache first
     if (lmCache.has(cacheKey)) {
         return lmCache.get(cacheKey);
     }
-
+    
     try {
-        // Simplified prompt asking for plain text lists
-        const prompt = `Analyze the provided keywords for relevance to Applicant Tracking Systems (ATS) focused on technical roles. Select ONLY the most impactful technical skills, tools, platforms, and specific methodologies based on the criteria below.
+        const prompt = `Analyze the provided keywords for relevance to Applicant Tracking Systems (ATS) focused on technical roles. Your goal is to select ONLY the most impactful technical skills, tools, platforms, and specific methodologies.
 
 CRITERIA FOR INCLUSION (Prioritize these):
 - Programming Languages (e.g., Python, Java, JavaScript, C++, SQL, HTML, CSS)
@@ -368,226 +730,34 @@ CRITERIA FOR EXCLUSION (STRICTLY Exclude these types):
 - Soft Skills (e.g., Problem-Solving, Leadership, Collaboration)
 - General Business Concepts (e.g., Development Lifecycle, Performance Engineering, User Experience, Reusability, Consistency, Simplicity, Testing Practices, Project Management)
 - Vague or Abstract Terms (e.g., Services, Modern Foundation, Data Sets, POCs, Coding Standards, Full Stack Engineering)
-- Redundant terms if a more specific one exists (e.g., prefer 'REST APIs' over 'API' or 'APIs'; prefer 'Agile Methodologies' over 'Agile').
+- Redundant terms if a more specific one exists (e.g., prefer 'REST APIs' over 'API' or 'APIs' if both contextually fit; prefer 'Agile Methodologies' over 'Agile' if present). Only include the most specific applicable term.
+
+Based on these criteria, categorize the SELECTED keywords into the following specific categories:
+- Languages: Programming and markup languages only.
+- Frameworks/Libraries: Software frameworks and libraries only.
+- Others: Relevant and specific APIs, cloud services, protocols, tools, methodologies, platforms, OS, databases, technical concepts from the inclusion list that don't fit elsewhere.
+- Machine Learning Libraries: ML-specific libraries and frameworks ONLY (e.g., Tensorflow, Scikit-learn, Pytorch).
 
 Keywords to analyze and select from: ${keywords.join(', ')}
 
-Return the SELECTED and CATEGORIZED keywords ONLY. Use the following format exactly:
-Languages: [comma-separated list of selected language keywords]
-Frameworks/Libraries: [comma-separated list of selected framework/library keywords]
-Machine Learning Libraries: [comma-separated list of selected ML library keywords]
-Others: [comma-separated list of selected other technical keywords]
-
-If a category has no selected keywords, write 'None'. Do NOT include explanations or any other text.`;
+Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. Use these exact category names as keys: "Languages", "Frameworks/Libraries", "Others", "Machine Learning Libraries". The values should be arrays of the selected keywords. Every selected keyword MUST be placed in exactly one category. Do not include any keywords from the original list that fail the inclusion criteria or meet the exclusion criteria. Ensure the output is clean, valid JSON. Example format: {"Languages": ["Python", "SQL"], "Frameworks/Libraries": ["React"], "Others": ["AWS", "Git", "REST APIs"], "Machine Learning Libraries": ["Tensorflow"]}`;
 
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
-                model: "gpt-4.1-nano", // Consider gpt-4-turbo-preview if needing more complex understanding
+                model: "gpt-4.1-nano",
                 messages: [
-                    { role: "system", content: "You are an AI trained to categorize technical keywords for resumes into specific plain text lists." },
-                    { role: "user", content: prompt }
-                ],
-                temperature: 0.2, // Lower temperature for more deterministic output
-                max_tokens: 1000, // Reduced max tokens as JSON is not needed
-                top_p: 1
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${openaiApiKey}`
-                }
-            }
-        );
-
-        const content = response.data.choices[0].message.content.trim();
-        const categorized = { // Initialize structure
-            "Languages": [],
-            "Frameworks/Libraries": [],
-            "Machine Learning Libraries": [],
-            "Others": []
-        };
-
-        // Parse the plain text response
-        const lines = content.split('\n');
-        lines.forEach(line => {
-            const parts = line.split(':');
-            if (parts.length === 2) {
-                const category = parts[0].trim();
-                const keywordsString = parts[1].trim();
-                if (keywordsString.toLowerCase() !== 'none' && keywordsString.length > 0) {
-                    const keywordsList = keywordsString.split(',').map(k => k.trim()).filter(k => k.length > 0);
-                    if (category === "Languages" && categorized.hasOwnProperty("Languages")) {
-                        categorized["Languages"] = keywordsList;
-                    } else if (category === "Frameworks/Libraries" && categorized.hasOwnProperty("Frameworks/Libraries")) {
-                        categorized["Frameworks/Libraries"] = keywordsList;
-                    } else if (category === "Machine Learning Libraries" && categorized.hasOwnProperty("Machine Learning Libraries")) {
-                        categorized["Machine Learning Libraries"] = keywordsList;
-                    } else if (category === "Others" && categorized.hasOwnProperty("Others")) {
-                        categorized["Others"] = keywordsList;
+                    {
+                        role: "system",
+                        content: "You are an AI trained to categorize technical keywords for resumes."
+                    },
+                    {
+                        role: "user",
+                        content: prompt
                     }
-                }
-            }
-        });
-
-        // Validate if any keywords were categorized, otherwise fallback
-        const totalCategorized = Object.values(categorized).reduce((sum, arr) => sum + arr.length, 0);
-        if (totalCategorized === 0) {
-             console.warn("LLM did not categorize any keywords correctly. Falling back.");
-             categorized["Others"] = keywords; // Fallback: put all in Others
-        }
-
-
-        lmCache.set(cacheKey, categorized);
-        return categorized;
-
-    } catch (error) {
-        console.error('Error categorizing keywords:', error.response?.data || error.message);
-         // Fallback on error
-         const fallbackCategories = {
-             "Languages": [], "Frameworks/Libraries": [], "Machine Learning Libraries": [], "Others": keywords
-         };
-         lmCache.set(cacheKey, fallbackCategories); // Cache fallback on error too
-         return fallbackCategories;
-    }
-}
-
-// Update updateSkillsSection to handle the new categorizedKeywords format and find skills section dynamically
-// Update updateSkillsSection to handle the new categorizedKeywords format and find skills section dynamically (Improved Logic)
-async function updateSkillsSection($, keywords) {
-    try {
-        const categorizedKeywords = await categorizeKeywords(keywords);
-        if (!categorizedKeywords) {
-            console.warn('Could not categorize keywords, skills section unchanged');
-            return $;
-        }
-
-        // Improved dynamic finding for the skills section container
-        let skillsSectionContainer = null;
-        const potentialHeadings = ['skills', 'technical skills', 'technologies']; // Add more variations if needed
-
-        $('h1, h2, h3, h4, h5, h6').each((_, el) => {
-            const headingElement = $(el);
-            const headingText = headingElement.text().trim().toLowerCase();
-
-            if (potentialHeadings.includes(headingText)) {
-                // Strategy 1: Check immediate next sibling (div, section, p)
-                skillsSectionContainer = headingElement.next('div, section, p').first();
-                if (skillsSectionContainer.length > 0) return false; // Found
-
-                // Strategy 2: Check parent's next sibling (div, section)
-                skillsSectionContainer = headingElement.parent().next('div, section').first();
-                 if (skillsSectionContainer.length > 0) return false; // Found
-
-                // Strategy 3: Check parent element itself if it contains the heading directly
-                 // Avoid selecting the whole body or html
-                 const parentTag = headingElement.parent().prop('tagName')?.toLowerCase();
-                 if (parentTag && parentTag !== 'body' && parentTag !== 'html') {
-                    skillsSectionContainer = headingElement.parent();
-                    if (skillsSectionContainer.length > 0) return false; // Found
-                 }
-
-                 // Strategy 4: Check next sibling of the parent's parent (less common)
-                 skillsSectionContainer = headingElement.parent().parent().next('div, section').first();
-                 if (skillsSectionContainer.length > 0) return false; // Found
-            }
-        });
-
-        // If still not found, try finding a section/div with an ID or class containing "skill"
-        if (!skillsSectionContainer || skillsSectionContainer.length === 0) {
-             $('div[id*="skill"], section[id*="skill"], div[class*="skill"], section[class*="skill"]').each((_, el) => {
-                 // Basic check to avoid selecting huge containers; refine if needed
-                 if ($(el).find('h1, h2, h3').length > 0 && $(el).children().length < 20) {
-                     skillsSectionContainer = $(el);
-                     return false; // Found potential container
-                 }
-             });
-        }
-
-
-        if (!skillsSectionContainer || skillsSectionContainer.length === 0) {
-            console.warn('Skills section container not found dynamically. Cannot update skills.');
-            return $;
-        }
-
-        console.log('Dynamically identified skills container:', skillsSectionContainer.prop('outerHTML')?.substring(0, 100) + '...'); // Log found container start
-
-        const categoryMapping = {
-            "Languages": "Languages:",
-            "Frameworks/Libraries": "Frameworks/Libraries:",
-            "Machine Learning Libraries": "Machine Learning Libraries:",
-            "Others": "Others (Tools, Platforms, Concepts):"
-        };
-
-        // Remove existing paragraphs matching our labels within the identified container
-        Object.values(categoryMapping).forEach(htmlLabel => {
-            // More specific selector to avoid removing unintended paragraphs
-            skillsSectionContainer.find(`p > strong:contains("${htmlLabel}")`).parent('p').remove();
-        });
-
-        // Append new/updated skills paragraphs to the identified container
-        Object.entries(categoryMapping).forEach(([dataKey, htmlLabel]) => {
-            if (categorizedKeywords[dataKey] && categorizedKeywords[dataKey].length > 0) {
-                const keywordsList = categorizedKeywords[dataKey].join(', ');
-                skillsSectionContainer.append(`<p><strong>${htmlLabel}</strong> ${keywordsList}</p>`);
-            }
-        });
-
-        return $;
-    } catch (error) {
-        console.error('Error updating skills section:', error);
-        return $;
-    }
-}
-
-// New function to identify bullet list containers using LM
-// New function to identify bullet list containers using LM (Improved Prompt)
-async function findBulletContainersWithLM(htmlContent) {
-    // Simplified HTML for prompt if too long? (Optional)
-    // const simplifiedHtml = htmlContent.length > 10000 ? htmlContent.substring(0, 10000) + '...' : htmlContent;
-
-    const prompt = `Analyze the following HTML resume content. Identify the primary 'ul' or 'ol' elements that contain lists of accomplishments or details within the main "Experience" (or "Work History"), "Projects", and "Education" sections.
-
-Return ONLY a list of CSS selectors, one per line, that uniquely and reliably target EACH identified bullet point list ('ul' or 'ol').
-
-RULES FOR SELECTORS:
-1.  **Prioritize IDs:** If a list or its direct parent has a unique ID, use it (e.g., '#experience-list', '#job-1 > ul').
-2.  **Use Classes:** If no ID is suitable, use a combination of classes on the list or its parent (e.g., 'section.experience ul.details', '.project-item > .description-list').
-3.  **Avoid nth-of-type/nth-child:** Do NOT use ':nth-of-type()' or ':nth-child()' selectors as they are unreliable.
-4.  **Avoid overly complex paths:** Prefer shorter, more direct selectors over deep descendant paths (e.g., prefer '.job-entry .bullets' over 'body > div#main > section.content > div.experience > div:nth-of-type(2) > ul').
-5.  **Verification:** Ensure the generated selectors actually exist and target a 'ul' or 'ol' in the provided HTML.
-6.  **Format:** Return ONLY the selectors, one per line. No explanations, no JSON, no markdown.
-
-Example Output:
-#experience-section ul
-.job-entry .bullet-points
-#project-abc .details-list
-section.education ul
-
-HTML Content:
-\`\`\`html
-${htmlContent}
-\`\`\`
-`;
-
-    try {
-        const cacheKey = `find_containers_v2_${generateHash(htmlContent)}`; // Updated cache key
-        if (lmCache.has(cacheKey)) {
-            console.log("Using cached selectors for bullet containers.");
-            return lmCache.get(cacheKey);
-        }
-        console.log("Querying LM to find bullet containers...");
-
-        const response = await axios.post(
-            'https://api.openai.com/v1/chat/completions',
-            {
-                model: "gpt-4.1-nano", // Or gpt-4-turbo-preview
-                messages: [
-                    { role: "system", content: "You are an AI assistant that extracts reliable CSS selectors for specific list elements ('ul' or 'ol') from HTML, following strict rules." },
-                    { role: "user", content: prompt }
                 ],
-                temperature: 0.1, // Very low temperature for consistency
-                max_tokens: 500,
+                temperature: 0.4,
+                max_tokens: 2000,
                 top_p: 1
             },
             {
@@ -599,128 +769,173 @@ ${htmlContent}
         );
 
         const content = response.data.choices[0].message.content;
-        console.log("Raw LM response for selectors:\n---\n", content, "\n---"); // Log the raw response
-
-        // Parse selectors, stricter filtering
-        const selectors = content.split('\n')
-            .map(s => s.trim())
-            .filter(s => s.length > 2 && // Basic length check
-                         (s.includes('ul') || s.includes('ol')) && // Must target ul/ol
-                         !s.includes(':nth-child') && // Explicitly filter out nth-child/type
-                         !s.includes(':nth-of-type') &&
-                         !s.startsWith('//') && // Ignore comments
-                         !s.startsWith('Example') && // Ignore example lines
-                         !s.startsWith('HTML Content:') && // Ignore prompt remnants
-                         s !== '```'); // Ignore markdown fences
-
-        console.log("Parsed selectors:", selectors); // Log parsed selectors
-
-        if (selectors.length === 0) {
-             console.warn("LM did not return any valid selectors matching the criteria for bullet containers.");
-             return [];
+        
+        // Extract JSON from response
+        const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/{[\s\S]*?}/);
+        const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
+        
+        try {
+            const categorized = JSON.parse(jsonString);
+            lmCache.set(cacheKey, categorized);
+            return categorized;
+        } catch (jsonError) {
+            console.error('Error parsing JSON from LLM response:', jsonError);
+            // Fallback: attempt to create a simple structure based on the response
+            const fallbackCategories = {
+                "Languages": [],
+                "Frameworks/Libraries": [],
+                "Others": [],
+                "Machine Learning Libraries": []
+            };
+            
+            // Add all keywords to Others as fallback
+            fallbackCategories["Others"] = keywords;
+            lmCache.set(cacheKey, fallbackCategories);
+            return fallbackCategories;
         }
-
-        // Optional: Basic verification with Cheerio (might be slow)
-        // const $temp = cheerio.load(htmlContent);
-        // const verifiedSelectors = selectors.filter(sel => $temp(sel).length > 0);
-        // console.log("Verified selectors (basic check):", verifiedSelectors);
-        // if (verifiedSelectors.length !== selectors.length) {
-        //     console.warn("Some selectors returned by LM could not be found in the HTML.");
-        // }
-        // lmCache.set(cacheKey, verifiedSelectors);
-        // return verifiedSelectors;
-
-
-        lmCache.set(cacheKey, selectors); // Cache the parsed selectors
-        return selectors;
-
     } catch (error) {
-        console.error('Error finding bullet containers with LM:', error.response?.data || error.message);
-        return [];
+        console.error('Error categorizing keywords:', error.response?.data || error.message);
+        return null;
     }
 }
 
+// Updated to accept the dynamically found skills section element
+function updateSkillsSection($, keywords, skillsSectionElement) { // Added skillsSectionElement parameter
+    return new Promise(async (resolve, reject) => {
+        try {
+            // Ensure the passed element is valid
+            if (!skillsSectionElement || skillsSectionElement.length === 0) {
+                console.warn('Skills section element not provided or invalid, skipping update.');
+                resolve($); // Resolve without changes
+                return;
+            }
 
-// Updated updateResume function using dynamic identification
+            const categorizedKeywords = await categorizeKeywords(keywords);
+            if (!categorizedKeywords) {
+                console.warn('Could not categorize keywords, skills section unchanged');
+                resolve($);
+                return;
+            }
+
+            // Use the provided skillsSectionElement directly
+            const skillsSection = skillsSectionElement;
+
+            const categoryMapping = {
+                "Languages": "Languages:",
+                "Frameworks/Libraries": "Frameworks/Libraries:",
+                "Others": "Others (APIs, Services, Protocols):",
+                "Machine Learning Libraries": "Machine Learning Libraries:"
+            };
+
+            // Clear existing skills content within the section before adding new ones
+            // This assumes skills are typically grouped in <p> tags within the section
+            skillsSection.find('p:contains("Languages:"), p:contains("Frameworks/Libraries:"), p:contains("Others"), p:contains("Machine Learning Libraries:")').remove();
+
+            Object.entries(categoryMapping).forEach(([dataKey, htmlLabel]) => {
+                if (categorizedKeywords[dataKey] && categorizedKeywords[dataKey].length > 0) {
+                    const keywordsText = categorizedKeywords[dataKey].join(', ');
+                    // Append new paragraph for the category
+                    skillsSection.append(`<p><strong>${htmlLabel}</strong> ${keywordsText}</p>`);
+                }
+            });
+
+            resolve($); // Resolve with the modified Cheerio object
+        } catch (error) {
+            console.error('Error updating skills section:', error);
+            // Resolve even on error to avoid breaking the chain, but log it.
+            resolve($);
+        }
+    });
+}
+
+// Update the updateResume function to include skill section modification and dynamic section finding
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
 
-    // 1. Dynamically find bullet list containers
-    const bulletContainerSelectors = await findBulletContainersWithLM(htmlContent);
-    if (bulletContainerSelectors.length === 0) {
-        console.warn("No bullet containers identified. Skipping bullet updates.");
-        // Still update skills and return PDF
-         await updateSkillsSection($, keywords); // Update skills regardless
-         return $.html(); // Return potentially modified HTML (skills only)
+    // Dynamically find sections first
+    const foundSections = findResumeSections($);
+
+    // Pass the found sections to functions that need them
+    const sectionWordCounts = getSectionWordCounts($, foundSections); // Pass foundSections
+    const originalBullets = extractOriginalBullets($, foundSections); // Pass foundSections
+
+    const bulletTracker = new SectionBulletTracker();
+    const verbTracker = new ActionVerbTracker();
+    const bulletCache = new BulletCache();
+
+    // Update the skills section using the dynamically found element
+    if (foundSections.skills) {
+        // Pass the specific skills element found
+        await updateSkillsSection($, keywords, foundSections.skills);
+    } else {
+        console.warn("Skills section not found dynamically, skipping update.");
     }
 
-    // 2. Update the skills section (remains largely the same)
-    await updateSkillsSection($, keywords);
+    const INITIAL_BULLET_COUNT = 6;
+    const MIN_BULLETS = 3;
 
-    // 3. Define constants (can be adjusted)
-    const INITIAL_BULLET_COUNT = 5; // Default target bullets per section
-    const MIN_BULLETS = 2; // Minimum bullets per section after adjustment
-    const WORD_LIMIT = 15; // Default word limit for generated bullets
+    const keywordString = fullTailoring ?
+        keywords.join(', ') :
+        keywords.slice(0, Math.min(5, keywords.length)).join(', ');
 
-    const keywordString = keywords.join(', '); // Use all keywords for context
+    // Generate all bullets upfront (doesn't strictly need section elements yet)
+    await bulletCache.generateAllBullets($, keywords, 'resume section', 15, verbTracker);
 
-    // 4. Update each identified section
-    // We don't know the 'type' (job, project, edu) from the selector alone,
-    // so we use a generic context or try to infer it if needed later.
-    // For now, use a generic context for bullet generation.
-    for (const selector of bulletContainerSelectors) {
+    // Define sections based on dynamically found elements
+    const sectionsToProcess = [
+        { element: foundSections.job, type: 'job', context: 'for a job experience', bullets: originalBullets.job },
+        { element: foundSections.project, type: 'project', context: 'for a project', bullets: originalBullets.project },
+        { element: foundSections.education, type: 'education', context: 'for education', bullets: originalBullets.education }
+    ].filter(s => s.element); // Only process sections that were found
+
+    // Update each found section
+    for (const section of sectionsToProcess) {
+        // Ensure sectionWordCounts has data for this type, default if not
+        const wordLimit = sectionWordCounts[section.type] || 15;
+
         await updateResumeSection(
-            $,
-            selector,
-            keywords, // Pass full keywords list
-            `related to this section`, // Generic context
-            fullTailoring,
-            INITIAL_BULLET_COUNT,
-            WORD_LIMIT
+            $, section.element, keywordString, section.context, // Use section.element (the Cheerio object)
+            fullTailoring, wordLimit,
+            bulletTracker, section.type, section.bullets,
+            INITIAL_BULLET_COUNT, verbTracker, bulletCache
         );
     }
 
-    // 5. Check and adjust page length (iteratively reduce bullets)
-    let currentBulletTarget = INITIAL_BULLET_COUNT;
+    // Check and adjust page length
+    let currentBulletCount = INITIAL_BULLET_COUNT;
     let attempts = 0;
-    const MAX_ADJUST_ATTEMPTS = 3; // Limit adjustment loops
 
-    while (attempts < MAX_ADJUST_ATTEMPTS && currentBulletTarget > MIN_BULLETS) {
-        const currentHtml = $.html();
-        const { exceedsOnePage } = await convertHtmlToPdf(currentHtml); // Check height with current state
+    while (attempts < 3 && currentBulletCount >= MIN_BULLETS) {
+        // Use a temporary Cheerio instance for PDF check to avoid modifying the main one
+        const temp$ = cheerio.load($.html());
+        const { exceedsOnePage } = await convertHtmlToPdf(temp$.html());
+        if (!exceedsOnePage) break;
 
-        if (!exceedsOnePage) {
-            console.log(`Resume fits on one page with ${currentBulletTarget} bullets per section.`);
-            break; // Fits, no more adjustments needed
-        }
+        currentBulletCount--;
+        console.log(`Resume exceeds one page. Reducing bullet count to target ~${currentBulletCount} per section.`);
 
-        console.log(`Resume exceeds one page. Reducing target bullets from ${currentBulletTarget} to ${currentBulletTarget - 1}.`);
-        currentBulletTarget--; // Reduce target count
-
-        // Adjust bullets in all identified sections to the new target
-        for (const selector of bulletContainerSelectors) {
-             // Use adjustSectionBullets which handles adding/removing to meet the target
-             await adjustSectionBullets(
-                 $,
-                 selector,
-                 currentBulletTarget,
-                 keywords, // Pass keywords for potential generation
-                 `related to this section`, // Generic context
-                 WORD_LIMIT
+        for (const section of sectionsToProcess) {
+            // Calculate target count for this section based on the new overall target
+             const targetCount = Math.max(
+                 MIN_BULLETS,
+                 Math.floor(currentBulletCount * (section.type === 'job' ? 1.0 : section.type === 'project' ? 0.8 : 0.6)) // Adjust ratios if needed
              );
+
+            console.log(`Adjusting ${section.type} section to ${targetCount} bullets.`);
+            await adjustSectionBullets(
+                $, section.element, targetCount, // Use section.element (the Cheerio object)
+                section.type, bulletTracker, keywordString,
+                section.context, bulletCache
+            );
         }
         attempts++;
     }
-
-     if (attempts === MAX_ADJUST_ATTEMPTS && currentBulletTarget === MIN_BULLETS) {
-         const { exceedsOnePage } = await convertHtmlToPdf($.html());
-         if (exceedsOnePage) {
-            console.warn("Resume still exceeds one page after maximum adjustments.");
-         }
-     }
+     if (attempts === 3 && currentBulletCount < MIN_BULLETS) {
+        console.warn("Could not fit resume onto one page even after reducing bullets to minimum.");
+    }
 
 
-    return $.html(); // Return the final HTML
+    return $.html();
 }
 
 async function customizeResume(req, res) {
@@ -740,20 +955,15 @@ async function customizeResume(req, res) {
         }
 
         const updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
-        
-        // Log final bullet counts for identified sections
-        const $ = cheerio.load(updatedHtmlContent);
-        const finalBulletCounts = {};
-        const finalSelectors = await findBulletContainersWithLM(updatedHtmlContent); // Re-find selectors on final HTML
-        finalSelectors.forEach((selector, index) => {
-            finalBulletCounts[`Section_${index + 1}_(${selector})`] = $(selector).find('li').length;
-        });
-        console.log('Final bullet counts:', finalBulletCounts);
+
+        // Logging of final counts using specific selectors is removed as structure is dynamic.
+        // Counts are logged during the update/adjust process within the helper functions.
+        console.log('Resume HTML updated dynamically.');
 
         const { pdfBuffer, exceedsOnePage } = await convertHtmlToPdf(updatedHtmlContent);
 
         if (exceedsOnePage) {
-            console.warn('Warning: Final resume may exceed one page after adjustments.');
+            console.warn('Warning: Resume still exceeds one page after adjustments');
         }
 
         res.contentType('application/pdf');
@@ -761,6 +971,7 @@ async function customizeResume(req, res) {
         res.send(Buffer.from(pdfBuffer));
 
     } catch (error) {
+        console.error('Error in customizeResume:', error); // Log the full error
         res.status(500).send('Error processing resume: ' + error.message);
     }
 }
