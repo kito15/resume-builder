@@ -282,29 +282,18 @@ ${(existingBullets || []).join('\n')}`;
 
         const content = response.data.choices[0].message.content;
         
-        // Extract bullets that start with ">>"
-        let bullets = content.match(/^\>\>(.+)$/gm) || [];
-        
-        // If we don't have enough bullets, try to extract complete sentences
-        if (bullets.length < 3) {
-            const additionalBullets = content.split(/\n+/)
-                .filter(line => {
-                    const trimmed = line.trim();
-                    return trimmed.length > 30 && 
-                           /^[A-Z]/.test(trimmed) && 
-                           /\d+/.test(trimmed);
-                })
-                .map(b => `>>${b}`);
-            
-            bullets = [...bullets, ...additionalBullets];
-        }
-        
-        // Clean and format bullets
-        return bullets.map(bullet => 
-            bullet.replace(/^>>\s*/, '')
-                  .replace(/\*\*/g, '')
-                  .replace(/\s*\([^)]*\)$/, '')
-        );
+        // New logic: Split content into lines, filter for those starting with ">>", and clean them.
+        const lines = content.split('\n');
+        const bullets = lines
+            .map(line => line.trim()) // Trim whitespace from each line
+            .filter(line => line.startsWith('>>')) // Keep only lines starting with ">>"
+            .map(bullet => // Clean and format the extracted bullets
+                bullet.replace(/^>>\s*/, '') // Remove leading ">>" and any space
+                      .replace(/\*\*/g, '') // Remove markdown bolding
+                      .replace(/\s*\([^)]*\)$/, '') // Remove trailing parenthetical notes if any
+            );
+
+        return bullets; // Return the cleaned bullets
     } catch (error) {
         console.error('Error generating bullets:', error.response?.data || error.message);
         return [];
