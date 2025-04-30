@@ -195,19 +195,45 @@ function validateSelector($, proposedSelector, fallbackSelector) {
 
 // Direct section detection using common patterns
 function detectSectionsDirectly($) {
+    // Helper function to determine if a section actually has bullet points
+    const hasBulletsInSection = (selector) => {
+        if (!selector) return false;
+        const bullets = $(selector).find('li');
+        return bullets.length > 0;
+    };
+    
     // Find experience/job sections
     let jobSections = '';
     const possibleJobSelectors = [
         '.experience .entry', '.entry', '.job-details', '.work-experience .job',
         'div:has(h2:contains("Experience")) .entry', 'div:has(h3:contains("Experience")) .entry',
         'div:has(.section-title:contains("Experience")) + div',
-        '.experience-entry', 'section:contains("Experience") .entry'
+        '.experience-entry', 'section:contains("Experience") .entry',
+        '.section:has(> .section-header:contains("Experience")) + div'
     ];
     
     for (const selector of possibleJobSelectors) {
-        if ($(selector).length > 0) {
-            jobSections = selector;
-            break;
+        const elements = $(selector);
+        if (elements.length > 0) {
+            // Verify this element actually contains bullet points before selecting it
+            const hasBullets = hasBulletsInSection(selector);
+            if (hasBullets) {
+                jobSections = selector;
+                break;
+            } else {
+                console.log(`Found job section with selector "${selector}" but it has no bullets`);
+            }
+        }
+    }
+    
+    // If no job sections with bullets were found, select without bullet check
+    if (!jobSections) {
+        for (const selector of possibleJobSelectors) {
+            if ($(selector).length > 0) {
+                jobSections = selector;
+                console.log(`Selected job section "${selector}" despite no bullets`);
+                break;
+            }
         }
     }
     
@@ -217,13 +243,32 @@ function detectSectionsDirectly($) {
         '.project', '.project-details', '.projects .entry',
         'div:has(h2:contains("Project")) .entry', 'div:has(h3:contains("Project")) .entry',
         'div:has(.section-title:contains("Project")) + div',
-        '.project-entry', 'section:contains("Project") .entry'
+        '.project-entry', 'section:contains("Project") .entry',
+        '.section:has(> .section-header:contains("Project")) + div'
     ];
     
     for (const selector of possibleProjectSelectors) {
-        if ($(selector).length > 0) {
-            projectSections = selector;
-            break;
+        const elements = $(selector);
+        if (elements.length > 0) {
+            // Verify this element actually contains bullet points
+            const hasBullets = hasBulletsInSection(selector);
+            if (hasBullets) {
+                projectSections = selector;
+                break;
+            } else {
+                console.log(`Found project section with selector "${selector}" but it has no bullets`);
+            }
+        }
+    }
+    
+    // If no project sections with bullets were found, select without bullet check
+    if (!projectSections) {
+        for (const selector of possibleProjectSelectors) {
+            if ($(selector).length > 0) {
+                projectSections = selector;
+                console.log(`Selected project section "${selector}" despite no bullets`);
+                break;
+            }
         }
     }
     
@@ -233,11 +278,13 @@ function detectSectionsDirectly($) {
         '.education .entry', '.education-details', '.education',
         'div:has(h2:contains("Education")) .entry', 'div:has(h3:contains("Education")) .entry',
         'div:has(.section-title:contains("Education")) + div',
-        '.education-entry', 'section:contains("Education") .entry'
+        '.education-entry', 'section:contains("Education") .entry',
+        '.section:has(> .section-header:contains("Education")) + div'
     ];
     
     for (const selector of possibleEducationSelectors) {
-        if ($(selector).length > 0) {
+        const elements = $(selector);
+        if (elements.length > 0) {
             educationSections = selector;
             break;
         }
@@ -250,7 +297,8 @@ function detectSectionsDirectly($) {
         'div:has(h2:contains("Skill"))', 'div:has(h3:contains("Skill"))',
         'div:has(.section-title:contains("Skill"))',
         '.technical-skills', 'section:contains("Skill")',
-        'div:has(h2:contains("Technical"))', 'div:contains("Technical Skills")'
+        'div:has(h2:contains("Technical"))', 'div:contains("Technical Skills")',
+        '.section:has(> .section-header:contains("Skill")) + div'
     ];
     
     for (const selector of possibleSkillSelectors) {
@@ -260,12 +308,25 @@ function detectSectionsDirectly($) {
         }
     }
     
-    // Check which sections actually have bullet points
+    // Check which sections actually have bullet points with a more precise check
     const hasBullets = {
-        job: jobSections ? $(jobSections).find('li').length > 0 : false,
-        project: projectSections ? $(projectSections).find('li').length > 0 : false,
-        education: educationSections ? $(educationSections).find('li').length > 0 : false
+        job: jobSections ? hasBulletsInSection(jobSections) : false,
+        project: projectSections ? hasBulletsInSection(projectSections) : false,
+        education: educationSections ? hasBulletsInSection(educationSections) : false
     };
+    
+    // Recheck education section to be absolutely certain
+    if (educationSections) {
+        // Direct check of li elements
+        const educationLIs = $(educationSections).find('li');
+        
+        console.log(`Education section "${educationSections}" has ${educationLIs.length} li elements`);
+        
+        // Update hasBullets.education only if we found actual bullets
+        if (educationLIs.length === 0) {
+            hasBullets.education = false;
+        }
+    }
     
     const structure = {
         jobSections,
@@ -728,13 +789,36 @@ class BulletCache {
 }
 
 async function updateResumeSection($, sections, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount, verbTracker, bulletCache) {
+    // Safety check: if this section type has no original bullets, don't process it
+    if (!originalBullets || originalBullets.length === 0) {
+        console.log(`Skipping section type ${sectionType} - no original bullets found`);
+        return;
+    }
+
+    console.log(`Processing ${sectionType} section with ${sections.length} entries and ${originalBullets.length} original bullets`);
+    
     for (let i = 0; i < sections.length; i++) {
         const section = sections.eq(i);
         let bulletList = section.find('ul');
 
+        // Only proceed if we found a bullet list or this section originally had bullets
         if (bulletList.length === 0) {
-            section.append('<ul></ul>');
-            bulletList = section.find('ul');
+            // Check if this section actually should have bullets
+            if (originalBullets.length > 0) {
+                console.log(`Creating bullet list for ${sectionType} section as it originally had bullets`);
+                section.append('<ul></ul>');
+                bulletList = section.find('ul');
+            } else {
+                console.log(`Skipping ${sectionType} section - no bullet list found and no original bullets`);
+                continue; // Skip this section entirely
+            }
+        }
+
+        // Verify this section should have bullet points before proceeding
+        const currentBullets = bulletList.find('li').length;
+        if (currentBullets === 0 && originalBullets.length === 0) {
+            console.log(`Skipping ${sectionType} section - no current or original bullets`);
+            continue; // Skip sections with no bullets that never had bullets
         }
 
         let bulletPoints = bulletCache.getBulletsForSection(sectionType, targetBulletCount);
@@ -759,37 +843,76 @@ async function updateResumeSection($, sections, keywords, context, fullTailoring
 
         bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, sectionType, verbTracker);
 
-        bulletList.empty();
-        bulletPoints.forEach(point => {
-            bulletTracker.addBullet(point, sectionType);
-            // Also add the point's action verb to the verb tracker
-            verbTracker.addVerb(getFirstVerb(point), sectionType);
-            bulletList.append(`<li>${point}</li>`);
-        });
+        // Only modify sections that had bullets originally
+        if (originalBullets.length > 0) {
+            console.log(`Updating ${bulletPoints.length} bullets in ${sectionType} section`);
+            
+            bulletList.empty();
+            bulletPoints.forEach(point => {
+                bulletTracker.addBullet(point, sectionType);
+                // Also add the point's action verb to the verb tracker
+                verbTracker.addVerb(getFirstVerb(point), sectionType);
+                bulletList.append(`<li>${point}</li>`);
+            });
+        } else {
+            console.log(`Preserving ${sectionType} section - it didn't have bullets originally`);
+        }
     }
 }
 
-// Update adjustSectionBullets to use BulletCache
+// Update adjustSectionBullets to use BulletCache and respect sections without bullets
 async function adjustSectionBullets($, selector, targetCount, sectionType, bulletTracker, keywords, context, bulletCache) {
+    // Safety check: verify this section should have bullets
+    if (targetCount <= 0) {
+        console.log(`Skipping bullet adjustment for ${sectionType} - target count is ${targetCount}`);
+        return;
+    }
+
     const sections = $(selector);
+    
+    if (sections.length === 0) {
+        console.log(`No sections found for selector ${selector}`);
+        return;
+    }
+    
+    console.log(`Adjusting bullets for ${sectionType}: ${sections.length} sections, target count ${targetCount}`);
+    
     sections.each((_, section) => {
         const bulletList = $(section).find('ul');
+        
+        // Skip if no bullet list found
+        if (bulletList.length === 0) {
+            console.log(`No bullet list found in ${sectionType} section - skipping adjustment`);
+            return; // continue to next section
+        }
+        
         const bullets = bulletList.find('li');
         const currentCount = bullets.length;
+        
+        console.log(`${sectionType} section has ${currentCount} bullets, target is ${targetCount}`);
 
         if (currentCount > targetCount) {
             // Remove excess bullets from the end
+            console.log(`Removing ${currentCount - targetCount} excess bullets from ${sectionType}`);
             bullets.slice(targetCount).remove();
         } else if (currentCount < targetCount) {
-            const cachedBullets = bulletCache.getBulletsForSection(sectionType, targetCount - currentCount);
-            const validBullets = cachedBullets
-                .filter(bp => !bulletTracker.isUsed(bp))
-                .slice(0, targetCount - currentCount);
+            // Only add bullets if this section already had some bullets
+            if (currentCount > 0) {
+                const cachedBullets = bulletCache.getBulletsForSection(sectionType, targetCount - currentCount);
+                const validBullets = cachedBullets
+                    .filter(bp => !bulletTracker.isUsed(bp))
+                    .slice(0, targetCount - currentCount);
 
-            validBullets.forEach(bullet => {
-                bulletTracker.addBullet(bullet, sectionType);
-                bulletList.append(`<li>${bullet}</li>`);
-            });
+                console.log(`Adding ${validBullets.length} new bullets to ${sectionType}`);
+                validBullets.forEach(bullet => {
+                    bulletTracker.addBullet(bullet, sectionType);
+                    bulletList.append(`<li>${bullet}</li>`);
+                });
+            } else {
+                console.log(`Not adding bullets to ${sectionType} since it had none originally`);
+            }
+        } else {
+            console.log(`${sectionType} already has correct bullet count (${currentCount})`);
         }
     });
 }
@@ -1363,6 +1486,8 @@ function updateSkillsSection($, keywords, selectors) {
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const resumeStructure = await detectResumeStructure(htmlContent);
+    console.log('Resume structure detection complete with hasBullets:', resumeStructure.hasBullets);
+    
     const sectionWordCounts = getSectionWordCounts($, resumeStructure);
     const bulletTracker = new SectionBulletTracker();
     const verbTracker = new ActionVerbTracker();
@@ -1390,37 +1515,49 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     // Add job section if found and has bullet points
     if (resumeStructure.jobSections && 
         $(resumeStructure.jobSections).length > 0 && 
-        resumeStructure.hasBullets.job) {
+        resumeStructure.hasBullets.job &&
+        originalBullets.job.length > 0) {
         sections.push({ 
             selector: $(resumeStructure.jobSections), 
             type: 'job', 
             context: 'for a job experience', 
             bullets: originalBullets.job 
         });
+        console.log(`Added job section with ${originalBullets.job.length} bullets`);
+    } else {
+        console.log('Job section excluded - has no bullets or not found');
     }
     
     // Add project section if found and has bullet points
     if (resumeStructure.projectSections && 
         $(resumeStructure.projectSections).length > 0 && 
-        resumeStructure.hasBullets.project) {
+        resumeStructure.hasBullets.project &&
+        originalBullets.project.length > 0) {
         sections.push({ 
             selector: $(resumeStructure.projectSections), 
             type: 'project', 
             context: 'for a project', 
             bullets: originalBullets.project 
         });
+        console.log(`Added project section with ${originalBullets.project.length} bullets`);
+    } else {
+        console.log('Project section excluded - has no bullets or not found');
     }
     
     // Add education section if found and has bullet points
     if (resumeStructure.educationSections && 
         $(resumeStructure.educationSections).length > 0 && 
-        resumeStructure.hasBullets.education) {
+        resumeStructure.hasBullets.education &&
+        originalBullets.education.length > 0) {
         sections.push({ 
             selector: $(resumeStructure.educationSections), 
             type: 'education', 
             context: 'for education', 
             bullets: originalBullets.education 
         });
+        console.log(`Added education section with ${originalBullets.education.length} bullets`);
+    } else {
+        console.log('Education section excluded - has no bullets or not found');
     }
     
     // If we have unassigned bullets, only try to distribute them to appropriate sections with existing bullets
@@ -1433,10 +1570,14 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
             const jobSection = sectionsWithBullets.find(s => s.type === 'job');
             if (jobSection) {
                 jobSection.bullets = [...jobSection.bullets, ...originalBullets.unassigned];
+                console.log(`Added ${originalBullets.unassigned.length} unassigned bullets to job section`);
             } else {
                 // Or first available section with bullets
                 sectionsWithBullets[0].bullets = [...sectionsWithBullets[0].bullets, ...originalBullets.unassigned];
+                console.log(`Added ${originalBullets.unassigned.length} unassigned bullets to ${sectionsWithBullets[0].type} section`);
             }
+        } else {
+            console.log(`Skipping ${originalBullets.unassigned.length} unassigned bullets - no suitable sections with bullets found`);
         }
     }
     
@@ -1448,6 +1589,16 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
 
     console.log(`Found ${sections.length} sections with bullet points to process`);
     
+    // Double-check that we're not accidentally processing the education section if it had no bullets
+    if (originalBullets.education.length === 0) {
+        // Ensure education is excluded
+        const educationIndex = sections.findIndex(s => s.type === 'education');
+        if (educationIndex !== -1) {
+            console.warn('Education section was included despite having no bullets - removing');
+            sections.splice(educationIndex, 1);
+        }
+    }
+    
     // Update each section with its specific context
     for (const section of sections) {
         await updateResumeSection(
@@ -1456,6 +1607,16 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
             bulletTracker, section.type, section.bullets,
             INITIAL_BULLET_COUNT, verbTracker, bulletCache
         );
+    }
+
+    // Verify that we haven't accidentally added bullets to sections that shouldn't have them
+    if (!resumeStructure.hasBullets.education || originalBullets.education.length === 0) {
+        // Check if there are now bullets in the education section
+        const educationBullets = $(resumeStructure.educationSections).find('li');
+        if (educationBullets.length > 0) {
+            console.warn(`Found ${educationBullets.length} bullets in education section that shouldn't have bullets - removing`);
+            educationBullets.remove();
+        }
     }
 
     // Check and adjust page length with smarter space management
@@ -1505,16 +1666,62 @@ async function customizeResume(req, res) {
         const $ = cheerio.load(htmlContent);
         const resumeStructure = await detectResumeStructure(htmlContent);
         
+        // Store initial state
+        const initialState = {
+            hasEducationBullets: resumeStructure.hasBullets.education,
+            educationBulletCount: resumeStructure.hasBullets.education ? 
+                $(resumeStructure.educationSections + ' li').length : 0,
+            jobBulletCount: resumeStructure.hasBullets.job ? 
+                $(resumeStructure.jobSections + ' li').length : 0,
+            projectBulletCount: resumeStructure.hasBullets.project ? 
+                $(resumeStructure.projectSections + ' li').length : 0
+        };
+        
         const originalBullets = {
-            job: resumeStructure.hasBullets.job ? $(resumeStructure.jobSections + ' li').length : 0,
-            project: resumeStructure.hasBullets.project ? $(resumeStructure.projectSections + ' li').length : 0,
-            education: resumeStructure.hasBullets.education ? $(resumeStructure.educationSections + ' li').length : 0
+            job: initialState.jobBulletCount,
+            project: initialState.projectBulletCount,
+            education: initialState.educationBulletCount
         };
         
         console.log('Original bullet counts:', originalBullets);
+        console.log('Education has bullets:', initialState.hasEducationBullets);
         
         // Process resume
         const updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
+        
+        // Perform final verification check for education section
+        if (!initialState.hasEducationBullets) {
+            const verificationCheck = cheerio.load(updatedHtmlContent);
+            
+            // Check if education section got bullets when it shouldn't have
+            if (resumeStructure.educationSections) {
+                const educationBullets = verificationCheck(resumeStructure.educationSections + ' li');
+                
+                if (educationBullets.length > 0) {
+                    console.warn(`FINAL VERIFICATION: Found ${educationBullets.length} bullets in education section that shouldn't have any - fixing`);
+                    
+                    // Remove all bullets from education section
+                    educationBullets.remove();
+                    
+                    // Update the HTML content
+                    const correctedHtml = verificationCheck.html();
+                    
+                    // Convert this to PDF instead
+                    const { pdfBuffer, exceedsOnePage } = await convertHtmlToPdf(correctedHtml);
+                    
+                    if (exceedsOnePage) {
+                        console.warn('Warning: Resume still exceeds one page after adjustments');
+                    }
+                    
+                    res.contentType('application/pdf');
+                    res.set('Content-Disposition', 'attachment; filename=resume.pdf');
+                    res.send(Buffer.from(pdfBuffer));
+                    return;
+                } else {
+                    console.log('FINAL VERIFICATION: Education section is correctly without bullets');
+                }
+            }
+        }
         
         // Check updated state
         const $updated = cheerio.load(updatedHtmlContent);
@@ -1529,6 +1736,11 @@ async function customizeResume(req, res) {
             $updated(resumeStructure.educationSections + ' li').length : 0;
         
         console.log(`Generated bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}, Education=${educationBullets}`);
+        
+        // Final verification check - education section should not have bullets if it didn't originally
+        if (!initialState.hasEducationBullets && educationBullets > 0) {
+            console.error('ERROR: Education section has bullets when it should not have any');
+        }
         
         const { pdfBuffer, exceedsOnePage } = await convertHtmlToPdf(updatedHtmlContent);
 
