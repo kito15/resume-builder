@@ -16,24 +16,49 @@ async function detectResumeStructure(htmlContent) {
     }
     
     try {
-        const prompt = `Analyze this HTML resume structure and identify the CSS selectors for each important section. 
+        const $ = cheerio.load(htmlContent);
+        
+        // Pre-analyze the document to provide context
+        const headings = [];
+        $('h1, h2, h3, .section-title, .section-header').each((_, el) => {
+            const text = $(el).text().trim();
+            if (text) headings.push(text);
+        });
+        
+        // Count bullet points in document
+        const bulletLists = {};
+        $('ul').each((i, ul) => {
+            const liCount = $(ul).find('li').length;
+            if (liCount > 0) {
+                const nearestHeading = findNearestHeading($, ul);
+                bulletLists[`list_${i}`] = {
+                    heading: nearestHeading,
+                    count: liCount
+                };
+            }
+        });
+        
+        const prompt = `Analyze this HTML resume to identify precise CSS selectors for each key section. 
 
-TASK: Return ONLY a JSON object with the following exact keys, each containing the most specific CSS selector that uniquely identifies that section or section type:
+IMPORTANT CONTEXT:
+- Headings found: ${JSON.stringify(headings)}
+- Bullet lists found: ${JSON.stringify(bulletLists)}
 
-1. "jobSections": selectors for job experience sections
-2. "projectSections": selectors for project sections  
-3. "educationSections": selectors for education sections
-4. "skillsSection": selector for the technical skills/keywords section
+TASK: Return a JSON object with these exact keys, each containing the most PRECISE CSS selector that uniquely identifies ONLY that section (not multiple sections):
 
-For example:
-{
-  "jobSections": ".job-entry" or ".experience .position" or "#work-experience .job",
-  "projectSections": ".project" or "#projects div",
-  "educationSections": ".education-entry" or "#education .school",
-  "skillsSection": ".skills-list" or "#technical-skills"
-}
+1. "jobSections": selector for job/experience entries (each job entry, not the entire experience section)
+2. "projectSections": selector for project entries (each project, not the entire projects section)  
+3. "educationSections": selector for education entries (each education item, not the whole section)
+4. "skillsSection": selector for the technical skills/keywords section (the content area, not just the heading)
 
-Note: If multiple selectors could work, provide the most reliable one. If a section doesn't exist, use null for that value.
+IMPORTANT RULES:
+- Use ONLY selectors that appear in the actual HTML
+- Test if your selector works by checking it would select the right elements
+- For job/project/education, find selectors that target EACH ENTRY, not just the section container
+- Prioritize class selectors over tag selectors whenever possible
+- If a section truly doesn't exist, use null
+- Prefer using .class names over complex attribute selectors when possible
+- If multiple similar elements exist, make the selector specific enough to ONLY select the right ones
 
 HTML to analyze:
 ${htmlContent.substring(0, 15000)}`;  // Truncate to avoid token limits
@@ -45,14 +70,14 @@ ${htmlContent.substring(0, 15000)}`;  // Truncate to avoid token limits
                 messages: [
                     {
                         role: "system",
-                        content: "You are an AI trained to analyze HTML resume structures and identify CSS selectors for different resume sections."
+                        content: "You are an HTML analysis expert specialized in identifying precise CSS selectors for resume sections. You need to analyze HTML and return ONLY selectors that will precisely target specific sections of a resume. Be very precise and test your selectors mentally before providing them."
                     },
                     {
                         role: "user",
                         content: prompt
                     }
                 ],
-                temperature: 0.3,
+                temperature: 0.2,
                 max_tokens: 1000,
                 top_p: 1
             },
@@ -71,33 +96,187 @@ ${htmlContent.substring(0, 15000)}`;  // Truncate to avoid token limits
         const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
         
         try {
-            const structure = JSON.parse(jsonString);
-            console.log('Detected resume structure:', structure);
-            lmCache.set(cacheKey, structure);
-            return structure;
+            const proposedStructure = JSON.parse(jsonString);
+            
+            // Validate selectors to ensure they actually select elements
+            const validatedStructure = {
+                jobSections: validateSelector($, proposedStructure.jobSections, '.entry, .experience .entry, [class*="job"], [class*="experience"]'),
+                projectSections: validateSelector($, proposedStructure.projectSections, '.project, [class*="project"]'),
+                educationSections: validateSelector($, proposedStructure.educationSections, '.education, .education-entry, [class*="education"]'),
+                skillsSection: validateSelector($, proposedStructure.skillsSection, '.skills, [class*="skill"], .technical, [class*="technical"]')
+            };
+            
+            console.log('Detected resume structure:', validatedStructure);
+            
+            // Additional analysis - check if sections actually have bullet points
+            const hasBullets = {
+                job: $(validatedStructure.jobSections).find('li').length > 0,
+                project: $(validatedStructure.projectSections).find('li').length > 0,
+                education: $(validatedStructure.educationSections).find('li').length > 0
+            };
+            
+            console.log('Sections with bullets:', hasBullets);
+            
+            // Store structure with bullet info
+            const finalStructure = {
+                ...validatedStructure,
+                hasBullets
+            };
+            
+            lmCache.set(cacheKey, finalStructure);
+            return finalStructure;
         } catch (jsonError) {
             console.error('Error parsing JSON from structure detection:', jsonError);
             
-            // Fallback to default structure
-            const fallbackStructure = {
-                jobSections: '.entry, .job-details, .experience',
-                projectSections: '.project, .project-details',
-                educationSections: '.education-details',
-                skillsSection: '.skills-item, .skills-section, .section:contains("Skills"), .section:contains("Technical")'
-            };
-            
-            lmCache.set(cacheKey, fallbackStructure);
-            return fallbackStructure;
+            // Try to detect sections directly with cheerio
+            const directDetection = detectSectionsDirectly($);
+            lmCache.set(cacheKey, directDetection);
+            return directDetection;
         }
     } catch (error) {
         console.error('Error detecting resume structure:', error.response?.data || error.message);
-        return {
-            jobSections: '.entry, .job-details',
-            projectSections: '.project, .project-details',
-            educationSections: '.education-details',
-            skillsSection: '.skills-item, .skills-section'
-        };
+        // Try to detect sections directly as fallback
+        const $ = cheerio.load(htmlContent);
+        const directDetection = detectSectionsDirectly($);
+        return directDetection;
     }
+}
+
+// Helper function to find the nearest heading to an element
+function findNearestHeading($, element) {
+    let currentNode = element;
+    let headingText = '';
+    
+    // Look for headings above the element
+    while (currentNode.length > 0 && !headingText) {
+        // Check if current node is a heading
+        if (currentNode.is('h1, h2, h3, h4, h5, h6, .section-title, .section-header')) {
+            headingText = currentNode.text().trim();
+            break;
+        }
+        
+        // Check preceding siblings
+        let prevSibling = currentNode.prev();
+        while (prevSibling.length > 0 && !headingText) {
+            if (prevSibling.is('h1, h2, h3, h4, h5, h6, .section-title, .section-header')) {
+                headingText = prevSibling.text().trim();
+                break;
+            }
+            prevSibling = prevSibling.prev();
+        }
+        
+        // Move up to parent
+        currentNode = currentNode.parent();
+    }
+    
+    return headingText || 'Unknown';
+}
+
+// Helper function to validate a selector and fall back if needed
+function validateSelector($, proposedSelector, fallbackSelector) {
+    // If null, empty or invalid selector format
+    if (!proposedSelector || typeof proposedSelector !== 'string' || proposedSelector.trim() === '') {
+        return fallbackSelector;
+    }
+    
+    try {
+        // See if the selector works and selects something
+        const elements = $(proposedSelector);
+        if (elements.length > 0) {
+            return proposedSelector;
+        }
+    } catch (e) {
+        // If selector is invalid syntax
+        console.warn(`Invalid selector: ${proposedSelector}`, e.message);
+    }
+    
+    return fallbackSelector;
+}
+
+// Direct section detection using common patterns
+function detectSectionsDirectly($) {
+    // Find experience/job sections
+    let jobSections = '';
+    const possibleJobSelectors = [
+        '.experience .entry', '.entry', '.job-details', '.work-experience .job',
+        'div:has(h2:contains("Experience")) .entry', 'div:has(h3:contains("Experience")) .entry',
+        'div:has(.section-title:contains("Experience")) + div',
+        '.experience-entry', 'section:contains("Experience") .entry'
+    ];
+    
+    for (const selector of possibleJobSelectors) {
+        if ($(selector).length > 0) {
+            jobSections = selector;
+            break;
+        }
+    }
+    
+    // Find project sections
+    let projectSections = '';
+    const possibleProjectSelectors = [
+        '.project', '.project-details', '.projects .entry',
+        'div:has(h2:contains("Project")) .entry', 'div:has(h3:contains("Project")) .entry',
+        'div:has(.section-title:contains("Project")) + div',
+        '.project-entry', 'section:contains("Project") .entry'
+    ];
+    
+    for (const selector of possibleProjectSelectors) {
+        if ($(selector).length > 0) {
+            projectSections = selector;
+            break;
+        }
+    }
+    
+    // Find education sections
+    let educationSections = '';
+    const possibleEducationSelectors = [
+        '.education .entry', '.education-details', '.education',
+        'div:has(h2:contains("Education")) .entry', 'div:has(h3:contains("Education")) .entry',
+        'div:has(.section-title:contains("Education")) + div',
+        '.education-entry', 'section:contains("Education") .entry'
+    ];
+    
+    for (const selector of possibleEducationSelectors) {
+        if ($(selector).length > 0) {
+            educationSections = selector;
+            break;
+        }
+    }
+    
+    // Find skills section
+    let skillsSection = '';
+    const possibleSkillSelectors = [
+        '.skills', '.skills-item', '.skills-section',
+        'div:has(h2:contains("Skill"))', 'div:has(h3:contains("Skill"))',
+        'div:has(.section-title:contains("Skill"))',
+        '.technical-skills', 'section:contains("Skill")',
+        'div:has(h2:contains("Technical"))', 'div:contains("Technical Skills")'
+    ];
+    
+    for (const selector of possibleSkillSelectors) {
+        if ($(selector).length > 0) {
+            skillsSection = selector;
+            break;
+        }
+    }
+    
+    // Check which sections actually have bullet points
+    const hasBullets = {
+        job: jobSections ? $(jobSections).find('li').length > 0 : false,
+        project: projectSections ? $(projectSections).find('li').length > 0 : false,
+        education: educationSections ? $(educationSections).find('li').length > 0 : false
+    };
+    
+    const structure = {
+        jobSections,
+        projectSections,
+        educationSections,
+        skillsSection,
+        hasBullets
+    };
+    
+    console.log('Detected sections directly:', structure);
+    return structure;
 }
 
 function countWordsInBullet(text) {
@@ -120,25 +299,34 @@ function getSectionWordCounts($, selectors) {
         education: { total: 0, bullets: 0 }
     };
 
-    // Use dynamic selectors
-    $(selectors.jobSections + ' li').each((_, el) => {
-        const wordCount = countWordsInBullet($(el).text());
-        counts.job.total += wordCount;
-        counts.job.bullets++;
-    });
+    // Only count job bullets if the section has bullet points
+    if (selectors.jobSections && selectors.hasBullets.job) {
+        $(selectors.jobSections + ' li').each((_, el) => {
+            const wordCount = countWordsInBullet($(el).text());
+            counts.job.total += wordCount;
+            counts.job.bullets++;
+        });
+    }
 
-    $(selectors.projectSections + ' li').each((_, el) => {
-        const wordCount = countWordsInBullet($(el).text());
-        counts.project.total += wordCount;
-        counts.project.bullets++;
-    });
+    // Only count project bullets if the section has bullet points
+    if (selectors.projectSections && selectors.hasBullets.project) {
+        $(selectors.projectSections + ' li').each((_, el) => {
+            const wordCount = countWordsInBullet($(el).text());
+            counts.project.total += wordCount;
+            counts.project.bullets++;
+        });
+    }
 
-    $(selectors.educationSections + ' li').each((_, el) => {
-        const wordCount = countWordsInBullet($(el).text());
-        counts.education.total += wordCount;
-        counts.education.bullets++;
-    });
+    // Only count education bullets if the section has bullet points  
+    if (selectors.educationSections && selectors.hasBullets.education) {
+        $(selectors.educationSections + ' li').each((_, el) => {
+            const wordCount = countWordsInBullet($(el).text());
+            counts.education.total += wordCount;
+            counts.education.bullets++;
+        });
+    }
 
+    // Use defaults for sections without bullets
     return {
         job: counts.job.bullets > 0 ? Math.round(counts.job.total / counts.job.bullets) : 15,
         project: counts.project.bullets > 0 ? Math.round(counts.project.total / counts.project.bullets) : 15,
@@ -155,34 +343,43 @@ function extractOriginalBullets($, selectors) {
         unassigned: [] // For any bullets not in a specific section
     };
 
-    $(selectors.jobSections).each((_, section) => {
-        $(section).find('li').each((_, bullet) => {
-            const bulletText = $(bullet).text().trim();
-            if (bulletText && !originalBullets.job.includes(bulletText)) {
-                originalBullets.job.push(bulletText);
-            }
+    // Only extract job bullets if the section has bullet points
+    if (selectors.jobSections && selectors.hasBullets.job) {
+        $(selectors.jobSections).each((_, section) => {
+            $(section).find('li').each((_, bullet) => {
+                const bulletText = $(bullet).text().trim();
+                if (bulletText && !originalBullets.job.includes(bulletText)) {
+                    originalBullets.job.push(bulletText);
+                }
+            });
         });
-    });
+    }
 
-    $(selectors.projectSections).each((_, section) => {
-        $(section).find('li').each((_, bullet) => {
-            const bulletText = $(bullet).text().trim();
-            if (bulletText && !originalBullets.project.includes(bulletText)) {
-                originalBullets.project.push(bulletText);
-            }
+    // Only extract project bullets if the section has bullet points
+    if (selectors.projectSections && selectors.hasBullets.project) {
+        $(selectors.projectSections).each((_, section) => {
+            $(section).find('li').each((_, bullet) => {
+                const bulletText = $(bullet).text().trim();
+                if (bulletText && !originalBullets.project.includes(bulletText)) {
+                    originalBullets.project.push(bulletText);
+                }
+            });
         });
-    });
+    }
 
-    $(selectors.educationSections).each((_, section) => {
-        $(section).find('li').each((_, bullet) => {
-            const bulletText = $(bullet).text().trim();
-            if (bulletText && !originalBullets.education.includes(bulletText)) {
-                originalBullets.education.push(bulletText);
-            }
+    // Only extract education bullets if the section has bullet points
+    if (selectors.educationSections && selectors.hasBullets.education) {
+        $(selectors.educationSections).each((_, section) => {
+            $(section).find('li').each((_, bullet) => {
+                const bulletText = $(bullet).text().trim();
+                if (bulletText && !originalBullets.education.includes(bulletText)) {
+                    originalBullets.education.push(bulletText);
+                }
+            });
         });
-    });
+    }
 
-    // Find any stray bullet points not in recognized sections
+    // Find any additional bullet points not in recognized sections
     $('li').each((_, bullet) => {
         const bulletText = $(bullet).text().trim();
         const inKnownSection = 
@@ -191,8 +388,19 @@ function extractOriginalBullets($, selectors) {
             originalBullets.education.includes(bulletText);
             
         if (bulletText && !inKnownSection) {
-            originalBullets.unassigned.push(bulletText);
+            // Check if this is a skills/technical bullet - if so, don't include
+            const closestSkillsSection = $(bullet).closest(selectors.skillsSection);
+            if (closestSkillsSection.length === 0) {
+                originalBullets.unassigned.push(bulletText);
+            }
         }
+    });
+
+    console.log('Extracted bullet counts:', {
+        job: originalBullets.job.length,
+        project: originalBullets.project.length,
+        education: originalBullets.education.length,
+        unassigned: originalBullets.unassigned.length
     });
 
     return originalBullets;
@@ -746,57 +954,125 @@ Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. Use 
     }
 }
 
-// Add helper function to find the best match for a skills section
+// Helper function to find the best match for a skills section
 function findSkillsSection($, skillsSelector) {
     // Try the provided selector first
-    let skillsSection = $(skillsSelector);
+    if (skillsSelector && typeof skillsSelector === 'string') {
+        let skillsSection = $(skillsSelector);
+        
+        if (skillsSection.length > 0) {
+            return skillsSection.first();
+        }
+    }
     
-    if (skillsSection.length > 0) {
-        return skillsSection;
+    // Look for skill section by heading first
+    const headingSelectors = [
+        'h1:contains("Skills"), h2:contains("Skills"), h3:contains("Skills"), h4:contains("Skills")',
+        '.section-title:contains("Skills"), .section-header:contains("Skills")',
+        'h1:contains("Technical"), h2:contains("Technical"), h3:contains("Technical")',
+        '.section-title:contains("Technical"), .section-header:contains("Technical")'
+    ];
+    
+    for (const selector of headingSelectors) {
+        const heading = $(selector);
+        if (heading.length > 0) {
+            // Try to find the content section related to this heading
+            // 1. Try next siblings
+            let nextSection = heading.next();
+            if (nextSection.length > 0 && 
+                (nextSection.find('li').length > 0 || 
+                 nextSection.find('span').length > 0 || 
+                 nextSection.text().includes(','))) {
+                return nextSection;
+            }
+            
+            // 2. Try parent's next sibling
+            nextSection = heading.parent().next();
+            if (nextSection.length > 0 && 
+                (nextSection.find('li').length > 0 || 
+                 nextSection.find('span').length > 0 || 
+                 nextSection.text().includes(','))) {
+                return nextSection;
+            }
+            
+            // 3. Try closest section or div
+            const container = heading.closest('section, div');
+            if (container.length > 0) {
+                // Find content within this container that isn't the heading
+                const content = container.children().not(heading);
+                if (content.length > 0) {
+                    return content;
+                }
+                return container; // Last resort - return the container itself
+            }
+        }
     }
     
     // Common skills section patterns - try these as fallbacks
-    const fallbackSelectors = [
-        // By headers/titles
-        'section:contains("Skills"), section:contains("SKILLS")',
-        'div:contains("Technical Skills")',
-        'div:contains("TECHNICAL SKILLS")',
-        'div:contains("Core Competencies")',
-        'h2:contains("Skills"), h3:contains("Skills")',
+    const contentSelectors = [
+        // By content
+        'ul:contains("Python"), ul:contains("Java"), ul:contains("JavaScript")',
+        'div:contains("Languages:"), div:contains("Technologies:"), div:contains("Frameworks:")',
         // By classes/IDs
-        '.skills-container',
+        '.skills-container, .skills-list, .skills-items',
         '.skills',
         '#skills',
         '.technical-skills',
-        // By common patterns
-        'ul:contains("Languages"), ul:contains("Tools")',
-        'div:has(strong:contains("Languages"))',
-        'div:has(strong:contains("Technologies"))'
+        '[class*="skill"]',
+        '[id*="skill"]',
+        '.skills-section',
+        // By structure and keywords
+        'div:has(> span:contains("Python"))',
+        'div:has(> span:contains("JavaScript"))',
+        'div:has(> span:contains("Java"))',
+        'div:has(> .skills-item)',
+        'section:has(> .skills-item)',
+        'div:has(> p:contains("Languages"))'
     ];
     
-    // Try each fallback
-    for (const selector of fallbackSelectors) {
+    // Try each content selector
+    for (const selector of contentSelectors) {
         const section = $(selector);
         if (section.length > 0) {
             return section.first();
         }
     }
     
-    // If no skills section found, look for any container with "skill" in its classes/id
-    const anySkillsContainer = $('[class*="skill"], [id*="skill"]');
-    if (anySkillsContainer.length > 0) {
-        return anySkillsContainer.first();
-    }
+    // Last resort - look for technical skills keywords
+    const techKeywords = ['Python', 'Java', 'JavaScript', 'HTML', 'CSS', 'React', 'Angular', 
+                        'Vue', 'Node', 'AWS', 'Azure', 'SQL', 'NoSQL', 'MongoDB', 'Docker', 
+                        'Kubernetes', 'Git', 'Linux', 'Windows', 'MacOS', 'TypeScript'];
     
-    // Last resort: the first section with skills-like keywords
-    const skillsKeywords = ['language', 'programming', 'framework', 'tool', 'technology', 'platform', 'database'];
-    for (const keyword of skillsKeywords) {
-        const section = $(`*:contains("${keyword}")`).closest('section, div');
-        if (section.length > 0) {
-            return section.first();
+    for (const keyword of techKeywords) {
+        // Look for elements that contain this keyword but aren't bullet points in job/project sections
+        const keywordElements = $(`*:contains("${keyword}")`).not('li');
+        
+        if (keywordElements.length > 0) {
+            // Find the most likely container (one with multiple keywords)
+            for (const el of keywordElements.get()) {
+                const container = $(el).closest('div, section, p, span');
+                if (container.length > 0) {
+                    let keywordCount = 0;
+                    for (const kw of techKeywords) {
+                        if (container.text().includes(kw)) keywordCount++;
+                    }
+                    
+                    // If this container has 3+ tech keywords, it's likely the skills section
+                    if (keywordCount >= 3) {
+                        return container;
+                    }
+                }
+            }
+            
+            // If no container with multiple keywords, use the first element's container
+            const container = keywordElements.first().closest('div, section, p, span');
+            if (container.length > 0) {
+                return container;
+            }
         }
     }
     
+    // If still nothing found, return empty jQuery object
     return $();
 }
 
@@ -804,6 +1080,13 @@ function findSkillsSection($, skillsSelector) {
 function updateSkillsSection($, keywords, selectors) {
     return new Promise(async (resolve, reject) => {
         try {
+            // If we don't have any keywords, just leave the skills section as is
+            if (!keywords || keywords.length === 0) {
+                console.log('No keywords provided, skills section unchanged');
+                resolve($);
+                return;
+            }
+            
             const categorizedKeywords = await categorizeKeywords(keywords);
             if (!categorizedKeywords) {
                 console.warn('Could not categorize keywords, skills section unchanged');
@@ -820,6 +1103,11 @@ function updateSkillsSection($, keywords, selectors) {
                 return;
             }
             
+            console.log('Found skills section:', skillsSection.attr('class') || skillsSection.prop('tagName'));
+            
+            // Take a snapshot of the section before modifications for comparison
+            const originalHtml = skillsSection.html();
+            
             // Detect existing category patterns in the skills section
             let existingFormat = 'full'; // default to full replacement
             let categoryTags = [];
@@ -827,7 +1115,7 @@ function updateSkillsSection($, keywords, selectors) {
             // Check for existing category headers in bold or strong text
             skillsSection.find('strong, b').each((_, el) => {
                 const text = $(el).text().trim();
-                if (text && text.length > 3 && text.endsWith(':')) {
+                if (text && text.length > 3) {
                     categoryTags.push(text);
                 }
             });
@@ -835,17 +1123,67 @@ function updateSkillsSection($, keywords, selectors) {
             // If we found category headers, use them as a pattern
             if (categoryTags.length > 0) {
                 existingFormat = 'categories';
-            } else if (skillsSection.find('li, span').length > 2) {
-                // If there are list items or spans, we'll insert into those
+                console.log('Skills section has categories:', categoryTags);
+            } else if (skillsSection.find('li').length > 2) {
+                // If there are list items, we'll integrate keywords into list
                 existingFormat = 'list';
+                console.log('Skills section uses list format');
+            } else if (skillsSection.find('span, .skill-item').length > 2) {
+                // If there are spans or skill items, we'll use that format
+                existingFormat = 'spans';
+                console.log('Skills section uses spans/items format');
+            } else if (skillsSection.text().includes(',')) {
+                // If comma-separated text, keep that format
+                existingFormat = 'comma-list';
+                console.log('Skills section uses comma-separated format');
             }
             
-            const categoryMapping = {
-                "Languages": "Languages:",
-                "Frameworks/Libraries": "Frameworks/Libraries:",
-                "Others": "Technologies:",
-                "Machine Learning Libraries": "Machine Learning:"
-            };
+            // Adapt category mapping to common structures
+            let categoryMapping = {};
+            
+            // If we found existing categories, try to match our categories to them
+            if (existingFormat === 'categories' && categoryTags.length > 0) {
+                // Look for language categories
+                const languageMatch = categoryTags.find(tag => 
+                    tag.toLowerCase().includes('language') || 
+                    tag.toLowerCase().includes('programming')
+                );
+                
+                // Look for frameworks/libraries categories
+                const frameworkMatch = categoryTags.find(tag => 
+                    tag.toLowerCase().includes('framework') || 
+                    tag.toLowerCase().includes('library')
+                );
+                
+                // Look for technologies/tools categories
+                const techMatch = categoryTags.find(tag => 
+                    tag.toLowerCase().includes('tool') || 
+                    tag.toLowerCase().includes('tech') ||
+                    tag.toLowerCase().includes('platform')
+                );
+                
+                // Look for ML category
+                const mlMatch = categoryTags.find(tag => 
+                    tag.toLowerCase().includes('machine') || 
+                    tag.toLowerCase().includes('ml')
+                );
+                
+                // Use existing categories when possible
+                categoryMapping = {
+                    "Languages": languageMatch || "Languages:",
+                    "Frameworks/Libraries": frameworkMatch || "Frameworks/Libraries:",
+                    "Others": techMatch || "Technologies:",
+                    "Machine Learning Libraries": mlMatch || "Machine Learning:"
+                };
+            } else {
+                // Default mapping
+                categoryMapping = {
+                    "Languages": "Languages:",
+                    "Frameworks/Libraries": "Frameworks/Libraries:",
+                    "Others": "Technologies:",
+                    "Machine Learning Libraries": "Machine Learning:"
+                };
+            }
             
             // Handle different formats
             if (existingFormat === 'categories') {
@@ -858,22 +1196,31 @@ function updateSkillsSection($, keywords, selectors) {
                         // Try to find a matching category
                         skillsSection.find('strong, b').each((_, el) => {
                             const text = $(el).text().trim();
+                            const parent = $(el).parent();
+                            
+                            // Check if this element matches our category
                             if (text.includes(dataKey) || 
-                                (dataKey === "Languages" && text.toLowerCase().includes("language")) ||
-                                (dataKey === "Others" && text.toLowerCase().includes("technolog")) ||
+                                (dataKey === "Languages" && text.toLowerCase().includes('language')) ||
+                                (dataKey === "Others" && text.toLowerCase().includes('tech')) ||
                                 (dataKey === "Frameworks/Libraries" && 
-                                 (text.toLowerCase().includes("framework") || text.toLowerCase().includes("library")))) {
+                                 (text.toLowerCase().includes('framework') || text.toLowerCase().includes('library')))) {
                                 
-                                // Get the parent element
-                                const parent = $(el).parent();
-                                // Replace text after the strong element
-                                $(el).after(` ${keywords}`);
-                                // Remove any existing text after the strong element
-                                parent.contents().each((_, node) => {
-                                    if (node !== el && node.nodeType === 3) { // Text node
-                                        $(node).remove();
-                                    }
-                                });
+                                // Handle different parent structures
+                                if (parent.is('p, div, span')) {
+                                    // Format: <p><strong>Category:</strong> Items</p>
+                                    
+                                    // Save the category label
+                                    const label = $(el).text();
+                                    
+                                    // Clear parent and re-add the category with new keywords
+                                    parent.html('');
+                                    parent.append($('<strong>').text(label));
+                                    parent.append(` ${keywords}`);
+                                } else {
+                                    // Other structure - just add after the element
+                                    $(el).next().remove(); // Remove existing text node
+                                    $(el).after(` ${keywords}`);
+                                }
                                 found = true;
                                 return false; // break out of .each()
                             }
@@ -886,42 +1233,128 @@ function updateSkillsSection($, keywords, selectors) {
                     }
                 });
             } else if (existingFormat === 'list') {
-                // Update lists or spans
+                // Don't replace the list - merge our keywords into it
                 let allKeywords = [];
                 Object.values(categorizedKeywords).forEach(keywordArray => {
                     allKeywords = [...allKeywords, ...keywordArray];
                 });
                 
-                // Handle different list formats
-                if (skillsSection.find('li').length > 0) {
-                    // Clear and rebuild the list
-                    const ul = skillsSection.find('ul').first();
-                    ul.empty();
-                    allKeywords.forEach(keyword => {
+                // Get existing list
+                const ul = skillsSection.find('ul').first();
+                const existingItems = new Set();
+                
+                // Collect existing items to avoid duplicates
+                ul.find('li').each((_, item) => {
+                    existingItems.add($(item).text().trim().toLowerCase());
+                });
+                
+                // Add new items that aren't already there
+                allKeywords.forEach(keyword => {
+                    if (!existingItems.has(keyword.toLowerCase())) {
                         ul.append(`<li>${keyword}</li>`);
-                    });
-                } else if (skillsSection.find('span').length > 0) {
-                    // Update spans
-                    skillsSection.empty();
-                    allKeywords.forEach(keyword => {
-                        skillsSection.append(`<span>${keyword}</span> `);
-                    });
-                }
-            } else {
-                // Full replacement with standard format
-                skillsSection.empty();
-                Object.entries(categoryMapping).forEach(([dataKey, htmlLabel]) => {
-                    if (categorizedKeywords[dataKey] && categorizedKeywords[dataKey].length > 0) {
-                        const keywords = categorizedKeywords[dataKey].join(', ');
-                        skillsSection.append(`<p><strong>${htmlLabel}</strong> ${keywords}</p>`);
                     }
                 });
+            } else if (existingFormat === 'spans') {
+                // Get all the keywords we want to include
+                let allKeywords = [];
+                Object.values(categorizedKeywords).forEach(keywordArray => {
+                    allKeywords = [...allKeywords, ...keywordArray];
+                });
+                
+                // Find what element wrap is used
+                const wrapElement = skillsSection.find('span, .skill-item').first();
+                const wrapperTag = wrapElement.prop('tagName').toLowerCase();
+                const wrapperClass = wrapElement.attr('class') || '';
+                
+                // Get existing keywords to avoid duplicates
+                const existingItems = new Set();
+                skillsSection.find(wrapperTag).each((_, item) => {
+                    existingItems.add($(item).text().trim().toLowerCase());
+                });
+                
+                // Add new spans for new keywords
+                allKeywords.forEach(keyword => {
+                    if (!existingItems.has(keyword.toLowerCase())) {
+                        if (wrapperClass) {
+                            skillsSection.append(`<${wrapperTag} class="${wrapperClass}">${keyword}</${wrapperTag}> `);
+                        } else {
+                            skillsSection.append(`<${wrapperTag}>${keyword}</${wrapperTag}> `);
+                        }
+                    }
+                });
+            } else if (existingFormat === 'comma-list') {
+                // Get comma-separated text content
+                let text = skillsSection.text().trim();
+                
+                // All keywords as a flat list
+                let allKeywords = [];
+                Object.values(categorizedKeywords).forEach(keywordArray => {
+                    allKeywords = [...allKeywords, ...keywordArray];
+                });
+                
+                // Parse existing keywords
+                const existingKeywords = text.split(/,\s*/).map(k => k.trim().toLowerCase());
+                const existingSet = new Set(existingKeywords);
+                
+                // Find keywords not already in the list
+                const newKeywords = allKeywords.filter(k => !existingSet.has(k.toLowerCase()));
+                
+                if (newKeywords.length > 0) {
+                    // Preserve exact structure
+                    if (skillsSection.children().length === 0) {
+                        // Simple text node
+                        skillsSection.text(text + (text.endsWith(',') ? ' ' : ', ') + newKeywords.join(', '));
+                    } else {
+                        // More complex structure - just append
+                        const lastChild = skillsSection.children().last();
+                        lastChild.after(`, ${newKeywords.join(', ')}`);
+                    }
+                }
+            } else {
+                // Only do full replacement if we can't determine structure or for simple containers
+                if (skillsSection.children().length <= 1) {
+                    // Check if this is a very simple container before replacing entirely
+                    skillsSection.empty();
+                    Object.entries(categoryMapping).forEach(([dataKey, htmlLabel]) => {
+                        if (categorizedKeywords[dataKey] && categorizedKeywords[dataKey].length > 0) {
+                            const keywords = categorizedKeywords[dataKey].join(', ');
+                            skillsSection.append(`<p><strong>${htmlLabel}</strong> ${keywords}</p>`);
+                        }
+                    });
+                } else {
+                    // For complex structures, just append our sections
+                    console.log('Complex skill section detected, appending keywords without replacing');
+                    Object.entries(categoryMapping).forEach(([dataKey, htmlLabel]) => {
+                        if (categorizedKeywords[dataKey] && categorizedKeywords[dataKey].length > 0) {
+                            // Check if this category already exists
+                            let categoryExists = false;
+                            skillsSection.find('strong, b').each((_, el) => {
+                                if ($(el).text().trim().toLowerCase().includes(dataKey.toLowerCase())) {
+                                    categoryExists = true;
+                                    return false; // break loop
+                                }
+                            });
+                            
+                            if (!categoryExists) {
+                                const keywords = categorizedKeywords[dataKey].join(', ');
+                                skillsSection.append(`<p><strong>${htmlLabel}</strong> ${keywords}</p>`);
+                            }
+                        }
+                    });
+                }
+            }
+            
+            // Check if we made any changes
+            if (skillsSection.html() === originalHtml) {
+                console.log('No changes were made to skills section');
+            } else {
+                console.log('Successfully updated skills section');
             }
             
             resolve($);
         } catch (error) {
             console.error('Error updating skills section:', error);
-            resolve($);
+            resolve($); // Resolve anyway to avoid breaking the process
         }
     });
 }
@@ -951,11 +1384,13 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     // Generate all bullets upfront
     const allBullets = await bulletCache.generateAllBullets($, keywords, 'resume section', 15, verbTracker);
 
-    // Create section configurations, only include sections that exist in the resume
+    // Create section configurations, only include sections that exist in the resume AND have bullet points
     const sections = [];
     
-    // Add job section if found
-    if (resumeStructure.jobSections && $(resumeStructure.jobSections).length > 0) {
+    // Add job section if found and has bullet points
+    if (resumeStructure.jobSections && 
+        $(resumeStructure.jobSections).length > 0 && 
+        resumeStructure.hasBullets.job) {
         sections.push({ 
             selector: $(resumeStructure.jobSections), 
             type: 'job', 
@@ -964,8 +1399,10 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         });
     }
     
-    // Add project section if found
-    if (resumeStructure.projectSections && $(resumeStructure.projectSections).length > 0) {
+    // Add project section if found and has bullet points
+    if (resumeStructure.projectSections && 
+        $(resumeStructure.projectSections).length > 0 && 
+        resumeStructure.hasBullets.project) {
         sections.push({ 
             selector: $(resumeStructure.projectSections), 
             type: 'project', 
@@ -974,8 +1411,10 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         });
     }
     
-    // Add education section if found
-    if (resumeStructure.educationSections && $(resumeStructure.educationSections).length > 0) {
+    // Add education section if found and has bullet points
+    if (resumeStructure.educationSections && 
+        $(resumeStructure.educationSections).length > 0 && 
+        resumeStructure.hasBullets.education) {
         sections.push({ 
             selector: $(resumeStructure.educationSections), 
             type: 'education', 
@@ -984,43 +1423,31 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         });
     }
     
-    // If we have unassigned bullets, try to distribute them to appropriate sections
+    // If we have unassigned bullets, only try to distribute them to appropriate sections with existing bullets
     if (originalBullets.unassigned.length > 0) {
-        // Add unassigned bullets to the job section if no other sections found
-        if (sections.length === 0) {
-            console.warn('No standard resume sections found, creating generic section');
-            // Create a fallback section - look for any bullets in the document
-            const anyBulletLists = $('ul').filter(function() {
-                return $(this).find('li').length > 0;
-            });
-            
-            if (anyBulletLists.length > 0) {
-                sections.push({ 
-                    selector: anyBulletLists, 
-                    type: 'job', // Treat as job by default
-                    context: 'for experience', 
-                    bullets: originalBullets.unassigned 
-                });
-            }
-        } else {
-            // Add unassigned bullets to the most relevant section
-            // Typically job section gets the unassigned bullets
-            const jobSection = sections.find(s => s.type === 'job');
+        // Only use unassigned bullets for sections that already have bullets
+        const sectionsWithBullets = sections.filter(s => s.bullets && s.bullets.length > 0);
+        
+        if (sectionsWithBullets.length > 0) {
+            // Find most appropriate section (prefer job section)
+            const jobSection = sectionsWithBullets.find(s => s.type === 'job');
             if (jobSection) {
                 jobSection.bullets = [...jobSection.bullets, ...originalBullets.unassigned];
             } else {
-                // Or first available section
-                sections[0].bullets = [...sections[0].bullets, ...originalBullets.unassigned];
+                // Or first available section with bullets
+                sectionsWithBullets[0].bullets = [...sectionsWithBullets[0].bullets, ...originalBullets.unassigned];
             }
         }
     }
     
-    // If no sections were found at all, log warning but don't crash
+    // If no sections were found at all, or no sections have bullet points, just return the original HTML
     if (sections.length === 0) {
         console.warn('No sections with bullet points found in resume');
         return $.html(); // Return unmodified HTML
     }
 
+    console.log(`Found ${sections.length} sections with bullet points to process`);
+    
     // Update each section with its specific context
     for (const section of sections) {
         await updateResumeSection(
@@ -1074,14 +1501,32 @@ async function customizeResume(req, res) {
             return res.status(400).send('Invalid HTML content: Content too short');
         }
 
+        // Detect structure before processing to log original state
+        const $ = cheerio.load(htmlContent);
+        const resumeStructure = await detectResumeStructure(htmlContent);
+        
+        const originalBullets = {
+            job: resumeStructure.hasBullets.job ? $(resumeStructure.jobSections + ' li').length : 0,
+            project: resumeStructure.hasBullets.project ? $(resumeStructure.projectSections + ' li').length : 0,
+            education: resumeStructure.hasBullets.education ? $(resumeStructure.educationSections + ' li').length : 0
+        };
+        
+        console.log('Original bullet counts:', originalBullets);
+        
+        // Process resume
         const updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
         
-        const $ = cheerio.load(updatedHtmlContent);
-        const resumeStructure = await detectResumeStructure(updatedHtmlContent);
+        // Check updated state
+        const $updated = cheerio.load(updatedHtmlContent);
         
-        const jobBullets = $(resumeStructure.jobSections + ' li').length;
-        const projectBullets = $(resumeStructure.projectSections + ' li').length;
-        const educationBullets = $(resumeStructure.educationSections + ' li').length;
+        const jobBullets = resumeStructure.hasBullets.job ? 
+            $updated(resumeStructure.jobSections + ' li').length : 0;
+            
+        const projectBullets = resumeStructure.hasBullets.project ? 
+            $updated(resumeStructure.projectSections + ' li').length : 0;
+            
+        const educationBullets = resumeStructure.hasBullets.education ? 
+            $updated(resumeStructure.educationSections + ' li').length : 0;
         
         console.log(`Generated bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}, Education=${educationBullets}`);
         
