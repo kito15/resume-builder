@@ -776,13 +776,59 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
 
 
     const $ = cheerio.load(htmlContent);
+
+    // --- Verification Step for Education Selector ---
+    try {
+        const educationTitleSelector = 'div.section-title'; // Adjust if title element is different
+        const expectedTitleText = 'Education';
+        let educationSectionIsValid = false;
+
+        if (selectors.educationSectionSelector && $(selectors.educationSectionSelector).length > 0) {
+            $(selectors.educationSectionSelector).each((_, el) => {
+                // Check if this element directly contains the title or has a descendant title
+                const titleElement = $(el).find(educationTitleSelector);
+                if (titleElement.length > 0 && titleElement.text().trim() === expectedTitleText) {
+                    educationSectionIsValid = true;
+                    return false; // Stop iteration once found
+                }
+                // Also check if the element *is* the title's parent section if selector is less specific
+                if ($(el).find(`${educationTitleSelector}:contains("${expectedTitleText}")`).length > 0) {
+                     educationSectionIsValid = true;
+                     return false; // Stop iteration
+                }
+            });
+        }
+
+        if (!educationSectionIsValid) {
+            console.warn(`LLM-provided education selector "${selectors.educationSectionSelector}" failed verification or was missing. Applying fallback selector.`);
+            // Fallback based on common structure observed or suggested
+            selectors.educationSectionSelector = `div.section:has(${educationTitleSelector}:contains("${expectedTitleText}"))`;
+             // Also update the bullet selector to be relative to the new section selector
+             const educationBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li'; // Get the tag (e.g., 'li')
+             selectors.educationBulletSelector = `${selectors.educationSectionSelector} ${educationBulletTag}`;
+             console.log(`Using fallback education selectors: Section="${selectors.educationSectionSelector}", Bullet="${selectors.educationBulletSelector}"`);
+        } else {
+             console.log(`Education selector "${selectors.educationSectionSelector}" verified successfully.`);
+        }
+    } catch (verificationError) {
+         console.error("Error during education selector verification:", verificationError);
+         // Optionally apply fallback even on error, or proceed cautiously
+         const fallbackSelector = `div.section:has(div.section-title:contains("Education"))`;
+         const fallbackBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li';
+         selectors.educationSectionSelector = fallbackSelector;
+         selectors.educationBulletSelector = `${fallbackSelector} ${fallbackBulletTag}`;
+         console.warn(`Applied fallback education selectors due to verification error.`);
+    }
+    // --- End Verification Step ---
+
+
     // Pass selectors to functions that need them
     const sectionWordCounts = getSectionWordCounts($, selectors);
     const bulletTracker = new SectionBulletTracker();
     const verbTracker = new ActionVerbTracker();
     const bulletCache = new BulletCache();
 
-    // Extract original bullets using dynamic selectors
+    // Extract original bullets using dynamic selectors (now potentially corrected)
     const originalBullets = extractOriginalBullets($, selectors);
 
     // Update the skills section using dynamic selectors
