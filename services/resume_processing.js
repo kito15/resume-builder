@@ -23,8 +23,7 @@ function countWordsInBullet(text) {
 function getSectionWordCounts($, selectors) {
     const counts = {
         job: { total: 0, bullets: 0 },
-        project: { total: 0, bullets: 0 },
-        education: { total: 0, bullets: 0 }
+        project: { total: 0, bullets: 0 }
     };
 
     // Use dynamic bullet selectors
@@ -40,16 +39,9 @@ function getSectionWordCounts($, selectors) {
         counts.project.bullets++;
     });
 
-    $(selectors.educationBulletSelector).each((_, el) => {
-        const wordCount = countWordsInBullet($(el).text());
-        counts.education.total += wordCount;
-        counts.education.bullets++;
-    });
-
     return {
         job: counts.job.bullets > 0 ? Math.round(counts.job.total / counts.job.bullets) : 15,
-        project: counts.project.bullets > 0 ? Math.round(counts.project.total / counts.project.bullets) : 15,
-        education: counts.education.bullets > 0 ? Math.round(counts.education.total / counts.education.bullets) : 15
+        project: counts.project.bullets > 0 ? Math.round(counts.project.total / counts.project.bullets) : 15
     };
 }
 
@@ -364,18 +356,16 @@ class BulletCache {
         this.cache = new Map();
         this.sectionPools = {
             job: new Set(),
-            project: new Set(),
-            education: new Set()
+            project: new Set()
         };
         this.targetBulletCounts = {
             job: 7,
-            project: 6,
-            education: 5
+            project: 6
         };
     }
 
     async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
-        const sections = ['job', 'project', 'education'];
+        const sections = ['job', 'project'];
         const cacheKey = `${keywords.join(',')}_${context}`;
 
         if (this.cache.has(cacheKey)) {
@@ -816,8 +806,11 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         { selector: selectors.educationSectionSelector, bulletSelector: selectors.educationBulletSelector, type: 'education', context: 'for education', bullets: originalBullets.education }
     ];
 
-    // Update each section, passing specific selectors
-    for (const section of sections) {
+    // Filter out the 'education' section before processing bullet points
+    const sectionsToProcessBullets = sections.filter(section => section.type !== 'education');
+
+    // Update each section (excluding education for bullets), passing specific selectors
+    for (const section of sectionsToProcessBullets) { // Use filtered array
         await updateResumeSection(
             $, section.selector, section.bulletSelector, // Pass specific selectors
             keywordString, section.context,
@@ -836,7 +829,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         if (!exceedsOnePage) break;
 
         currentBulletCount--;
-        for (const section of sections) {
+        for (const section of sectionsToProcessBullets) { // Use filtered array
             const adjustedCount = Math.max(
                 MIN_BULLETS,
                 Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8)) // Simple ratio
