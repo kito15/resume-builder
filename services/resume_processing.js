@@ -414,6 +414,23 @@ async function updateResumeSection($, sectionSelector, bulletSelector, keywords,
 
     for (let i = 0; i < sections.length; i++) {
         const section = sections.eq(i);
+        
+        // Skip this section if it's marked as an education section
+        if (section.attr('data-education-section') === 'true') {
+            console.log(`Skipping bullet point processing for education section: ${section.text().substring(0, 30)}...`);
+            continue;
+        }
+        
+        // Double-check: Skip if this section contains education-related text
+        const sectionText = section.text().toLowerCase();
+        if (sectionText.includes('education') && 
+            (sectionText.includes('university') || sectionText.includes('college') || 
+             sectionText.includes('degree') || sectionText.includes('bachelor') || 
+             sectionText.includes('master') || sectionText.includes('ph.d'))) {
+            console.log(`Skipping detected education section based on content: ${section.text().substring(0, 30)}...`);
+            continue;
+        }
+        
         // Find the bullet list within the current section; assume 'ul' for now, might need refinement if structure varies wildly
         let bulletList = section.find('ul'); // Consider making 'ul' dynamic if needed
 
@@ -429,7 +446,6 @@ async function updateResumeSection($, sectionSelector, bulletSelector, keywords,
 
         // Determine the specific bullet element selector (e.g., 'li') from the combined bulletSelector
         const bulletElementSelector = bulletSelector.replace(sectionSelector, '').trim().split(' ').pop() || 'li';
-
 
         let bulletPoints = bulletCache.getBulletsForSection(sectionType, targetBulletCount);
 
@@ -755,23 +771,63 @@ function updateSkillsSection($, keywords, selectors) {
 
 // Update the updateResume function to include skill section modification
 async function updateResume(htmlContent, keywords, fullTailoring) {
+    // First, let's identify and protect the education section before any other processing
+    const $ = cheerio.load(htmlContent);
+    
+    // Identify education section directly via text content
+    const educationIdentifiers = ['Education', 'EDUCATION', 'Academic Background'];
+    let educationSections = [];
+    
+    // Identify education section headers/titles
+    educationIdentifiers.forEach(identifier => {
+        $(`*:contains("${identifier}")`).each((_, el) => {
+            const $el = $(el);
+            const text = $el.text().trim();
+            
+            // Check if this is likely an education header (exact match or short text containing the identifier)
+            if (text === identifier || (text.length < 30 && text.includes(identifier))) {
+                // Find the containing section
+                const sectionElement = $el.closest('div.section, section, div');
+                if (sectionElement.length && !educationSections.includes(sectionElement[0])) {
+                    educationSections.push(sectionElement[0]);
+                    console.log(`Identified education section with text: "${text}"`);
+                }
+            }
+        });
+    });
+    
+    // Also look for sections with academic institution names as a fallback
+    if (educationSections.length === 0) {
+        const academicKeywords = ['University', 'College', 'Institute', 'School', 'Bachelor', 'Master', 'Ph.D.'];
+        academicKeywords.forEach(keyword => {
+            $(`*:contains("${keyword}")`).each((_, el) => {
+                const $el = $(el);
+                const closestSection = $el.closest('div.section, section, div');
+                if (closestSection.length && !educationSections.includes(closestSection[0])) {
+                    // Check if this section doesn't look like a job section
+                    const sectionText = closestSection.text().toLowerCase();
+                    if (!sectionText.includes('experience') && !sectionText.includes('employment')) {
+                        educationSections.push(closestSection[0]);
+                        console.log(`Identified potential education section with academic keyword: "${keyword}"`);
+                    }
+                }
+            });
+        });
+    }
+    
+    // Mark education sections with a data attribute for later reference
+    educationSections.forEach((section, index) => {
+        $(section).attr('data-education-section', `true`);
+        console.log(`Marked education section ${index + 1} with data attribute`);
+    });
+    
+    // Now proceed with the normal flow, but with education sections already marked
+    
     // 1. Get Dynamic Selectors
-    const selectors = await getDynamicSelectors(htmlContent);
+    const selectors = await getDynamicSelectors($.html());
     if (!selectors || Object.keys(selectors).length === 0) {
         console.error("Failed to get dynamic selectors. Aborting resume update.");
-        // Optionally return original content or throw error
-        // For now, let's log and potentially proceed with defaults if available, or just return original
-        // Fallback to hardcoded defaults (consider removing if strict dynamic is required)
-        /*
-        selectors = {
-            jobSectionSelector: ".job-details", jobBulletSelector: ".job-details li",
-            projectSectionSelector: ".project-details", projectBulletSelector: ".project-details li",
-            educationSectionSelector: ".education-details", educationBulletSelector: ".education-details li",
-            skillsSectionSelector: ".section-content:first" // Be cautious with :first
-        };
-        console.warn("Using default selectors due to failure in dynamic retrieval.");
-        */
-       return htmlContent; // Return original content if selectors fail
+        return htmlContent; // Return original content if selectors fail
     }
 
 
