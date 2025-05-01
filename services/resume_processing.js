@@ -409,25 +409,28 @@ class BulletCache {
 }
 
 async function updateResumeSection($, sectionSelector, bulletSelector, keywords, context, fullTailoring, wordLimit, bulletTracker, sectionType, originalBullets, targetBulletCount, verbTracker, bulletCache) {
+    // Skip processing if this is an education section - additional safety check
+    if (sectionType === 'education') {
+        console.log('Skipping bullet point processing for Education section');
+        return;
+    }
+
+    // Check if the section contains "Education" in its title - additional safety check
+    const containsEducationTitle = $(sectionSelector).find('.section-title:contains("Education")').length > 0;
+    if (containsEducationTitle) {
+        console.log(`Section with selector "${sectionSelector}" appears to be an Education section based on title. Skipping bullet point processing.`);
+        return;
+    }
+
     // Find sections using the dynamic selector
     const sections = $(sectionSelector);
 
     for (let i = 0; i < sections.length; i++) {
         const section = sections.eq(i);
         
-        // Skip this section if it's marked as an education section
-        if (section.attr('data-education-section') === 'true') {
-            console.log(`Skipping bullet point processing for education section: ${section.text().substring(0, 30)}...`);
-            continue;
-        }
-        
-        // Double-check: Skip if this section contains education-related text
-        const sectionText = section.text().toLowerCase();
-        if (sectionText.includes('education') && 
-            (sectionText.includes('university') || sectionText.includes('college') || 
-             sectionText.includes('degree') || sectionText.includes('bachelor') || 
-             sectionText.includes('master') || sectionText.includes('ph.d'))) {
-            console.log(`Skipping detected education section based on content: ${section.text().substring(0, 30)}...`);
+        // Additional check: Skip if this specific section contains "Education" in its title
+        if (section.find('.section-title:contains("Education")').length > 0) {
+            console.log('Skipping Education section found during iteration');
             continue;
         }
         
@@ -482,11 +485,30 @@ async function updateResumeSection($, sectionSelector, bulletSelector, keywords,
 
 // Update adjustSectionBullets to use BulletCache
 async function adjustSectionBullets($, sectionSelector, bulletSelector, targetCount, sectionType, bulletTracker, keywords, context, bulletCache) {
+    // Skip processing if this is an education section - additional safety check
+    if (sectionType === 'education') {
+        console.log('Skipping bullet adjustment for Education section');
+        return;
+    }
+
+    // Check if the section contains "Education" in its title - additional safety check
+    const containsEducationTitle = $(sectionSelector).find('.section-title:contains("Education")').length > 0;
+    if (containsEducationTitle) {
+        console.log(`Section with selector "${sectionSelector}" appears to be an Education section based on title. Skipping bullet adjustment.`);
+        return;
+    }
+
     const sections = $(sectionSelector);
     // Determine the specific bullet element selector (e.g., 'li')
     const bulletElementSelector = bulletSelector.replace(sectionSelector, '').trim().split(' ').pop() || 'li';
 
     sections.each((_, section) => {
+        // Additional check: Skip if this specific section contains "Education" in its title
+        if ($(section).find('.section-title:contains("Education")').length > 0) {
+            console.log('Skipping Education section found during bullet adjustment');
+            return;
+        }
+        
         // Assume 'ul' contains the bullets, might need refinement
         const bulletList = $(section).find('ul');
         if (bulletList.length === 0) {
@@ -771,189 +793,78 @@ function updateSkillsSection($, keywords, selectors) {
 
 // Update the updateResume function to include skill section modification
 async function updateResume(htmlContent, keywords, fullTailoring) {
-    // First, let's identify and protect the education section before any other processing
-    const $ = cheerio.load(htmlContent);
-    
-    // Identify education section directly via text content
-    const educationIdentifiers = ['Education', 'EDUCATION', 'Academic Background'];
-    let educationSections = [];
-    
-    // Identify education section headers/titles
-    educationIdentifiers.forEach(identifier => {
-        $(`*:contains("${identifier}")`).each((_, el) => {
-            const $el = $(el);
-            const text = $el.text().trim();
-            
-            // Check if this is likely an education header (exact match or short text containing the identifier)
-            if (text === identifier || (text.length < 30 && text.includes(identifier))) {
-                // Find the containing section
-                const sectionElement = $el.closest('div.section, section, div');
-                if (sectionElement.length && !educationSections.includes(sectionElement[0])) {
-                    educationSections.push(sectionElement[0]);
-                    console.log(`Identified education section with text: "${text}"`);
-                }
-            }
-        });
-    });
-    
-    // Also look for sections with academic institution names as a fallback
-    if (educationSections.length === 0) {
-        const academicKeywords = ['University', 'College', 'Institute', 'School', 'Bachelor', 'Master', 'Ph.D.'];
-        academicKeywords.forEach(keyword => {
-            $(`*:contains("${keyword}")`).each((_, el) => {
-                const $el = $(el);
-                const closestSection = $el.closest('div.section, section, div');
-                if (closestSection.length && !educationSections.includes(closestSection[0])) {
-                    // Check if this section doesn't look like a job section
-                    const sectionText = closestSection.text().toLowerCase();
-                    if (!sectionText.includes('experience') && !sectionText.includes('employment')) {
-                        educationSections.push(closestSection[0]);
-                        console.log(`Identified potential education section with academic keyword: "${keyword}"`);
-                    }
-                }
-            });
-        });
-    }
-    
-    // Mark education sections with a data attribute for later reference
-    educationSections.forEach((section, index) => {
-        $(section).attr('data-education-section', `true`);
-        console.log(`Marked education section ${index + 1} with data attribute`);
-    });
-    
-    // Now proceed with the normal flow, but with education sections already marked
-    
     // 1. Get Dynamic Selectors
-    const selectors = await getDynamicSelectors($.html());
+    const selectors = await getDynamicSelectors(htmlContent);
     if (!selectors || Object.keys(selectors).length === 0) {
         console.error("Failed to get dynamic selectors. Aborting resume update.");
-        return htmlContent; // Return original content if selectors fail
+        // Optionally return original content or throw error
+        // For now, let's log and potentially proceed with defaults if available, or just return original
+        // Fallback to hardcoded defaults (consider removing if strict dynamic is required)
+        /*
+        selectors = {
+            jobSectionSelector: ".job-details", jobBulletSelector: ".job-details li",
+            projectSectionSelector: ".project-details", projectBulletSelector: ".project-details li",
+            educationSectionSelector: ".education-details", educationBulletSelector: ".education-details li",
+            skillsSectionSelector: ".section-content:first" // Be cautious with :first
+        };
+        console.warn("Using default selectors due to failure in dynamic retrieval.");
+        */
+       return htmlContent; // Return original content if selectors fail
     }
 
 
     const $ = cheerio.load(htmlContent);
 
-    // --- Enhanced Verification Step for Education Selector ---
+    // --- Verification Step for Education Selector ---
     try {
-        // Expanded title selector to catch more variations
-        const educationTitleSelectors = [
-            'div.section-title', '.section-header', 'h2', 'h3', 'h4', 
-            '.entry-header', 'div.title', 'strong', 'b', 'div'
-        ];
-        const expectedTitleTexts = ['Education', 'EDUCATION', 'Academic Background'];
+        const educationTitleSelector = 'div.section-title'; // Adjust if title element is different
+        const expectedTitleText = 'Education';
         let educationSectionIsValid = false;
 
         if (selectors.educationSectionSelector && $(selectors.educationSectionSelector).length > 0) {
             $(selectors.educationSectionSelector).each((_, el) => {
-                // Try multiple title selectors and text variations
-                for (const titleSelector of educationTitleSelectors) {
-                    for (const expectedText of expectedTitleTexts) {
-                        // Check if this element directly contains the title or has a descendant title
-                        const titleElement = $(el).find(titleSelector);
-                        if (titleElement.length > 0 && titleElement.text().trim() === expectedText) {
-                            educationSectionIsValid = true;
-                            return false; // Stop iteration once found
-                        }
-                        // Also check if the element contains a title with the expected text
-                        if ($(el).find(`${titleSelector}:contains("${expectedText}")`).length > 0) {
-                            educationSectionIsValid = true;
-                            return false; // Stop iteration
-                        }
-                        // Also check if the element itself contains the text directly
-                        if ($(el).text().includes(expectedText)) {
-                            educationSectionIsValid = true;
-                            return false; // Stop iteration
-                        }
-                    }
+                // Check if this element directly contains the title or has a descendant title
+                const titleElement = $(el).find(educationTitleSelector);
+                if (titleElement.length > 0 && titleElement.text().trim() === expectedTitleText) {
+                    educationSectionIsValid = true;
+                    return false; // Stop iteration once found
+                }
+                // Also check if the element *is* the title's parent section if selector is less specific
+                if ($(el).find(`${educationTitleSelector}:contains("${expectedTitleText}")`).length > 0) {
+                     educationSectionIsValid = true;
+                     return false; // Stop iteration
                 }
             });
         }
 
-        // Expanded fallback approach if provided selector doesn't match
         if (!educationSectionIsValid) {
-            console.warn(`LLM-provided education selector "${selectors.educationSectionSelector}" failed verification or was missing. Applying advanced fallback selectors.`);
-            
-            // Try multiple approaches to find the education section
-            let educationSection = null;
-            
-            // Approach 1: Look for section with education title
-            for (const titleSelector of educationTitleSelectors) {
-                for (const expectedText of expectedTitleTexts) {
-                    const potentialSection = $(`div.section:has(${titleSelector}:contains("${expectedText}"))`);
-                    if (potentialSection.length > 0) {
-                        educationSection = potentialSection;
-                        break;
-                    }
-                }
-                if (educationSection) break;
-            }
-            
-            // Approach 2: Look for any element containing common education indicators if still not found
-            if (!educationSection) {
-                const educationKeywords = ['Bachelor', 'Master', 'Ph.D.', 'University', 'College', 'School', 'Degree'];
-                
-                // Find sections containing school keywords and degree types
-                for (const keyword of educationKeywords) {
-                    const potentialSection = $(`.section:contains("${keyword}")`);
-                    if (potentialSection.length > 0) {
-                        educationSection = potentialSection;
-                        break;
-                    }
-                }
-                
-                // If still not found, try any div containing these keywords
-                if (!educationSection) {
-                    for (const keyword of educationKeywords) {
-                        const potentialSection = $(`div:contains("${keyword}")`).closest('.section');
-                        if (potentialSection.length > 0) {
-                            educationSection = potentialSection;
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            if (educationSection) {
-                // Use the first matching element for the selector
-                const className = educationSection.attr('class');
-                const idName = educationSection.attr('id');
-                
-                // Build a selector based on available attributes
-                if (className) {
-                    const classNames = className.split(/\s+/).filter(c => c.trim());
-                    selectors.educationSectionSelector = `.${classNames[0]}`;
-                } else if (idName) {
-                    selectors.educationSectionSelector = `#${idName}`;
-                } else {
-                    // Fallback to tag name and position if no attributes
-                    const tagName = educationSection.prop('tagName').toLowerCase();
-                    selectors.educationSectionSelector = `${tagName}.section`; 
-                }
-                
-                // Update the bullet selector based on the new section selector
-                const educationBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li'; 
-                selectors.educationBulletSelector = `${selectors.educationSectionSelector} ${educationBulletTag}`;
-                
-                console.log(`Using advanced fallback education selectors: Section="${selectors.educationSectionSelector}", Bullet="${selectors.educationBulletSelector}"`);
-            } else {
-                // Last resort: generic fallback
-                selectors.educationSectionSelector = `div.section`;
-                selectors.educationBulletSelector = `div.section li`;
-                console.warn(`Could not identify education section with confidence. Using generic selectors.`);
-            }
+            console.warn(`LLM-provided education selector "${selectors.educationSectionSelector}" failed verification or was missing. Applying fallback selector.`);
+            // Fallback based on common structure observed or suggested
+            selectors.educationSectionSelector = `div.section:has(${educationTitleSelector}:contains("${expectedTitleText}"))`;
+             // Also update the bullet selector to be relative to the new section selector
+             const educationBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li'; // Get the tag (e.g., 'li')
+             selectors.educationBulletSelector = `${selectors.educationSectionSelector} ${educationBulletTag}`;
+             console.log(`Using fallback education selectors: Section="${selectors.educationSectionSelector}", Bullet="${selectors.educationBulletSelector}"`);
         } else {
-            console.log(`Education selector "${selectors.educationSectionSelector}" verified successfully.`);
+             console.log(`Education selector "${selectors.educationSectionSelector}" verified successfully.`);
+             
+             // Even if the selector is valid, ensure no bullet points are in the Education section
+             const educationSection = $(selectors.educationSectionSelector);
+             if (educationSection.find('ul').length > 0) {
+                 console.log('Found bullet list in Education section during verification - removing it');
+                 educationSection.find('ul').remove();
+             }
         }
     } catch (verificationError) {
-        console.error("Error during education selector verification:", verificationError);
-        // Apply fallback even on error
-        const fallbackSelector = `div.section:has(div:contains("Education"))`;
-        const fallbackBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li';
-        selectors.educationSectionSelector = fallbackSelector;
-        selectors.educationBulletSelector = `${fallbackSelector} ${fallbackBulletTag}`;
-        console.warn(`Applied emergency fallback education selectors due to verification error.`);
+         console.error("Error during education selector verification:", verificationError);
+         // Optionally apply fallback even on error, or proceed cautiously
+         const fallbackSelector = `div.section:has(div.section-title:contains("Education"))`;
+         const fallbackBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li';
+         selectors.educationSectionSelector = fallbackSelector;
+         selectors.educationBulletSelector = `${fallbackSelector} ${fallbackBulletTag}`;
+         console.warn(`Applied fallback education selectors due to verification error.`);
     }
-    // --- End Enhanced Verification Step ---
+    // --- End Verification Step ---
 
 
     // Pass selectors to functions that need them
@@ -985,22 +896,16 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         { selector: selectors.projectSectionSelector, bulletSelector: selectors.projectBulletSelector, type: 'project', context: 'for a project', bullets: originalBullets.project },
         { selector: selectors.educationSectionSelector, bulletSelector: selectors.educationBulletSelector, type: 'education', context: 'for education', bullets: originalBullets.education }
     ];
-
+    
+    // Log the sections for debugging
+    console.log('Sections before filtering:', sections.map(s => s.type));
+    
     // Filter out the 'education' section before processing bullet points
     const sectionsToProcessBullets = sections.filter(section => section.type !== 'education');
     
-    console.log("Education section excluded from bullet point processing");
-
-    // Explicitly remove any bullet points from the education section
-    if (selectors.educationSectionSelector) {
-        const educationSections = $(selectors.educationSectionSelector);
-        educationSections.each((_, section) => {
-            // Find and remove any bullet lists (ul) in education sections
-            $(section).find('ul').remove();
-        });
-        console.log("Removed any existing bullet points from education section");
-    }
-
+    // Log the filtered sections for debugging
+    console.log('Sections after filtering (should not include education):', sectionsToProcessBullets.map(s => s.type));
+    
     // Update each section (excluding education for bullets), passing specific selectors
     for (const section of sectionsToProcessBullets) { // Use filtered array
         await updateResumeSection(
@@ -1021,7 +926,13 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         if (!exceedsOnePage) break;
 
         currentBulletCount--;
-        for (const section of sectionsToProcessBullets) { // Use filtered array
+        for (const section of sectionsToProcessBullets) { // Use filtered array - this should already exclude education
+            // Double-check that we're not processing an education section
+            if (section.type === 'education') {
+                console.log('Skipping Education section during bullet count adjustment');
+                continue;
+            }
+            
             const adjustedCount = Math.max(
                 MIN_BULLETS,
                 Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8)) // Simple ratio
@@ -1040,40 +951,13 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
      const finalProjectBullets = $(selectors.projectBulletSelector).length;
      const finalEducationBullets = $(selectors.educationBulletSelector).length;
      console.log(`Final bullet counts: Jobs=${finalJobBullets}, Projects=${finalProjectBullets}, Education=${finalEducationBullets}`);
+     
+     // Final safety check: Remove any bullets that might have been added to Education section
+     if (finalEducationBullets > 0) {
+         console.log('Performing final cleanup: Removing any bullets from Education section');
+         $(selectors.educationSectionSelector).find('ul').remove();
+     }
 
-    // Final verification to ensure NO bullet points remain in education section
-    // This is a failsafe that searches for any education sections by various means
-    const educationIdentifiers = ['Education', 'EDUCATION', 'Academic Background', 'University', 'College', 'Degree', 'Bachelor', 'Master', 'Ph.D.'];
-    
-    // First pass: Check using our selectors
-    if (finalEducationBullets > 0) {
-        console.warn("Education bullets detected! Removing them now.");
-        $(selectors.educationBulletSelector).remove();
-    }
-    
-    // Second pass: More aggressive approach looking for any education-related sections
-    educationIdentifiers.forEach(identifier => {
-        // Find sections that might be education sections
-        $(`div:contains("${identifier}")`).each((_, el) => {
-            const $el = $(el);
-            const elementText = $el.text().trim();
-            
-            // Check if this element appears to be an education section header/title
-            if (elementText === identifier || 
-                (elementText.length < 20 && elementText.includes(identifier))) {
-                
-                // Find the closest section container
-                const sectionContainer = $el.closest('div.section, section, div');
-                
-                // Remove any bullet lists within this section
-                sectionContainer.find('ul').remove();
-                console.log(`Removed bullets from potential education section with identifier: "${identifier}"`);
-            }
-        });
-    });
-    
-    // Final verification
-    console.log("Final verification completed. Education sections should be free of bullet points.");
 
     return $.html();
 }
@@ -1093,9 +977,14 @@ async function getDynamicSelectors(htmlContent) {
 - "jobBulletSelector": The list items (e.g., 'li' or similar) functioning as bullet points *within* the job experience containers. Use a descendant selector (e.g., 'jobSectionSelector li').
 - "projectSectionSelector": The container(s) for distinct project entries.
 - "projectBulletSelector": The list items (e.g., 'li') *within* the project containers. Use a descendant selector.
-- "educationSectionSelector": The container(s) for distinct education entries.
-- "educationBulletSelector": The list items (e.g., 'li') *within* the education containers. Use a descendant selector.
+- "educationSectionSelector": The container(s) for distinct education entries. IMPORTANT: Be very precise with this selector to correctly identify the Education section.
+- "educationBulletSelector": The list items (e.g., 'li') *within* the education containers. Use a descendant selector. Note that Education sections typically should NOT have bullet points.
 - "skillsSectionSelector": The main container/element holding the technical skills or keywords list.
+
+IMPORTANT NOTES:
+1. The Education section must be precisely identified to prevent bullet points from being incorrectly added to it.
+2. Be as specific as possible with the Education section selector to ensure it only matches the Education section.
+3. Education sections typically contain degree information and dates, not bullet points with achievements.
 
 Example Output Format (Selectors will vary based on HTML):
 {
@@ -1159,6 +1048,15 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
 
             if (typeof selectors === 'object' && selectors !== null && hasAllKeys) {
                 console.log('Successfully received and parsed dynamic selectors:', selectors);
+                
+                // Enhance education section selector to be more specific if needed
+                if (!selectors.educationSectionSelector.includes(':contains("Education")')) {
+                    // Make the selector more specific by adding a check for "Education" text
+                    const originalSelector = selectors.educationSectionSelector;
+                    selectors.educationSectionSelector = `${originalSelector}:has(.section-title:contains("Education"))`;
+                    console.log(`Enhanced education selector from "${originalSelector}" to "${selectors.educationSectionSelector}"`);
+                }
+                
                 lmCache.set(cacheKey, selectors); // Cache the valid result
                 return selectors;
             } else {
