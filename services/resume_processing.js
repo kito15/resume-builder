@@ -73,14 +73,14 @@ function extractOriginalBullets($, selectors) {
         });
     });
 
-    $(selectors.educationSectionSelector).each((_, section) => {
-        $(section).find(selectors.educationBulletSelector.replace(selectors.educationSectionSelector, '').trim()).each((_, bullet) => {
-            const bulletText = $(bullet).text().trim();
-            if (bulletText && !originalBullets.education.includes(bulletText)) {
-                originalBullets.education.push(bulletText);
-            }
-        });
-    });
+    // $(selectors.educationSectionSelector).each((_, section) => {
+    //     $(section).find(selectors.educationBulletSelector.replace(selectors.educationSectionSelector, '').trim()).each((_, bullet) => {
+    //         const bulletText = $(bullet).text().trim();
+    //         if (bulletText && !originalBullets.education.includes(bulletText)) {
+    //             originalBullets.education.push(bulletText);
+    //         }
+    //     });
+    // });
 
     // Attempt to find any remaining list items not captured above
     $('li').each((_, bullet) => {
