@@ -73,14 +73,14 @@ function extractOriginalBullets($, selectors) {
         });
     });
 
-    // $(selectors.educationSectionSelector).each((_, section) => {
-    //     $(section).find(selectors.educationBulletSelector.replace(selectors.educationSectionSelector, '').trim()).each((_, bullet) => {
-    //         const bulletText = $(bullet).text().trim();
-    //         if (bulletText && !originalBullets.education.includes(bulletText)) {
-    //             originalBullets.education.push(bulletText);
-    //         }
-    //     });
-    // });
+    $(selectors.educationSectionSelector).each((_, section) => {
+        $(section).find(selectors.educationBulletSelector.replace(selectors.educationSectionSelector, '').trim()).each((_, bullet) => {
+            const bulletText = $(bullet).text().trim();
+            if (bulletText && !originalBullets.education.includes(bulletText)) {
+                originalBullets.education.push(bulletText);
+            }
+        });
+    });
 
     // Attempt to find any remaining list items not captured above
     $('li').each((_, bullet) => {
@@ -777,49 +777,127 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
 
     const $ = cheerio.load(htmlContent);
 
-    // --- Verification Step for Education Selector ---
+    // --- Enhanced Verification Step for Education Selector ---
     try {
-        const educationTitleSelector = 'div.section-title'; // Adjust if title element is different
-        const expectedTitleText = 'Education';
+        // Expanded title selector to catch more variations
+        const educationTitleSelectors = [
+            'div.section-title', '.section-header', 'h2', 'h3', 'h4', 
+            '.entry-header', 'div.title', 'strong', 'b', 'div'
+        ];
+        const expectedTitleTexts = ['Education', 'EDUCATION', 'Academic Background'];
         let educationSectionIsValid = false;
 
         if (selectors.educationSectionSelector && $(selectors.educationSectionSelector).length > 0) {
             $(selectors.educationSectionSelector).each((_, el) => {
-                // Check if this element directly contains the title or has a descendant title
-                const titleElement = $(el).find(educationTitleSelector);
-                if (titleElement.length > 0 && titleElement.text().trim() === expectedTitleText) {
-                    educationSectionIsValid = true;
-                    return false; // Stop iteration once found
-                }
-                // Also check if the element *is* the title's parent section if selector is less specific
-                if ($(el).find(`${educationTitleSelector}:contains("${expectedTitleText}")`).length > 0) {
-                     educationSectionIsValid = true;
-                     return false; // Stop iteration
+                // Try multiple title selectors and text variations
+                for (const titleSelector of educationTitleSelectors) {
+                    for (const expectedText of expectedTitleTexts) {
+                        // Check if this element directly contains the title or has a descendant title
+                        const titleElement = $(el).find(titleSelector);
+                        if (titleElement.length > 0 && titleElement.text().trim() === expectedText) {
+                            educationSectionIsValid = true;
+                            return false; // Stop iteration once found
+                        }
+                        // Also check if the element contains a title with the expected text
+                        if ($(el).find(`${titleSelector}:contains("${expectedText}")`).length > 0) {
+                            educationSectionIsValid = true;
+                            return false; // Stop iteration
+                        }
+                        // Also check if the element itself contains the text directly
+                        if ($(el).text().includes(expectedText)) {
+                            educationSectionIsValid = true;
+                            return false; // Stop iteration
+                        }
+                    }
                 }
             });
         }
 
+        // Expanded fallback approach if provided selector doesn't match
         if (!educationSectionIsValid) {
-            console.warn(`LLM-provided education selector "${selectors.educationSectionSelector}" failed verification or was missing. Applying fallback selector.`);
-            // Fallback based on common structure observed or suggested
-            selectors.educationSectionSelector = `div.section:has(${educationTitleSelector}:contains("${expectedTitleText}"))`;
-             // Also update the bullet selector to be relative to the new section selector
-             const educationBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li'; // Get the tag (e.g., 'li')
-             selectors.educationBulletSelector = `${selectors.educationSectionSelector} ${educationBulletTag}`;
-             console.log(`Using fallback education selectors: Section="${selectors.educationSectionSelector}", Bullet="${selectors.educationBulletSelector}"`);
+            console.warn(`LLM-provided education selector "${selectors.educationSectionSelector}" failed verification or was missing. Applying advanced fallback selectors.`);
+            
+            // Try multiple approaches to find the education section
+            let educationSection = null;
+            
+            // Approach 1: Look for section with education title
+            for (const titleSelector of educationTitleSelectors) {
+                for (const expectedText of expectedTitleTexts) {
+                    const potentialSection = $(`div.section:has(${titleSelector}:contains("${expectedText}"))`);
+                    if (potentialSection.length > 0) {
+                        educationSection = potentialSection;
+                        break;
+                    }
+                }
+                if (educationSection) break;
+            }
+            
+            // Approach 2: Look for any element containing common education indicators if still not found
+            if (!educationSection) {
+                const educationKeywords = ['Bachelor', 'Master', 'Ph.D.', 'University', 'College', 'School', 'Degree'];
+                
+                // Find sections containing school keywords and degree types
+                for (const keyword of educationKeywords) {
+                    const potentialSection = $(`.section:contains("${keyword}")`);
+                    if (potentialSection.length > 0) {
+                        educationSection = potentialSection;
+                        break;
+                    }
+                }
+                
+                // If still not found, try any div containing these keywords
+                if (!educationSection) {
+                    for (const keyword of educationKeywords) {
+                        const potentialSection = $(`div:contains("${keyword}")`).closest('.section');
+                        if (potentialSection.length > 0) {
+                            educationSection = potentialSection;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (educationSection) {
+                // Use the first matching element for the selector
+                const className = educationSection.attr('class');
+                const idName = educationSection.attr('id');
+                
+                // Build a selector based on available attributes
+                if (className) {
+                    const classNames = className.split(/\s+/).filter(c => c.trim());
+                    selectors.educationSectionSelector = `.${classNames[0]}`;
+                } else if (idName) {
+                    selectors.educationSectionSelector = `#${idName}`;
+                } else {
+                    // Fallback to tag name and position if no attributes
+                    const tagName = educationSection.prop('tagName').toLowerCase();
+                    selectors.educationSectionSelector = `${tagName}.section`; 
+                }
+                
+                // Update the bullet selector based on the new section selector
+                const educationBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li'; 
+                selectors.educationBulletSelector = `${selectors.educationSectionSelector} ${educationBulletTag}`;
+                
+                console.log(`Using advanced fallback education selectors: Section="${selectors.educationSectionSelector}", Bullet="${selectors.educationBulletSelector}"`);
+            } else {
+                // Last resort: generic fallback
+                selectors.educationSectionSelector = `div.section`;
+                selectors.educationBulletSelector = `div.section li`;
+                console.warn(`Could not identify education section with confidence. Using generic selectors.`);
+            }
         } else {
-             console.log(`Education selector "${selectors.educationSectionSelector}" verified successfully.`);
+            console.log(`Education selector "${selectors.educationSectionSelector}" verified successfully.`);
         }
     } catch (verificationError) {
-         console.error("Error during education selector verification:", verificationError);
-         // Optionally apply fallback even on error, or proceed cautiously
-         const fallbackSelector = `div.section:has(div.section-title:contains("Education"))`;
-         const fallbackBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li';
-         selectors.educationSectionSelector = fallbackSelector;
-         selectors.educationBulletSelector = `${fallbackSelector} ${fallbackBulletTag}`;
-         console.warn(`Applied fallback education selectors due to verification error.`);
+        console.error("Error during education selector verification:", verificationError);
+        // Apply fallback even on error
+        const fallbackSelector = `div.section:has(div:contains("Education"))`;
+        const fallbackBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li';
+        selectors.educationSectionSelector = fallbackSelector;
+        selectors.educationBulletSelector = `${fallbackSelector} ${fallbackBulletTag}`;
+        console.warn(`Applied emergency fallback education selectors due to verification error.`);
     }
-    // --- End Verification Step ---
+    // --- End Enhanced Verification Step ---
 
 
     // Pass selectors to functions that need them
@@ -854,6 +932,18 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
 
     // Filter out the 'education' section before processing bullet points
     const sectionsToProcessBullets = sections.filter(section => section.type !== 'education');
+    
+    console.log("Education section excluded from bullet point processing");
+
+    // Explicitly remove any bullet points from the education section
+    if (selectors.educationSectionSelector) {
+        const educationSections = $(selectors.educationSectionSelector);
+        educationSections.each((_, section) => {
+            // Find and remove any bullet lists (ul) in education sections
+            $(section).find('ul').remove();
+        });
+        console.log("Removed any existing bullet points from education section");
+    }
 
     // Update each section (excluding education for bullets), passing specific selectors
     for (const section of sectionsToProcessBullets) { // Use filtered array
@@ -895,6 +985,39 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
      const finalEducationBullets = $(selectors.educationBulletSelector).length;
      console.log(`Final bullet counts: Jobs=${finalJobBullets}, Projects=${finalProjectBullets}, Education=${finalEducationBullets}`);
 
+    // Final verification to ensure NO bullet points remain in education section
+    // This is a failsafe that searches for any education sections by various means
+    const educationIdentifiers = ['Education', 'EDUCATION', 'Academic Background', 'University', 'College', 'Degree', 'Bachelor', 'Master', 'Ph.D.'];
+    
+    // First pass: Check using our selectors
+    if (finalEducationBullets > 0) {
+        console.warn("Education bullets detected! Removing them now.");
+        $(selectors.educationBulletSelector).remove();
+    }
+    
+    // Second pass: More aggressive approach looking for any education-related sections
+    educationIdentifiers.forEach(identifier => {
+        // Find sections that might be education sections
+        $(`div:contains("${identifier}")`).each((_, el) => {
+            const $el = $(el);
+            const elementText = $el.text().trim();
+            
+            // Check if this element appears to be an education section header/title
+            if (elementText === identifier || 
+                (elementText.length < 20 && elementText.includes(identifier))) {
+                
+                // Find the closest section container
+                const sectionContainer = $el.closest('div.section, section, div');
+                
+                // Remove any bullet lists within this section
+                sectionContainer.find('ul').remove();
+                console.log(`Removed bullets from potential education section with identifier: "${identifier}"`);
+            }
+        });
+    });
+    
+    // Final verification
+    console.log("Final verification completed. Education sections should be free of bullet points.");
 
     return $.html();
 }
