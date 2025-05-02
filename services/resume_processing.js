@@ -819,6 +819,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
          selectors.educationBulletSelector = `${fallbackSelector} ${fallbackBulletTag}`;
          console.warn(`Applied fallback education selectors due to verification error.`);
     }
+console.log(`DEBUG: Verified/Fallback Education Selectors - Section: ${selectors.educationSectionSelector}, Bullet: ${selectors.educationBulletSelector}`);
     // --- End Verification Step ---
 
 
@@ -830,6 +831,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
 
     // Extract original bullets using dynamic selectors (now potentially corrected)
     const originalBullets = extractOriginalBullets($, selectors);
+console.log('DEBUG: Original Bullets Extracted (Education):', JSON.stringify(originalBullets.education));
 
     // Update the skills section using dynamic selectors
     await updateSkillsSection($, keywords, selectors); // Pass selectors here
@@ -889,6 +891,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         }
         attempts++;
     }
+console.log('DEBUG: Before Cleanup - Original Bullets (Education):', JSON.stringify(originalBullets.education));
 
     // --- Final Cleanup: Ensure Education section only has original bullets ---
     const verifiedEducationSelector = selectors.educationSectionSelector;
