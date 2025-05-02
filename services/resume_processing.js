@@ -50,6 +50,7 @@ function extractOriginalBullets($, selectors) {
     const originalBullets = {
         job: [],
         project: [],
+        education: [],
         unassigned: [] // For any bullets not in a specific section
     };
 
@@ -72,15 +73,26 @@ function extractOriginalBullets($, selectors) {
         });
     });
 
+    $(selectors.educationSectionSelector).each((_, section) => {
+        $(section).find(selectors.educationBulletSelector.replace(selectors.educationSectionSelector, '').trim()).each((_, bullet) => {
+            const bulletText = $(bullet).text().trim();
+            if (bulletText && !originalBullets.education.includes(bulletText)) {
+                originalBullets.education.push(bulletText);
+            }
+        });
+    });
+
     // Attempt to find any remaining list items not captured above
     $('li').each((_, bullet) => {
         const bulletText = $(bullet).text().trim();
         const isAssigned = originalBullets.job.includes(bulletText) ||
-                           originalBullets.project.includes(bulletText);
+                           originalBullets.project.includes(bulletText) ||
+                           originalBullets.education.includes(bulletText);
         if (bulletText && !isAssigned && !originalBullets.unassigned.includes(bulletText)) {
              // Check if it's likely part of a known section based on parent selector match
              if (!$(bullet).closest(selectors.jobSectionSelector).length &&
-                 !$(bullet).closest(selectors.projectSectionSelector).length) {
+                 !$(bullet).closest(selectors.projectSectionSelector).length &&
+                 !$(bullet).closest(selectors.educationSectionSelector).length) {
                 originalBullets.unassigned.push(bulletText);
              }
         }
@@ -765,6 +777,51 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
 
     const $ = cheerio.load(htmlContent);
 
+    // --- Verification Step for Education Selector ---
+    try {
+        const educationTitleSelector = 'div.section-title'; // Adjust if title element is different
+        const expectedTitleText = 'Education';
+        let educationSectionIsValid = false;
+
+        if (selectors.educationSectionSelector && $(selectors.educationSectionSelector).length > 0) {
+            $(selectors.educationSectionSelector).each((_, el) => {
+                // Check if this element directly contains the title or has a descendant title
+                const titleElement = $(el).find(educationTitleSelector);
+                if (titleElement.length > 0 && titleElement.text().trim() === expectedTitleText) {
+                    educationSectionIsValid = true;
+                    return false; // Stop iteration once found
+                }
+                // Also check if the element *is* the title's parent section if selector is less specific
+                if ($(el).find(`${educationTitleSelector}:contains("${expectedTitleText}")`).length > 0) {
+                     educationSectionIsValid = true;
+                     return false; // Stop iteration
+                }
+            });
+        }
+
+        if (!educationSectionIsValid) {
+            console.warn(`LLM-provided education selector "${selectors.educationSectionSelector}" failed verification or was missing. Applying fallback selector.`);
+            // Fallback based on common structure observed or suggested
+            selectors.educationSectionSelector = `div.section:has(${educationTitleSelector}:contains("${expectedTitleText}"))`;
+             // Also update the bullet selector to be relative to the new section selector
+             const educationBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li'; // Get the tag (e.g., 'li')
+             selectors.educationBulletSelector = `${selectors.educationSectionSelector} ${educationBulletTag}`;
+             console.log(`Using fallback education selectors: Section="${selectors.educationSectionSelector}", Bullet="${selectors.educationBulletSelector}"`);
+        } else {
+             console.log(`Education selector "${selectors.educationSectionSelector}" verified successfully.`);
+        }
+    } catch (verificationError) {
+         console.error("Error during education selector verification:", verificationError);
+         // Optionally apply fallback even on error, or proceed cautiously
+         const fallbackSelector = `div.section:has(div.section-title:contains("Education"))`;
+         const fallbackBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li';
+         selectors.educationSectionSelector = fallbackSelector;
+         selectors.educationBulletSelector = `${fallbackSelector} ${fallbackBulletTag}`;
+         console.warn(`Applied fallback education selectors due to verification error.`);
+    }
+    // --- End Verification Step ---
+
+
     // Pass selectors to functions that need them
     const sectionWordCounts = getSectionWordCounts($, selectors);
     const bulletTracker = new SectionBulletTracker();
@@ -791,7 +848,8 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     // 7. Update sections array with dynamic selectors
     const sections = [
         { selector: selectors.jobSectionSelector, bulletSelector: selectors.jobBulletSelector, type: 'job', context: 'for a job experience', bullets: originalBullets.job },
-        { selector: selectors.projectSectionSelector, bulletSelector: selectors.projectBulletSelector, type: 'project', context: 'for a project', bullets: originalBullets.project }
+        { selector: selectors.projectSectionSelector, bulletSelector: selectors.projectBulletSelector, type: 'project', context: 'for a project', bullets: originalBullets.project },
+        { selector: selectors.educationSectionSelector, bulletSelector: selectors.educationBulletSelector, type: 'education', context: 'for education', bullets: originalBullets.education }
     ];
 
     // Filter out the 'education' section before processing bullet points
@@ -831,10 +889,61 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         }
         attempts++;
     }
-     // Final check for bullet counts after adjustments
+
+    // --- Final Cleanup: Ensure Education section only has original bullets ---
+    const verifiedEducationSelector = selectors.educationSectionSelector;
+    const educationBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li'; // Get 'li' or similar
+    const educationSection = $(verifiedEducationSelector);
+
+    if (educationSection.length > 0) {
+        console.log(`Performing final cleanup for education section: ${verifiedEducationSelector}`);
+        // Find the list container(s) within the education section (assuming 'ul', might need refinement)
+        const educationLists = educationSection.find('ul'); // Adjust if list container isn't 'ul'
+
+        if (educationLists.length > 0) {
+            educationLists.each((_, list) => {
+                const $list = $(list);
+                // Get original bullets for education (ensure they are trimmed for comparison)
+                const originalEduBullets = originalBullets.education.map(b => b.trim());
+
+                // Remove all current bullets first
+                $list.find(educationBulletTag).remove();
+
+                // Re-add only the original bullets
+                originalEduBullets.forEach(bulletText => {
+                    if (bulletText) { // Avoid adding empty strings if any exist
+                        $list.append(`<${educationBulletTag}>${bulletText}</${educationBulletTag}>`);
+                    }
+                });
+                console.log(`Reverted education list in ${verifiedEducationSelector} to ${originalEduBullets.length} original bullets.`);
+            });
+        } else {
+            console.warn(`Could not find list container ('ul') within education section ${verifiedEducationSelector} for cleanup.`);
+            // Fallback: Check for direct bullet children if structure is flat
+            const directBullets = educationSection.find(`> ${educationBulletTag}`);
+             if (directBullets.length > 0) {
+                 console.warn(`Found direct bullets in education section ${verifiedEducationSelector}. Removing bullets not in original list.`);
+                 const originalEduBulletsSet = new Set(originalBullets.education.map(b => b.trim()));
+                 directBullets.each((_, bullet) => {
+                     const bulletText = $(bullet).text().trim();
+                     if (!originalEduBulletsSet.has(bulletText)) {
+                         $(bullet).remove();
+                         console.log(`Removed non-original direct bullet: "${bulletText}"`);
+                     }
+                 });
+             }
+        }
+    } else {
+        console.warn(`Verified education section selector "${verifiedEducationSelector}" did not match any elements during cleanup.`);
+    }
+    // --- End Final Cleanup ---
+
+
+     // Final check for bullet counts after adjustments (now reflects cleanup)
      const finalJobBullets = $(selectors.jobBulletSelector).length;
      const finalProjectBullets = $(selectors.projectBulletSelector).length;
-     console.log(`Final bullet counts: Jobs=${finalJobBullets}, Projects=${finalProjectBullets}`);
+     const finalEducationBullets = $(selectors.educationBulletSelector).length;
+     console.log(`Final bullet counts: Jobs=${finalJobBullets}, Projects=${finalProjectBullets}, Education=${finalEducationBullets}`);
 
 
     return $.html();
@@ -855,6 +964,8 @@ async function getDynamicSelectors(htmlContent) {
 - "jobBulletSelector": The list items (e.g., 'li' or similar) functioning as bullet points *within* the job experience containers. Use a descendant selector (e.g., 'jobSectionSelector li').
 - "projectSectionSelector": The container(s) for distinct project entries.
 - "projectBulletSelector": The list items (e.g., 'li') *within* the project containers. Use a descendant selector.
+- "educationSectionSelector": The container(s) for distinct education entries.
+- "educationBulletSelector": The list items (e.g., 'li') *within* the education containers. Use a descendant selector.
 - "skillsSectionSelector": The main container/element holding the technical skills or keywords list.
 
 Example Output Format (Selectors will vary based on HTML):
@@ -863,6 +974,8 @@ Example Output Format (Selectors will vary based on HTML):
   "jobBulletSelector": ".job-entry ul > li",
   "projectSectionSelector": "#projects .project-item",
   "projectBulletSelector": "#projects .project-item li.bullet",
+  "educationSectionSelector": "section[data-section='education'] .entry",
+  "educationBulletSelector": "section[data-section='education'] .entry .details li",
   "skillsSectionSelector": "#technical-skills-list"
 }
 
@@ -910,6 +1023,7 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
             const requiredKeys = [
                 "jobSectionSelector", "jobBulletSelector",
                 "projectSectionSelector", "projectBulletSelector",
+                "educationSectionSelector", "educationBulletSelector",
                 "skillsSectionSelector"
             ];
             const hasAllKeys = requiredKeys.every(key => typeof selectors[key] === 'string' && selectors[key].length > 0);
@@ -933,6 +1047,7 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
                     const requiredKeys = [
                         "jobSectionSelector", "jobBulletSelector",
                         "projectSectionSelector", "projectBulletSelector",
+                        "educationSectionSelector", "educationBulletSelector",
                         "skillsSectionSelector"
                     ];
                      const hasAllKeys = requiredKeys.every(key => typeof selectors[key] === 'string' && selectors[key].length > 0);
@@ -982,8 +1097,9 @@ async function customizeResume(req, res) {
         const $ = cheerio.load(updatedHtmlContent);
         const jobBullets = $('.job-details li').length;
         const projectBullets = $('.project-details li').length;
+        const educationBullets = $('.education-details li').length;
         
-        console.log(`Generated bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}`);
+        console.log(`Generated bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}, Education=${educationBullets}`);
         
         const { pdfBuffer, exceedsOnePage } = await convertHtmlToPdf(updatedHtmlContent);
 
