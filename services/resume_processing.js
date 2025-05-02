@@ -74,9 +74,7 @@ function extractOriginalBullets($, selectors) {
     });
 
     $(selectors.educationSectionSelector).each((_, section) => {
-        // Only extract existing bullet text for reference but don't process
-        // Education section doesn't need bullet manipulation
-        $('li', section).each((_, bullet) => {
+        $(section).find(selectors.educationBulletSelector.replace(selectors.educationSectionSelector, '').trim()).each((_, bullet) => {
             const bulletText = $(bullet).text().trim();
             if (bulletText && !originalBullets.education.includes(bulletText)) {
                 originalBullets.education.push(bulletText);
@@ -367,7 +365,7 @@ class BulletCache {
     }
 
     async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
-        const sections = ['job', 'project']; // Only generate for job and project sections
+        const sections = ['job', 'project']; // Explicitly only job and project
         const cacheKey = `${keywords.join(',')}_${context}`;
 
         if (this.cache.has(cacheKey)) {
@@ -395,11 +393,12 @@ class BulletCache {
     }
 
     getBulletsForSection(section, count) {
+        if (!this.sectionPools[section]) return []; // Return empty array for unsupported sections
         return Array.from(this.sectionPools[section]).slice(0, count);
     }
 
     addBulletToSection(bullet, section) {
-        if (bullet && bullet.trim().length > 0) {
+        if (bullet && bullet.trim().length > 0 && this.sectionPools[section]) {
             this.sectionPools[section].add(bullet);
         }
     }
@@ -761,8 +760,21 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     const selectors = await getDynamicSelectors(htmlContent);
     if (!selectors || Object.keys(selectors).length === 0) {
         console.error("Failed to get dynamic selectors. Aborting resume update.");
-        return htmlContent; // Return original content if selectors fail
+        // Optionally return original content or throw error
+        // For now, let's log and potentially proceed with defaults if available, or just return original
+        // Fallback to hardcoded defaults (consider removing if strict dynamic is required)
+        /*
+        selectors = {
+            jobSectionSelector: ".job-details", jobBulletSelector: ".job-details li",
+            projectSectionSelector: ".project-details", projectBulletSelector: ".project-details li",
+            educationSectionSelector: ".education-details", educationBulletSelector: ".education-details li",
+            skillsSectionSelector: ".section-content:first" // Be cautious with :first
+        };
+        console.warn("Using default selectors due to failure in dynamic retrieval.");
+        */
+       return htmlContent; // Return original content if selectors fail
     }
+
 
     const $ = cheerio.load(htmlContent);
 
@@ -792,7 +804,10 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
             console.warn(`LLM-provided education selector "${selectors.educationSectionSelector}" failed verification or was missing. Applying fallback selector.`);
             // Fallback based on common structure observed or suggested
             selectors.educationSectionSelector = `div.section:has(${educationTitleSelector}:contains("${expectedTitleText}"))`;
-            console.log(`Using fallback education selector: "${selectors.educationSectionSelector}"`);
+             // Also update the bullet selector to be relative to the new section selector
+             const educationBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li'; // Get the tag (e.g., 'li')
+             selectors.educationBulletSelector = `${selectors.educationSectionSelector} ${educationBulletTag}`;
+             console.log(`Using fallback education selectors: Section="${selectors.educationSectionSelector}", Bullet="${selectors.educationBulletSelector}"`);
         } else {
              console.log(`Education selector "${selectors.educationSectionSelector}" verified successfully.`);
         }
@@ -800,10 +815,13 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
          console.error("Error during education selector verification:", verificationError);
          // Optionally apply fallback even on error, or proceed cautiously
          const fallbackSelector = `div.section:has(div.section-title:contains("Education"))`;
+         const fallbackBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li';
          selectors.educationSectionSelector = fallbackSelector;
-         console.warn(`Applied fallback education selector due to verification error.`);
+         selectors.educationBulletSelector = `${fallbackSelector} ${fallbackBulletTag}`;
+         console.warn(`Applied fallback education selectors due to verification error.`);
     }
     // --- End Verification Step ---
+
 
     // Pass selectors to functions that need them
     const sectionWordCounts = getSectionWordCounts($, selectors);
@@ -824,20 +842,19 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         keywords.join(', ') :
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
 
-    // Generate all bullets upfront (doesn't directly need selectors here)
-    // Note: generateAllBullets calls generateBullets which might need verbTracker initialized based on original bullets if we want perfect verb tracking from start
-    const allBullets = await bulletCache.generateAllBullets($, keywords, 'resume section', 15, verbTracker);
-
-    // 7. Update sections array with dynamic selectors - EXCLUDE education from processing
+    // 7. Update sections array with dynamic selectors
     const sections = [
         { selector: selectors.jobSectionSelector, bulletSelector: selectors.jobBulletSelector, type: 'job', context: 'for a job experience', bullets: originalBullets.job },
         { selector: selectors.projectSectionSelector, bulletSelector: selectors.projectBulletSelector, type: 'project', context: 'for a project', bullets: originalBullets.project }
     ];
 
-    // Update each section for bullet points
+    // Generate all bullets upfront
+    const allBullets = await bulletCache.generateAllBullets($, keywords, 'resume section', 15, verbTracker);
+
+    // Update each section, passing specific selectors
     for (const section of sections) {
         await updateResumeSection(
-            $, section.selector, section.bulletSelector, // Pass specific selectors
+            $, section.selector, section.bulletSelector,
             keywordString, section.context,
             fullTailoring, sectionWordCounts[section.type],
             bulletTracker, section.type, section.bullets,
@@ -857,21 +874,22 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         for (const section of sections) {
             const adjustedCount = Math.max(
                 MIN_BULLETS,
-                Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8)) // Simple ratio
+                Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8))
             );
-            // Pass specific selectors to adjustSectionBullets
             await adjustSectionBullets(
-                $, section.selector, section.bulletSelector, // Pass specific selectors
+                $, section.selector, section.bulletSelector,
                 adjustedCount, section.type, bulletTracker,
                 keywordString, section.context, bulletCache
             );
         }
         attempts++;
     }
-     // Final check for bullet counts after adjustments
-     const finalJobBullets = $(selectors.jobBulletSelector).length;
-     const finalProjectBullets = $(selectors.projectBulletSelector).length;
-     console.log(`Final bullet counts: Jobs=${finalJobBullets}, Projects=${finalProjectBullets}`);
+
+    // Final check for bullet counts after adjustments
+    const finalJobBullets = $(selectors.jobBulletSelector).length;
+    const finalProjectBullets = $(selectors.projectBulletSelector).length;
+    console.log(`Final bullet counts: Jobs=${finalJobBullets}, Projects=${finalProjectBullets}`);
+
 
     return $.html();
 }
@@ -891,7 +909,6 @@ async function getDynamicSelectors(htmlContent) {
 - "jobBulletSelector": The list items (e.g., 'li' or similar) functioning as bullet points *within* the job experience containers. Use a descendant selector (e.g., 'jobSectionSelector li').
 - "projectSectionSelector": The container(s) for distinct project entries.
 - "projectBulletSelector": The list items (e.g., 'li') *within* the project containers. Use a descendant selector.
-
 - "skillsSectionSelector": The main container/element holding the technical skills or keywords list.
 
 Example Output Format (Selectors will vary based on HTML):
@@ -900,7 +917,6 @@ Example Output Format (Selectors will vary based on HTML):
   "jobBulletSelector": ".job-entry ul > li",
   "projectSectionSelector": "#projects .project-item",
   "projectBulletSelector": "#projects .project-item li.bullet",
-
   "skillsSectionSelector": "#technical-skills-list"
 }
 
@@ -915,7 +931,7 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
-                model: "gpt-4.1-nano", // Using requested model
+                model: "gpt-4.1-nano",
                 messages: [
                     {
                         role: "system",
@@ -926,9 +942,9 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
                         content: prompt
                     }
                 ],
-                temperature: 0.2, // Lower temperature for more deterministic JSON output
-                max_tokens: 600, // Sufficient for the JSON structure
-                response_format: { type: "json_object" } // Request JSON output format
+                temperature: 0.2,
+                max_tokens: 600,
+                response_format: { type: "json_object" }
             },
             {
                 headers: {
@@ -941,24 +957,23 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
         const content = response.data.choices[0].message.content;
 
         try {
-            // Attempt to parse the JSON directly from the content
             const selectors = JSON.parse(content);
 
             // Basic validation: Check if it's an object and has the required keys
             const requiredKeys = [
                 "jobSectionSelector", "jobBulletSelector",
                 "projectSectionSelector", "projectBulletSelector",
-                "educationSectionSelector", "skillsSectionSelector"
+                "skillsSectionSelector"
             ];
             const hasAllKeys = requiredKeys.every(key => typeof selectors[key] === 'string' && selectors[key].length > 0);
 
             if (typeof selectors === 'object' && selectors !== null && hasAllKeys) {
                 console.log('Successfully received and parsed dynamic selectors:', selectors);
-                lmCache.set(cacheKey, selectors); // Cache the valid result
+                lmCache.set(cacheKey, selectors);
                 return selectors;
             } else {
-                 console.error('LLM returned invalid JSON structure or missing keys:', content);
-                 return {}; // Return empty object on invalid structure/missing keys
+                console.error('LLM returned invalid JSON structure or missing keys:', content);
+                return {};
             }
         } catch (jsonError) {
             console.error('Error parsing JSON from LLM response:', jsonError, 'Raw content:', content);
@@ -971,7 +986,7 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
                     const requiredKeys = [
                         "jobSectionSelector", "jobBulletSelector",
                         "projectSectionSelector", "projectBulletSelector",
-                        "educationSectionSelector", "skillsSectionSelector"
+                        "skillsSectionSelector"
                     ];
                      const hasAllKeys = requiredKeys.every(key => typeof selectors[key] === 'string' && selectors[key].length > 0);
 
@@ -1020,8 +1035,9 @@ async function customizeResume(req, res) {
         const $ = cheerio.load(updatedHtmlContent);
         const jobBullets = $('.job-details li').length;
         const projectBullets = $('.project-details li').length;
+        const educationBullets = $('.education-details li').length;
         
-        console.log(`Generated bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}`);
+        console.log(`Generated bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}, Education=${educationBullets}`);
         
         const { pdfBuffer, exceedsOnePage } = await convertHtmlToPdf(updatedHtmlContent);
 
