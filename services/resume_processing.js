@@ -357,11 +357,15 @@ async function updateResumeSection($, sectionSelector, bulletSelector, keywords,
     console.log(`Found ${sections.length} ${sectionType} sections using selector: ${sectionSelector}`);
     for (let i = 0; i < sections.length; i++) {
         const section = sections.eq(i);
-        const educationTitle = section.find('div.section-title:contains("Education")');
-        if (educationTitle.length > 0) {
-            console.warn(`Skipping section that appears to be Education but matched ${sectionType} selector`);
+        const isEducationSection = section.closest('div.section:has(div.section-title:contains("Education"))').length > 0 || 
+                                 section.find('div.section-title:contains("Education")').length > 0 ||
+                                 section.parents('div.section:has(div.section-title:contains("Education"))').length > 0;
+        
+        if (isEducationSection) {
+            console.warn(`Skipping education section that was incorrectly matched as ${sectionType} section`);
             continue;
         }
+        
         let bulletList = section.find('ul');
         if (bulletList.length === 0) {
             section.append('<ul></ul>');
@@ -398,10 +402,28 @@ async function updateResumeSection($, sectionSelector, bulletSelector, keywords,
 }
 
 async function adjustSectionBullets($, sectionSelector, bulletSelector, targetCount, sectionType, bulletTracker, keywords, context, bulletCache) {
+    // Skip if this section is education
+    if (sectionType === 'education') {
+        console.log("Skipping bullet adjustment for Education section");
+        return;
+    }
+    
     const sections = $(sectionSelector);
     const bulletElementSelector = bulletSelector.replace(sectionSelector, '').trim().split(' ').pop() || 'li';
     sections.each((_, section) => {
-        const bulletList = $(section).find('ul');
+        const $section = $(section);
+        
+        // Check if this is an education section and skip it
+        const isEducationSection = $section.closest('div.section:has(div.section-title:contains("Education"))').length > 0 || 
+                                  $section.find('div.section-title:contains("Education")').length > 0 ||
+                                  $section.parents('div.section:has(div.section-title:contains("Education"))').length > 0;
+        
+        if (isEducationSection) {
+            console.warn(`Skipping education section that was incorrectly matched during bullet adjustment`);
+            return; // continue to next iteration in each loop
+        }
+        
+        const bulletList = $section.find('ul');
         if (bulletList.length === 0) {
             console.warn(`Cannot adjust bullets: List container not found in section ${sectionSelector}`);
             return;
@@ -645,28 +667,98 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     try {
         const educationTitleSelector = 'div.section-title';
         const expectedTitleText = 'Education';
+        
+        // Create a more robust fallback selector for education section
+        const fallbackEducationSelector = `div.section:has(${educationTitleSelector}:contains("${expectedTitleText}"))`;
+        const fallbackEducationBulletSelector = `${fallbackEducationSelector} span`;
+        
         let educationSectionIsValid = false;
+        
+        // First check if the LLM-provided education selector works
         if (selectors.educationSectionSelector && $(selectors.educationSectionSelector).length > 0) {
             $(selectors.educationSectionSelector).each((_, el) => {
-                const titleElement = $(el).find(educationTitleSelector);
-                if (titleElement.length > 0 && titleElement.text().trim() === expectedTitleText) {
+                const $el = $(el);
+                const titleElement = $el.find(educationTitleSelector);
+                
+                const hasEducationTitle = 
+                    (titleElement.length > 0 && titleElement.text().trim() === expectedTitleText) ||
+                    $el.find(`${educationTitleSelector}:contains("${expectedTitleText}")`).length > 0 ||
+                    $el.closest(`div.section:has(${educationTitleSelector}:contains("${expectedTitleText}"))`).length > 0;
+                    
+                if (hasEducationTitle) {
                     educationSectionIsValid = true;
-                    return false;
-                }
-                if ($(el).find(`${educationTitleSelector}:contains("${expectedTitleText}")`).length > 0) {
-                     educationSectionIsValid = true;
-                     return false;
+                    return false; // Break the each loop
                 }
             });
         }
+        
         if (!educationSectionIsValid) {
             console.warn(`LLM-provided education selector "${selectors.educationSectionSelector}" failed verification or was missing. Applying fallback selector.`);
-            selectors.educationSectionSelector = `div.section:has(${educationTitleSelector}:contains("${expectedTitleText}"))`;
-             const educationBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'span';
-             selectors.educationBulletSelector = `${selectors.educationSectionSelector} ${educationBulletTag}`;
-             console.log(`Using fallback education selectors: Section="${selectors.educationSectionSelector}", Bullet="${selectors.educationBulletSelector}"`);
+            selectors.educationSectionSelector = fallbackEducationSelector;
+            selectors.educationBulletSelector = fallbackEducationBulletSelector;
+            console.log(`Using fallback education selectors: Section="${selectors.educationSectionSelector}", Bullet="${selectors.educationBulletSelector}"`);
         } else {
-             console.log(`Education selector "${selectors.educationSectionSelector}" verified successfully.`);
+            console.log(`Education selector "${selectors.educationSectionSelector}" verified successfully.`);
+        }
+        
+        // Double check: Make sure education section doesn't overlap with job or project sections
+        try {
+            const jobElements = $(selectors.jobSectionSelector);
+            const projectElements = $(selectors.projectSectionSelector);
+            const educationElements = $(selectors.educationSectionSelector);
+            
+            let overlap = false;
+            
+            // Check for education and job overlap
+            jobElements.each((_, jobEl) => {
+                educationElements.each((_, eduEl) => {
+                    if (jobEl === eduEl) {
+                        overlap = true;
+                        return false;
+                    }
+                });
+                if (overlap) return false;
+            });
+            
+            // Check for education and project overlap
+            if (!overlap) {
+                projectElements.each((_, projEl) => {
+                    educationElements.each((_, eduEl) => {
+                        if (projEl === eduEl) {
+                            overlap = true;
+                            return false;
+                        }
+                    });
+                    if (overlap) return false;
+                });
+            }
+            
+            if (overlap) {
+                console.warn("WARNING: Detected overlap between education and other selectors. Refining selectors to prevent this.");
+                
+                // Refine job selectors if needed
+                const expSection = $(`div.section:has(${educationTitleSelector}:contains("Experience")), div.section:has(${educationTitleSelector}:contains("Work Experience"))`);
+                if (expSection.length > 0) {
+                    selectors.jobSectionSelector = `div.section:has(${educationTitleSelector}:contains("Experience")) .entry, div.section:has(${educationTitleSelector}:contains("Work Experience")) .entry`;
+                    selectors.jobBulletSelector = `${selectors.jobSectionSelector} li`;
+                    console.log(`Refined job selectors to prevent overlap: "${selectors.jobSectionSelector}"`);
+                }
+                
+                // Refine project selectors if needed
+                const projSection = $(`div.section:has(${educationTitleSelector}:contains("Project"))`);
+                if (projSection.length > 0) {
+                    selectors.projectSectionSelector = `div.section:has(${educationTitleSelector}:contains("Project")) .entry, div.section:has(${educationTitleSelector}:contains("Project")) .project`;
+                    selectors.projectBulletSelector = `${selectors.projectSectionSelector} li`;
+                    console.log(`Refined project selectors to prevent overlap: "${selectors.projectSectionSelector}"`);
+                }
+                
+                // Always reapply the most specific education selector
+                selectors.educationSectionSelector = fallbackEducationSelector;
+                selectors.educationBulletSelector = fallbackEducationBulletSelector;
+                console.log(`Re-applied education selector to ensure specificity: "${selectors.educationSectionSelector}"`);
+            }
+        } catch (overlapError) {
+            console.error("Error checking for selector overlap:", overlapError);
         }
     } catch (verificationError) {
          console.error("Error during education selector verification:", verificationError);
@@ -675,37 +767,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
          selectors.educationSectionSelector = fallbackSelector;
          selectors.educationBulletSelector = `${fallbackSelector} ${fallbackBulletTag}`;
          console.warn(`Applied fallback education selectors due to verification error.`);
-    }
-    try {
-        const jobElements = $(selectors.jobSectionSelector);
-        const educationElements = $(selectors.educationSectionSelector);
-        let overlap = false;
-        jobElements.each((_, jobEl) => {
-            educationElements.each((_, eduEl) => {
-                if (jobEl === eduEl) {
-                    overlap = true;
-                    return false;
-                }
-            });
-            if (overlap) return false;
-        });
-        if (overlap) {
-            console.warn("WARNING: Detected overlap between job and education selectors. Refining selectors to prevent this.");
-            const expSection = $(`div.section:has(${educationTitleSelector}:contains("Experience")), div.section:has(${educationTitleSelector}:contains("Work Experience"))`);
-            if (expSection.length > 0) {
-                selectors.jobSectionSelector = `div.section:has(${educationTitleSelector}:contains("Experience")) .entry, div.section:has(${educationTitleSelector}:contains("Work Experience")) .entry`;
-                selectors.jobBulletSelector = `${selectors.jobSectionSelector} li`;
-                console.log(`Refined job selectors to prevent overlap: "${selectors.jobSectionSelector}"`);
-            }
-            const projSection = $(`div.section:has(${educationTitleSelector}:contains("Project"))`);
-            if (projSection.length > 0) {
-                selectors.projectSectionSelector = `div.section:has(${educationTitleSelector}:contains("Project")) .entry, div.section:has(${educationTitleSelector}:contains("Project")) .project`;
-                selectors.projectBulletSelector = `${selectors.projectSectionSelector} li`;
-                console.log(`Refined project selectors to prevent overlap: "${selectors.projectSectionSelector}"`);
-            }
-        }
-    } catch (overlapError) {
-        console.error("Error checking for selector overlap:", overlapError);
     }
     const sectionWordCounts = getSectionWordCounts($, selectors);
     const bulletTracker = new SectionBulletTracker();
@@ -724,7 +785,38 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         { selector: selectors.projectSectionSelector, bulletSelector: selectors.projectBulletSelector, type: 'project', context: 'for a project', bullets: originalBullets.project },
         { selector: selectors.educationSectionSelector, bulletSelector: selectors.educationBulletSelector, type: 'education', context: 'for education', bullets: originalBullets.education }
     ];
-    const sectionsToProcessBullets = sections.filter(section => section.type !== 'education');
+
+    // Enhanced approach to filter and identify sections
+    // Step 1: First explicitly exclude sections with education in their selectors
+    const sectionsToProcessBullets = sections.filter(section => {
+        // Explicitly exclude education type 
+        if (section.type === 'education') {
+            console.log("Excluding Education section from bullet processing");
+            return false;
+        }
+        
+        // Ensure we're not accidentally including education sections due to selector overlap
+        const sectionElements = $(section.selector);
+        let containsEducationSection = false;
+        
+        sectionElements.each((_, element) => {
+            const el = $(element);
+            if (el.closest('div.section:has(div.section-title:contains("Education"))').length > 0 || 
+                el.find('div.section-title:contains("Education")').length > 0 || 
+                el.parents('div.section:has(div.section-title:contains("Education"))').length > 0) {
+                containsEducationSection = true;
+                return false; // break the each loop
+            }
+        });
+        
+        if (containsEducationSection) {
+            console.log(`Excluding ${section.type} section with selector "${section.selector}" that overlaps with Education`);
+            return false;
+        }
+        
+        return true;
+    });
+
     console.log(`Processing bullets for sections: ${sectionsToProcessBullets.map(s => s.type).join(', ')}`);
     for (const section of sectionsToProcessBullets) {
         await updateResumeSection(
