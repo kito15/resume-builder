@@ -804,8 +804,8 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
             // Fallback based on common structure observed or suggested
             selectors.educationSectionSelector = `div.section:has(${educationTitleSelector}:contains("${expectedTitleText}"))`;
              // Also update the bullet selector to be relative to the new section selector
-             const educationBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li'; // Get the tag (e.g., 'li')
-             selectors.educationBulletSelector = `${selectors.educationSectionSelector} ${educationBulletTag}`;
+             // Always use 'li' for the fallback bullet selector relative to the verified section selector
+             selectors.educationBulletSelector = `${selectors.educationSectionSelector} li`;
              console.log(`Using fallback education selectors: Section="${selectors.educationSectionSelector}", Bullet="${selectors.educationBulletSelector}"`);
         } else {
              console.log(`Education selector "${selectors.educationSectionSelector}" verified successfully.`);
@@ -819,7 +819,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
          selectors.educationBulletSelector = `${fallbackSelector} ${fallbackBulletTag}`;
          console.warn(`Applied fallback education selectors due to verification error.`);
     }
-console.log(`DEBUG: Verified/Fallback Education Selectors - Section: ${selectors.educationSectionSelector}, Bullet: ${selectors.educationBulletSelector}`);
     // --- End Verification Step ---
 
 
@@ -831,7 +830,6 @@ console.log(`DEBUG: Verified/Fallback Education Selectors - Section: ${selectors
 
     // Extract original bullets using dynamic selectors (now potentially corrected)
     const originalBullets = extractOriginalBullets($, selectors);
-console.log('DEBUG: Original Bullets Extracted (Education):', JSON.stringify(originalBullets.education));
 
     // Update the skills section using dynamic selectors
     await updateSkillsSection($, keywords, selectors); // Pass selectors here
@@ -891,49 +889,58 @@ console.log('DEBUG: Original Bullets Extracted (Education):', JSON.stringify(ori
         }
         attempts++;
     }
-console.log('DEBUG: Before Cleanup - Original Bullets (Education):', JSON.stringify(originalBullets.education));
 
     // --- Final Cleanup: Ensure Education section only has original bullets ---
-    const verifiedEducationSelector = selectors.educationSectionSelector;
-    const educationBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li'; // Get 'li' or similar
     const educationSection = $(verifiedEducationSelector);
+    const educationBulletTag = 'li'; // Explicitly use 'li' for cleanup
 
     if (educationSection.length > 0) {
         console.log(`Performing final cleanup for education section: ${verifiedEducationSelector}`);
         // Find the list container(s) within the education section (assuming 'ul', might need refinement)
-        const educationLists = educationSection.find('ul'); // Adjust if list container isn't 'ul'
+        let educationList = educationSection.find('ul'); // Adjust if list container isn't 'ul'
 
-        if (educationLists.length > 0) {
-            educationLists.each((_, list) => {
-                const $list = $(list);
-                // Get original bullets for education (ensure they are trimmed for comparison)
-                const originalEduBullets = originalBullets.education.map(b => b.trim());
+        // If no 'ul' exists, create one for consistency, assuming bullets should be in a list
+        if (educationList.length === 0) {
+             // Find a suitable place to append the list, e.g., the main entry div within the section
+             const entryDiv = educationSection.find('.entry'); // Adjust if structure differs
+             if (entryDiv.length > 0) {
+                 entryDiv.append('<ul></ul>');
+                 educationList = educationSection.find('ul');
+                 console.log(`Created 'ul' container in education section for cleanup.`);
+             } else {
+                 // Fallback: append to section itself if no .entry found
+                 educationSection.append('<ul></ul>');
+                 educationList = educationSection.find('ul');
+                 console.log(`Created 'ul' container directly in education section for cleanup.`);
+             }
+        }
 
-                // Remove all current bullets first
-                $list.find(educationBulletTag).remove();
+        if (educationList.length > 0) {
+             // Remove ALL existing 'li' elements from the list(s) first, regardless of origin
+             console.log(`Removing all existing '${educationBulletTag}' elements from education list(s)...`);
+             educationList.find(educationBulletTag).remove();
 
-                // Re-add only the original bullets
-                originalEduBullets.forEach(bulletText => {
-                    if (bulletText) { // Avoid adding empty strings if any exist
-                        $list.append(`<${educationBulletTag}>${bulletText}</${educationBulletTag}>`);
-                    }
-                });
-                console.log(`Reverted education list in ${verifiedEducationSelector} to ${originalEduBullets.length} original bullets.`);
-            });
-        } else {
-            console.warn(`Could not find list container ('ul') within education section ${verifiedEducationSelector} for cleanup.`);
-            // Fallback: Check for direct bullet children if structure is flat
-            const directBullets = educationSection.find(`> ${educationBulletTag}`);
-             if (directBullets.length > 0) {
-                 console.warn(`Found direct bullets in education section ${verifiedEducationSelector}. Removing bullets not in original list.`);
-                 const originalEduBulletsSet = new Set(originalBullets.education.map(b => b.trim()));
-                 directBullets.each((_, bullet) => {
-                     const bulletText = $(bullet).text().trim();
-                     if (!originalEduBulletsSet.has(bulletText)) {
-                         $(bullet).remove();
-                         console.log(`Removed non-original direct bullet: "${bulletText}"`);
-                     }
+             // Get original bullets for education (should be empty if structure is correct)
+             const originalEduBullets = originalBullets.education.map(b => b.trim()).filter(b => b); // Filter out empty strings
+
+             // Re-add only the *actual* original bullets (likely none for education)
+             if (originalEduBullets.length > 0) {
+                 console.log(`Re-adding ${originalEduBullets.length} original education bullet(s)...`);
+                 originalEduBullets.forEach(bulletText => {
+                     educationList.append(`<${educationBulletTag}>${bulletText}</${educationBulletTag}>`);
                  });
+             } else {
+                 console.log(`No original education bullets found to re-add.`);
+             }
+             console.log(`Cleanup complete for education list in ${verifiedEducationSelector}.`);
+
+        } else {
+             console.warn(`Could not find or create list container ('ul') within education section ${verifiedEducationSelector} for cleanup.`);
+             // Also attempt to remove any stray 'li' elements directly within the section as a fallback
+             const directBullets = educationSection.find(`> ${educationBulletTag}`);
+             if (directBullets.length > 0) {
+                 console.warn(`Removing ${directBullets.length} direct '${educationBulletTag}' elements found in education section.`);
+                 directBullets.remove();
              }
         }
     } else {
