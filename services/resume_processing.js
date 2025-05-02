@@ -50,7 +50,6 @@ function extractOriginalBullets($, selectors) {
     const originalBullets = {
         job: [],
         project: [],
-        education: [],
         unassigned: [] // For any bullets not in a specific section
     };
 
@@ -795,8 +794,11 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         { selector: selectors.projectSectionSelector, bulletSelector: selectors.projectBulletSelector, type: 'project', context: 'for a project', bullets: originalBullets.project }
     ];
 
+    // Filter out the 'education' section before processing bullet points
+    const sectionsToProcessBullets = sections.filter(section => section.type !== 'education');
+
     // Update each section (excluding education for bullets), passing specific selectors
-    for (const section of sections) {
+    for (const section of sectionsToProcessBullets) { // Use filtered array
         await updateResumeSection(
             $, section.selector, section.bulletSelector, // Pass specific selectors
             keywordString, section.context,
@@ -815,7 +817,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         if (!exceedsOnePage) break;
 
         currentBulletCount--;
-        for (const section of sections) {
+        for (const section of sectionsToProcessBullets) { // Use filtered array
             const adjustedCount = Math.max(
                 MIN_BULLETS,
                 Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8)) // Simple ratio
