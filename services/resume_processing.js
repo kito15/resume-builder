@@ -157,7 +157,7 @@ FORMATTING RULES:
 2. One specific metric per bullet (%, $, time, or quantity)
 3. Each bullet MUST begin with a strong action verb
 4. NEVER reuse the same starting verb across bullet points
-5. Each bullet MUST be ${wordLimit} words or less
+5. Each bullet MUST be ${wordLimit} words or less - THIS IS CRITICAL
 
 KEYWORD INTEGRATION RULES:
 1. Use keywords from this list: ${keywords}
@@ -165,6 +165,13 @@ KEYWORD INTEGRATION RULES:
 3. NEVER combine unrelated technologies in the same bullet point
 4. Each keyword MUST be used at least once across all bullets
 5. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
+
+BREVITY RULES:
+1. STRICTLY enforce the ${wordLimit}-word limit
+2. Focus on impactful achievements rather than responsibilities
+3. Prioritize quantitative metrics (numbers, percentages)
+4. Eliminate unnecessary articles and adjectives
+5. Use precise, concise action verbs
 
 TECHNOLOGY COMBINATION RULES:
 1. Keep technologies within their domain (frontend, backend, etc.)
@@ -306,8 +313,8 @@ class BulletCache {
             project: new Set()
         };
         this.targetBulletCounts = {
-            job: 7,
-            project: 6
+            job: 5,
+            project: 4
         };
     }
     async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
@@ -357,15 +364,11 @@ async function updateResumeSection($, sectionSelector, bulletSelector, keywords,
     console.log(`Found ${sections.length} ${sectionType} sections using selector: ${sectionSelector}`);
     for (let i = 0; i < sections.length; i++) {
         const section = sections.eq(i);
-        const isEducationSection = section.closest('div.section:has(div.section-title:contains("Education"))').length > 0 || 
-                                 section.find('div.section-title:contains("Education")').length > 0 ||
-                                 section.parents('div.section:has(div.section-title:contains("Education"))').length > 0;
-        
-        if (isEducationSection) {
-            console.warn(`Skipping education section that was incorrectly matched as ${sectionType} section`);
+        const educationTitle = section.find('div.section-title:contains("Education")');
+        if (educationTitle.length > 0) {
+            console.warn(`Skipping section that appears to be Education but matched ${sectionType} selector`);
             continue;
         }
-        
         let bulletList = section.find('ul');
         if (bulletList.length === 0) {
             section.append('<ul></ul>');
@@ -402,28 +405,10 @@ async function updateResumeSection($, sectionSelector, bulletSelector, keywords,
 }
 
 async function adjustSectionBullets($, sectionSelector, bulletSelector, targetCount, sectionType, bulletTracker, keywords, context, bulletCache) {
-    // Skip if this section is education
-    if (sectionType === 'education') {
-        console.log("Skipping bullet adjustment for Education section");
-        return;
-    }
-    
     const sections = $(sectionSelector);
     const bulletElementSelector = bulletSelector.replace(sectionSelector, '').trim().split(' ').pop() || 'li';
     sections.each((_, section) => {
-        const $section = $(section);
-        
-        // Check if this is an education section and skip it
-        const isEducationSection = $section.closest('div.section:has(div.section-title:contains("Education"))').length > 0 || 
-                                  $section.find('div.section-title:contains("Education")').length > 0 ||
-                                  $section.parents('div.section:has(div.section-title:contains("Education"))').length > 0;
-        
-        if (isEducationSection) {
-            console.warn(`Skipping education section that was incorrectly matched during bullet adjustment`);
-            return; // continue to next iteration in each loop
-        }
-        
-        const bulletList = $section.find('ul');
+        const bulletList = $(section).find('ul');
         if (bulletList.length === 0) {
             console.warn(`Cannot adjust bullets: List container not found in section ${sectionSelector}`);
             return;
@@ -491,11 +476,21 @@ async function convertHtmlToPdf(htmlContent) {
     const customCSS = `
         @page {
             size: Letter;
-            margin: 0.25in;
+            margin: 0.2in;
         }
         body {
             margin: 0;
             padding: 0;
+            font-size: 95%;
+            line-height: 1.3;
+        }
+        ul {
+            margin-top: 2px;
+            margin-bottom: 4px;
+            padding-left: 20px;
+        }
+        li {
+            margin-bottom: 2px;
         }
     `;
     await page.setContent(htmlContent);
@@ -511,10 +506,10 @@ async function convertHtmlToPdf(htmlContent) {
         printBackground: true,
         preferCSSPageSize: true,
         margin: {
-            top: '0.25in',
-            right: '0.25in',
-            bottom: '0.25in',
-            left: '0.25in'
+            top: '0.2in',
+            right: '0.2in',
+            bottom: '0.2in',
+            left: '0.2in'
         }
     });
     await browser.close();
@@ -657,6 +652,37 @@ function updateSkillsSection($, keywords, selectors) {
     });
 }
 
+function optimizeHtmlForCompactness($) {
+    // Remove excessive empty space
+    $('p').each((i, el) => {
+        const $el = $(el);
+        const text = $el.text().trim();
+        if (text === '') {
+            $el.remove();
+        }
+    });
+    
+    // Reduce margins on section elements
+    $('.section').css('margin-bottom', '10px');
+    
+    // Optimize spacing in lists
+    $('ul').css({
+        'margin-top': '2px',
+        'margin-bottom': '3px',
+        'padding-left': '18px'
+    });
+    
+    $('li').css('margin-bottom', '1px');
+    
+    // Compress heading margins
+    $('h1, h2, h3, h4, h5, h6').css({
+        'margin-top': '5px',
+        'margin-bottom': '5px'
+    });
+    
+    return $;
+}
+
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const selectors = await getDynamicSelectors(htmlContent);
     if (!selectors || Object.keys(selectors).length === 0) {
@@ -667,98 +693,28 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     try {
         const educationTitleSelector = 'div.section-title';
         const expectedTitleText = 'Education';
-        
-        // Create a more robust fallback selector for education section
-        const fallbackEducationSelector = `div.section:has(${educationTitleSelector}:contains("${expectedTitleText}"))`;
-        const fallbackEducationBulletSelector = `${fallbackEducationSelector} span`;
-        
         let educationSectionIsValid = false;
-        
-        // First check if the LLM-provided education selector works
         if (selectors.educationSectionSelector && $(selectors.educationSectionSelector).length > 0) {
             $(selectors.educationSectionSelector).each((_, el) => {
-                const $el = $(el);
-                const titleElement = $el.find(educationTitleSelector);
-                
-                const hasEducationTitle = 
-                    (titleElement.length > 0 && titleElement.text().trim() === expectedTitleText) ||
-                    $el.find(`${educationTitleSelector}:contains("${expectedTitleText}")`).length > 0 ||
-                    $el.closest(`div.section:has(${educationTitleSelector}:contains("${expectedTitleText}"))`).length > 0;
-                    
-                if (hasEducationTitle) {
+                const titleElement = $(el).find(educationTitleSelector);
+                if (titleElement.length > 0 && titleElement.text().trim() === expectedTitleText) {
                     educationSectionIsValid = true;
-                    return false; // Break the each loop
+                    return false;
+                }
+                if ($(el).find(`${educationTitleSelector}:contains("${expectedTitleText}")`).length > 0) {
+                     educationSectionIsValid = true;
+                     return false;
                 }
             });
         }
-        
         if (!educationSectionIsValid) {
             console.warn(`LLM-provided education selector "${selectors.educationSectionSelector}" failed verification or was missing. Applying fallback selector.`);
-            selectors.educationSectionSelector = fallbackEducationSelector;
-            selectors.educationBulletSelector = fallbackEducationBulletSelector;
-            console.log(`Using fallback education selectors: Section="${selectors.educationSectionSelector}", Bullet="${selectors.educationBulletSelector}"`);
+            selectors.educationSectionSelector = `div.section:has(${educationTitleSelector}:contains("${expectedTitleText}"))`;
+             const educationBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'span';
+             selectors.educationBulletSelector = `${selectors.educationSectionSelector} ${educationBulletTag}`;
+             console.log(`Using fallback education selectors: Section="${selectors.educationSectionSelector}", Bullet="${selectors.educationBulletSelector}"`);
         } else {
-            console.log(`Education selector "${selectors.educationSectionSelector}" verified successfully.`);
-        }
-        
-        // Double check: Make sure education section doesn't overlap with job or project sections
-        try {
-            const jobElements = $(selectors.jobSectionSelector);
-            const projectElements = $(selectors.projectSectionSelector);
-            const educationElements = $(selectors.educationSectionSelector);
-            
-            let overlap = false;
-            
-            // Check for education and job overlap
-            jobElements.each((_, jobEl) => {
-                educationElements.each((_, eduEl) => {
-                    if (jobEl === eduEl) {
-                        overlap = true;
-                        return false;
-                    }
-                });
-                if (overlap) return false;
-            });
-            
-            // Check for education and project overlap
-            if (!overlap) {
-                projectElements.each((_, projEl) => {
-                    educationElements.each((_, eduEl) => {
-                        if (projEl === eduEl) {
-                            overlap = true;
-                            return false;
-                        }
-                    });
-                    if (overlap) return false;
-                });
-            }
-            
-            if (overlap) {
-                console.warn("WARNING: Detected overlap between education and other selectors. Refining selectors to prevent this.");
-                
-                // Refine job selectors if needed
-                const expSection = $(`div.section:has(${educationTitleSelector}:contains("Experience")), div.section:has(${educationTitleSelector}:contains("Work Experience"))`);
-                if (expSection.length > 0) {
-                    selectors.jobSectionSelector = `div.section:has(${educationTitleSelector}:contains("Experience")) .entry, div.section:has(${educationTitleSelector}:contains("Work Experience")) .entry`;
-                    selectors.jobBulletSelector = `${selectors.jobSectionSelector} li`;
-                    console.log(`Refined job selectors to prevent overlap: "${selectors.jobSectionSelector}"`);
-                }
-                
-                // Refine project selectors if needed
-                const projSection = $(`div.section:has(${educationTitleSelector}:contains("Project"))`);
-                if (projSection.length > 0) {
-                    selectors.projectSectionSelector = `div.section:has(${educationTitleSelector}:contains("Project")) .entry, div.section:has(${educationTitleSelector}:contains("Project")) .project`;
-                    selectors.projectBulletSelector = `${selectors.projectSectionSelector} li`;
-                    console.log(`Refined project selectors to prevent overlap: "${selectors.projectSectionSelector}"`);
-                }
-                
-                // Always reapply the most specific education selector
-                selectors.educationSectionSelector = fallbackEducationSelector;
-                selectors.educationBulletSelector = fallbackEducationBulletSelector;
-                console.log(`Re-applied education selector to ensure specificity: "${selectors.educationSectionSelector}"`);
-            }
-        } catch (overlapError) {
-            console.error("Error checking for selector overlap:", overlapError);
+             console.log(`Education selector "${selectors.educationSectionSelector}" verified successfully.`);
         }
     } catch (verificationError) {
          console.error("Error during education selector verification:", verificationError);
@@ -768,55 +724,55 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
          selectors.educationBulletSelector = `${fallbackSelector} ${fallbackBulletTag}`;
          console.warn(`Applied fallback education selectors due to verification error.`);
     }
+    try {
+        const jobElements = $(selectors.jobSectionSelector);
+        const educationElements = $(selectors.educationSectionSelector);
+        let overlap = false;
+        jobElements.each((_, jobEl) => {
+            educationElements.each((_, eduEl) => {
+                if (jobEl === eduEl) {
+                    overlap = true;
+                    return false;
+                }
+            });
+            if (overlap) return false;
+        });
+        if (overlap) {
+            console.warn("WARNING: Detected overlap between job and education selectors. Refining selectors to prevent this.");
+            const expSection = $(`div.section:has(${educationTitleSelector}:contains("Experience")), div.section:has(${educationTitleSelector}:contains("Work Experience"))`);
+            if (expSection.length > 0) {
+                selectors.jobSectionSelector = `div.section:has(${educationTitleSelector}:contains("Experience")) .entry, div.section:has(${educationTitleSelector}:contains("Work Experience")) .entry`;
+                selectors.jobBulletSelector = `${selectors.jobSectionSelector} li`;
+                console.log(`Refined job selectors to prevent overlap: "${selectors.jobSectionSelector}"`);
+            }
+            const projSection = $(`div.section:has(${educationTitleSelector}:contains("Project"))`);
+            if (projSection.length > 0) {
+                selectors.projectSectionSelector = `div.section:has(${educationTitleSelector}:contains("Project")) .entry, div.section:has(${educationTitleSelector}:contains("Project")) .project`;
+                selectors.projectBulletSelector = `${selectors.projectSectionSelector} li`;
+                console.log(`Refined project selectors to prevent overlap: "${selectors.projectSectionSelector}"`);
+            }
+        }
+    } catch (overlapError) {
+        console.error("Error checking for selector overlap:", overlapError);
+    }
     const sectionWordCounts = getSectionWordCounts($, selectors);
     const bulletTracker = new SectionBulletTracker();
     const verbTracker = new ActionVerbTracker();
     const bulletCache = new BulletCache();
     const originalBullets = extractOriginalBullets($, selectors);
     await updateSkillsSection($, keywords, selectors);
-    const INITIAL_BULLET_COUNT = 6;
-    const MIN_BULLETS = 3;
+    const INITIAL_BULLET_COUNT = 4;
+    const MIN_BULLETS = 2;
     const keywordString = fullTailoring ?
         keywords.join(', ') :
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
-    const allBullets = await bulletCache.generateAllBullets($, keywords, 'resume section', 15, verbTracker);
+    const allBullets = await bulletCache.generateAllBullets($, keywords, 'resume section', 12, verbTracker);
     const sections = [
         { selector: selectors.jobSectionSelector, bulletSelector: selectors.jobBulletSelector, type: 'job', context: 'for a job experience', bullets: originalBullets.job },
         { selector: selectors.projectSectionSelector, bulletSelector: selectors.projectBulletSelector, type: 'project', context: 'for a project', bullets: originalBullets.project },
         { selector: selectors.educationSectionSelector, bulletSelector: selectors.educationBulletSelector, type: 'education', context: 'for education', bullets: originalBullets.education }
     ];
-
-    // Enhanced approach to filter and identify sections
-    // Step 1: First explicitly exclude sections with education in their selectors
-    const sectionsToProcessBullets = sections.filter(section => {
-        // Explicitly exclude education type 
-        if (section.type === 'education') {
-            console.log("Excluding Education section from bullet processing");
-            return false;
-        }
-        
-        // Ensure we're not accidentally including education sections due to selector overlap
-        const sectionElements = $(section.selector);
-        let containsEducationSection = false;
-        
-        sectionElements.each((_, element) => {
-            const el = $(element);
-            if (el.closest('div.section:has(div.section-title:contains("Education"))').length > 0 || 
-                el.find('div.section-title:contains("Education")').length > 0 || 
-                el.parents('div.section:has(div.section-title:contains("Education"))').length > 0) {
-                containsEducationSection = true;
-                return false; // break the each loop
-            }
-        });
-        
-        if (containsEducationSection) {
-            console.log(`Excluding ${section.type} section with selector "${section.selector}" that overlaps with Education`);
-            return false;
-        }
-        
-        return true;
-    });
-
+    const sectionsToProcessBullets = sections.filter(section => section.type !== 'education');
     console.log(`Processing bullets for sections: ${sectionsToProcessBullets.map(s => s.type).join(', ')}`);
     for (const section of sectionsToProcessBullets) {
         await updateResumeSection(
@@ -829,14 +785,18 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     }
     let currentBulletCount = INITIAL_BULLET_COUNT;
     let attempts = 0;
-    while (attempts < 3 && currentBulletCount >= MIN_BULLETS) {
+    while (attempts < 5 && currentBulletCount >= MIN_BULLETS) {
         const { exceedsOnePage } = await convertHtmlToPdf($.html());
         if (!exceedsOnePage) break;
-        currentBulletCount--;
+        
+        // More aggressive reduction when still overflowing
+        currentBulletCount = attempts < 2 ? currentBulletCount - 1 : currentBulletCount - 2;
+        currentBulletCount = Math.max(MIN_BULLETS, currentBulletCount);
+        
         for (const section of sectionsToProcessBullets) {
             const adjustedCount = Math.max(
                 MIN_BULLETS,
-                Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8))
+                Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.7))
             );
             await adjustSectionBullets(
                 $, section.selector, section.bulletSelector,
@@ -850,6 +810,10 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     const finalProjectBullets = $(selectors.projectBulletSelector).length;
     const finalEducationBullets = $(selectors.educationBulletSelector).length;
     console.log(`Final bullet counts: Jobs=${finalJobBullets}, Projects=${finalProjectBullets}, Education=${finalEducationBullets}`);
+    
+    // Apply optimizations for compact layout before returning HTML
+    optimizeHtmlForCompactness($);
+    
     return $.html();
 }
 
@@ -983,16 +947,47 @@ async function customizeResume(req, res) {
         if (htmlContent.length < 100) {
             return res.status(400).send('Invalid HTML content: Content too short');
         }
-        const updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
-        const $ = cheerio.load(updatedHtmlContent);
-        const jobBullets = $('.job-details li').length;
-        const projectBullets = $('.project-details li').length;
-        const educationBullets = $('.education-details li').length;
-        console.log(`Generated bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}, Education=${educationBullets}`);
-        const { pdfBuffer, exceedsOnePage } = await convertHtmlToPdf(updatedHtmlContent);
+        
+        // First pass - generate tailored content
+        let updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
+        let $ = cheerio.load(updatedHtmlContent);
+        
+        // Check if still overflowing
+        let { pdfBuffer, exceedsOnePage } = await convertHtmlToPdf(updatedHtmlContent);
+        
+        // If still overflowing, apply more aggressive reduction
         if (exceedsOnePage) {
-            console.warn('Warning: Resume still exceeds one page after adjustments');
+            console.warn('Warning: Resume still exceeds one page after initial adjustments - applying emergency reduction');
+            
+            // More aggressive formatting
+            $ = cheerio.load(updatedHtmlContent);
+            $('.section').css('margin-bottom', '8px');
+            $('ul').css({
+                'margin-top': '1px',
+                'margin-bottom': '1px',
+                'padding-left': '15px'
+            });
+            
+            // Emergency bullet reduction
+            $('ul').each((_, ul) => {
+                const $bullets = $(ul).find('li');
+                if ($bullets.length > 3) {
+                    $bullets.slice(3).remove();
+                }
+            });
+            
+            updatedHtmlContent = $.html();
+            const finalResult = await convertHtmlToPdf(updatedHtmlContent);
+            pdfBuffer = finalResult.pdfBuffer;
+            exceedsOnePage = finalResult.exceedsOnePage;
         }
+        
+        if (exceedsOnePage) {
+            console.warn('Warning: Resume still exceeds one page after emergency adjustments');
+        } else {
+            console.log('Resume successfully fit to one page');
+        }
+        
         res.contentType('application/pdf');
         res.set('Content-Disposition', 'attachment; filename=resume.pdf');
         res.send(Buffer.from(pdfBuffer));
