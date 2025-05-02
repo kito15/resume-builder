@@ -73,14 +73,19 @@ function extractOriginalBullets($, selectors) {
         });
     });
 
-    $(selectors.educationSectionSelector).each((_, section) => {
-        $(section).find(selectors.educationBulletSelector.replace(selectors.educationSectionSelector, '').trim()).each((_, bullet) => {
+    // Only attempt to extract education bullets if we have the selectors
+    if (selectors.educationSectionSelector) {
+        // Get the education section
+        const educationSection = $(selectors.educationSectionSelector);
+        
+        // Find any existing list items in the education section
+        educationSection.find('li').each((_, bullet) => {
             const bulletText = $(bullet).text().trim();
             if (bulletText && !originalBullets.education.includes(bulletText)) {
                 originalBullets.education.push(bulletText);
             }
         });
-    });
+    }
 
     // Attempt to find any remaining list items not captured above
     $('li').each((_, bullet) => {
@@ -92,12 +97,11 @@ function extractOriginalBullets($, selectors) {
              // Check if it's likely part of a known section based on parent selector match
              if (!$(bullet).closest(selectors.jobSectionSelector).length &&
                  !$(bullet).closest(selectors.projectSectionSelector).length &&
-                 !$(bullet).closest(selectors.educationSectionSelector).length) {
+                 !(selectors.educationSectionSelector && $(bullet).closest(selectors.educationSectionSelector).length)) {
                 originalBullets.unassigned.push(bulletText);
              }
         }
     });
-
 
     return originalBullets;
 }
@@ -365,7 +369,7 @@ class BulletCache {
     }
 
     async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
-        const sections = ['job', 'project']; // Explicitly only job and project
+        const sections = ['job', 'project'];
         const cacheKey = `${keywords.join(',')}_${context}`;
 
         if (this.cache.has(cacheKey)) {
@@ -393,12 +397,11 @@ class BulletCache {
     }
 
     getBulletsForSection(section, count) {
-        if (!this.sectionPools[section]) return []; // Return empty array for unsupported sections
         return Array.from(this.sectionPools[section]).slice(0, count);
     }
 
     addBulletToSection(bullet, section) {
-        if (bullet && bullet.trim().length > 0 && this.sectionPools[section]) {
+        if (bullet && bullet.trim().length > 0) {
             this.sectionPools[section].add(bullet);
         }
     }
@@ -760,68 +763,10 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     const selectors = await getDynamicSelectors(htmlContent);
     if (!selectors || Object.keys(selectors).length === 0) {
         console.error("Failed to get dynamic selectors. Aborting resume update.");
-        // Optionally return original content or throw error
-        // For now, let's log and potentially proceed with defaults if available, or just return original
-        // Fallback to hardcoded defaults (consider removing if strict dynamic is required)
-        /*
-        selectors = {
-            jobSectionSelector: ".job-details", jobBulletSelector: ".job-details li",
-            projectSectionSelector: ".project-details", projectBulletSelector: ".project-details li",
-            educationSectionSelector: ".education-details", educationBulletSelector: ".education-details li",
-            skillsSectionSelector: ".section-content:first" // Be cautious with :first
-        };
-        console.warn("Using default selectors due to failure in dynamic retrieval.");
-        */
-       return htmlContent; // Return original content if selectors fail
+        return htmlContent; // Return original content if selectors fail
     }
-
 
     const $ = cheerio.load(htmlContent);
-
-    // --- Verification Step for Education Selector ---
-    try {
-        const educationTitleSelector = 'div.section-title'; // Adjust if title element is different
-        const expectedTitleText = 'Education';
-        let educationSectionIsValid = false;
-
-        if (selectors.educationSectionSelector && $(selectors.educationSectionSelector).length > 0) {
-            $(selectors.educationSectionSelector).each((_, el) => {
-                // Check if this element directly contains the title or has a descendant title
-                const titleElement = $(el).find(educationTitleSelector);
-                if (titleElement.length > 0 && titleElement.text().trim() === expectedTitleText) {
-                    educationSectionIsValid = true;
-                    return false; // Stop iteration once found
-                }
-                // Also check if the element *is* the title's parent section if selector is less specific
-                if ($(el).find(`${educationTitleSelector}:contains("${expectedTitleText}")`).length > 0) {
-                     educationSectionIsValid = true;
-                     return false; // Stop iteration
-                }
-            });
-        }
-
-        if (!educationSectionIsValid) {
-            console.warn(`LLM-provided education selector "${selectors.educationSectionSelector}" failed verification or was missing. Applying fallback selector.`);
-            // Fallback based on common structure observed or suggested
-            selectors.educationSectionSelector = `div.section:has(${educationTitleSelector}:contains("${expectedTitleText}"))`;
-             // Also update the bullet selector to be relative to the new section selector
-             const educationBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li'; // Get the tag (e.g., 'li')
-             selectors.educationBulletSelector = `${selectors.educationSectionSelector} ${educationBulletTag}`;
-             console.log(`Using fallback education selectors: Section="${selectors.educationSectionSelector}", Bullet="${selectors.educationBulletSelector}"`);
-        } else {
-             console.log(`Education selector "${selectors.educationSectionSelector}" verified successfully.`);
-        }
-    } catch (verificationError) {
-         console.error("Error during education selector verification:", verificationError);
-         // Optionally apply fallback even on error, or proceed cautiously
-         const fallbackSelector = `div.section:has(div.section-title:contains("Education"))`;
-         const fallbackBulletTag = selectors.educationBulletSelector?.split(' ').pop() || 'li';
-         selectors.educationSectionSelector = fallbackSelector;
-         selectors.educationBulletSelector = `${fallbackSelector} ${fallbackBulletTag}`;
-         console.warn(`Applied fallback education selectors due to verification error.`);
-    }
-    // --- End Verification Step ---
-
 
     // Pass selectors to functions that need them
     const sectionWordCounts = getSectionWordCounts($, selectors);
@@ -829,7 +774,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     const verbTracker = new ActionVerbTracker();
     const bulletCache = new BulletCache();
 
-    // Extract original bullets using dynamic selectors (now potentially corrected)
+    // Extract original bullets using dynamic selectors
     const originalBullets = extractOriginalBullets($, selectors);
 
     // Update the skills section using dynamic selectors
@@ -842,19 +787,21 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         keywords.join(', ') :
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
 
-    // 7. Update sections array with dynamic selectors
+    // Generate all bullets upfront
+    const allBullets = await bulletCache.generateAllBullets($, keywords, 'resume section', 15, verbTracker);
+
+    // Update sections array with dynamic selectors (no education bullets)
     const sections = [
         { selector: selectors.jobSectionSelector, bulletSelector: selectors.jobBulletSelector, type: 'job', context: 'for a job experience', bullets: originalBullets.job },
         { selector: selectors.projectSectionSelector, bulletSelector: selectors.projectBulletSelector, type: 'project', context: 'for a project', bullets: originalBullets.project }
     ];
 
-    // Generate all bullets upfront
-    const allBullets = await bulletCache.generateAllBullets($, keywords, 'resume section', 15, verbTracker);
+    // No need to filter sections anymore as we no longer include education in the list
 
     // Update each section, passing specific selectors
     for (const section of sections) {
         await updateResumeSection(
-            $, section.selector, section.bulletSelector,
+            $, section.selector, section.bulletSelector, // Pass specific selectors
             keywordString, section.context,
             fullTailoring, sectionWordCounts[section.type],
             bulletTracker, section.type, section.bullets,
@@ -874,22 +821,22 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         for (const section of sections) {
             const adjustedCount = Math.max(
                 MIN_BULLETS,
-                Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8))
+                Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.8)) // Simple ratio
             );
+            // Pass specific selectors to adjustSectionBullets
             await adjustSectionBullets(
-                $, section.selector, section.bulletSelector,
+                $, section.selector, section.bulletSelector, // Pass specific selectors
                 adjustedCount, section.type, bulletTracker,
                 keywordString, section.context, bulletCache
             );
         }
         attempts++;
     }
-
+    
     // Final check for bullet counts after adjustments
     const finalJobBullets = $(selectors.jobBulletSelector).length;
     const finalProjectBullets = $(selectors.projectBulletSelector).length;
     console.log(`Final bullet counts: Jobs=${finalJobBullets}, Projects=${finalProjectBullets}`);
-
 
     return $.html();
 }
@@ -931,7 +878,7 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
-                model: "gpt-4.1-nano",
+                model: "gpt-4.1-nano", // Using requested model
                 messages: [
                     {
                         role: "system",
@@ -942,9 +889,9 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
                         content: prompt
                     }
                 ],
-                temperature: 0.2,
-                max_tokens: 600,
-                response_format: { type: "json_object" }
+                temperature: 0.2, // Lower temperature for more deterministic JSON output
+                max_tokens: 600, // Sufficient for the JSON structure
+                response_format: { type: "json_object" } // Request JSON output format
             },
             {
                 headers: {
@@ -957,6 +904,7 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
         const content = response.data.choices[0].message.content;
 
         try {
+            // Attempt to parse the JSON directly from the content
             const selectors = JSON.parse(content);
 
             // Basic validation: Check if it's an object and has the required keys
@@ -969,11 +917,15 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
 
             if (typeof selectors === 'object' && selectors !== null && hasAllKeys) {
                 console.log('Successfully received and parsed dynamic selectors:', selectors);
-                lmCache.set(cacheKey, selectors);
+                
+                // Add education section detector but don't request it from OpenAI
+                selectors.educationSectionSelector = `div.section:has(div.section-title:contains("Education"))`;
+                
+                lmCache.set(cacheKey, selectors); // Cache the valid result
                 return selectors;
             } else {
-                console.error('LLM returned invalid JSON structure or missing keys:', content);
-                return {};
+                 console.error('LLM returned invalid JSON structure or missing keys:', content);
+                 return {}; // Return empty object on invalid structure/missing keys
             }
         } catch (jsonError) {
             console.error('Error parsing JSON from LLM response:', jsonError, 'Raw content:', content);
@@ -992,6 +944,10 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
 
                      if (typeof selectors === 'object' && selectors !== null && hasAllKeys) {
                         console.log('Successfully parsed extracted dynamic selectors:', selectors);
+                        
+                        // Add education section detector but don't request it from OpenAI
+                        selectors.educationSectionSelector = `div.section:has(div.section-title:contains("Education"))`;
+                        
                         lmCache.set(cacheKey, selectors);
                         return selectors;
                     } else {
@@ -1035,9 +991,8 @@ async function customizeResume(req, res) {
         const $ = cheerio.load(updatedHtmlContent);
         const jobBullets = $('.job-details li').length;
         const projectBullets = $('.project-details li').length;
-        const educationBullets = $('.education-details li').length;
         
-        console.log(`Generated bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}, Education=${educationBullets}`);
+        console.log(`Generated bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}`);
         
         const { pdfBuffer, exceedsOnePage } = await convertHtmlToPdf(updatedHtmlContent);
 
