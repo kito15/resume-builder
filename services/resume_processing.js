@@ -395,161 +395,51 @@ async function convertHtmlToPdf(htmlContent) {
     
     try {
         const page = await browser.newPage();
-        
-        // Set viewport to match standard letter size at 96 DPI with precise scaling
-        await page.setViewport({
-            width: 816,  // 8.5 inches * 96 DPI
-            height: 1056, // 11 inches * 96 DPI
-            deviceScaleFactor: 1,
-            isMobile: false
-        });
 
-        // Configure resource loading
-        await page.setRequestInterception(true);
-        const resourceCache = new Map();
-        
-        page.on('request', async request => {
-            const url = request.url();
-            if (resourceCache.has(url)) {
-                await request.respond({
-                    body: resourceCache.get(url)
-                });
-                return;
-            }
-            request.continue();
-        });
-
-        page.on('response', async response => {
-            const url = response.url();
-            if (response.ok() && !resourceCache.has(url)) {
-                try {
-                    const buffer = await response.buffer();
-                    resourceCache.set(url, buffer);
-                } catch (e) {
-                    console.warn(`Failed to cache resource ${url}:`, e.message);
-                }
-            }
-        });
-
-        // Define comprehensive styles for consistent rendering
-        const normalizeStyles = `
-            /* Base normalization */
-            html {
-                -webkit-text-size-adjust: 100%;
-                text-size-adjust: 100%;
-                font-size: 16px;
-                line-height: 1.15;
-            }
-
-            /* Print-specific styles */
-            @page {
-                size: Letter;
-                margin: 0.25in;
-            }
-
-            @media print {
-                html {
-                    font-size: 12pt;
-                }
-                
-                body {
-                    margin: 0;
-                    padding: 0;
-                    -webkit-print-color-adjust: exact !important;
-                    print-color-adjust: exact !important;
-                }
-
-                /* Preserve original font sizes */
-                * {
-                    font-size: inherit;
-                }
-
-                /* Ensure backgrounds print */
-                * {
-                    -webkit-print-color-adjust: exact !important;
-                    print-color-adjust: exact !important;
-                }
-            }
-
-            /* Preserve original layout */
-            body {
-                width: 8.5in;
-                min-height: 11in;
-                margin: 0 auto;
-                padding: 0.25in;
-                box-sizing: border-box;
-                overflow-wrap: break-word;
-            }
-        `;
-
-        // Set content with proper viewport meta tag
-        const enhancedHtml = `
-            <!DOCTYPE html>
-            <html>
-                <head>
-                    <meta charset="utf-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-                    <style>${normalizeStyles}</style>
-                    ${htmlContent.includes('<head>') ? 
-                        htmlContent.split('<head>')[1].split('</head>')[0] : ''}
-                </head>
-                <body>
-                    ${htmlContent.includes('<body>') ? 
-                        htmlContent.split('<body>')[1].split('</body>')[0] : 
-                        htmlContent}
-                </body>
-            </html>
-        `;
-
-        // Load content and wait for everything to render
-        await page.setContent(enhancedHtml, {
+        // Set content with minimal interference
+        await page.setContent(htmlContent, {
             waitUntil: ['networkidle0', 'load', 'domcontentloaded']
         });
 
-        // Ensure proper font loading and rendering
+        // Wait for fonts and images to load
         await page.evaluate(async () => {
-            // Force load all fonts
+            // Wait for fonts
             await document.fonts.ready;
             
-            // Wait for any web fonts
-            const fontPromises = Array.from(document.fonts).map(font => font.load());
-            await Promise.all(fontPromises);
-
-            // Ensure styles are computed
-            await new Promise(resolve => requestAnimationFrame(resolve));
+            // Wait for images
+            const images = Array.from(document.images);
+            await Promise.all(images.map(img => {
+                if (img.complete) return;
+                return new Promise((resolve, reject) => {
+                    img.addEventListener('load', resolve);
+                    img.addEventListener('error', reject);
+                });
+            }));
         });
 
-        // Use screen media type to maintain original styling
-        await page.emulateMediaType('screen');
-
-        // Calculate actual content height
+        // Calculate content height for page overflow detection
         const height = await page.evaluate(() => {
-            const body = document.body;
-            const html = document.documentElement;
             return Math.max(
-                body.scrollHeight,
-                body.offsetHeight,
-                html.clientHeight,
-                html.scrollHeight,
-                html.offsetHeight
+                document.body.scrollHeight,
+                document.body.offsetHeight,
+                document.documentElement.clientHeight,
+                document.documentElement.scrollHeight,
+                document.documentElement.offsetHeight
             );
         });
 
         const MAX_HEIGHT = 1056; // 11 inches * 96 DPI
 
-        // Generate PDF with precise settings
+        // Generate PDF with minimal settings
         const pdfBuffer = await page.pdf({
             format: 'Letter',
             printBackground: true,
-            preferCSSPageSize: true,
             margin: {
                 top: '0.25in',
                 right: '0.25in',
                 bottom: '0.25in',
                 left: '0.25in'
-            },
-            displayHeaderFooter: false,
-            scale: 1,
+            }
         });
 
         return { 
