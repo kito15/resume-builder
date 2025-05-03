@@ -89,17 +89,31 @@ class SectionBulletTracker {
     constructor() {
         this.bulletMap = new Map();
         this.usedBullets = new Set();
+        this.normalizedBullets = new Set();
     }
     addBullet(bulletText, sectionType) {
         this.bulletMap.set(bulletText, sectionType);
         this.usedBullets.add(bulletText);
+        
+        const normalizedText = this._normalizeBullet(bulletText);
+        this.normalizedBullets.add(normalizedText);
     }
     canUseBulletInSection(bulletText, sectionType) {
-        if (!this.bulletMap.has(bulletText)) return true;
-        return this.bulletMap.get(bulletText) === sectionType;
+        return !this.isUsed(bulletText);
     }
     isUsed(bulletText) {
-        return this.usedBullets.has(bulletText);
+        if (this.usedBullets.has(bulletText)) {
+            return true;
+        }
+        
+        const normalizedText = this._normalizeBullet(bulletText);
+        return this.normalizedBullets.has(normalizedText);
+    }
+    _normalizeBullet(text) {
+        return text.toLowerCase()
+            .replace(/[.,!?:;()\[\]{}""'']/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
     }
 }
 
@@ -696,7 +710,20 @@ Return ONLY a valid JSON object with the following structure:
 - "skills": Object containing:
   - "allSkills": Array of all skills listed in the resume (array of strings)
   - "categorizedSkills": Object mapping skill categories to arrays of skills (if categories exist)
-  - "element": CSS selector or identifier for the skills section
+  - "element": PRECISE CSS selector or identifier for the skills section
+
+For the skills section, you MUST carefully identify the EXACT HTML element that contains ONLY the skills content. Look for these patterns:
+1. A section with heading/title containing words like "Skills", "Technical Skills", "Expertise", "Proficiencies", or "Technologies"
+2. Lists or comma-separated values of technical terms
+3. Often organized near the top or bottom of the resume
+4. May be divided into categories (languages, frameworks, tools, etc.)
+
+For the "element" field of the skills section, provide the MOST SPECIFIC selector possible:
+- Prefer ID selectors if available (#skills-section)
+- Next, use class selectors (.skills-container)
+- If needed, use tag with specific attributes (div[data-section="skills"])
+- Use parent-child relationships to narrow down (header + .skills-content)
+- DO NOT provide overly generic selectors like "div" or "section" without qualifiers
 
 - "resumeStructure": Object containing:
   - "jobSectionIdentifier": A unique text pattern or element that identifies the job experience section
@@ -705,7 +732,7 @@ Return ONLY a valid JSON object with the following structure:
   - "skillsSectionIdentifier": A unique text pattern or element that identifies the skills section
 
 Focus on extracting the EXACT text content as it appears in the HTML. For bullet points, preserve the exact wording.
-The "element" fields should contain information that can be used to identify and locate the specific entries in the HTML (could be a CSS selector, a combination of text patterns, or other unique identifiers).
+The "element" fields should contain information that can be used to identify and locate the specific entries in the HTML.
 
 HTML Content to Analyze:
 \`\`\`html
@@ -785,15 +812,11 @@ async function updateBulletPoints(
         return;
     }
     
-    // Find this specific entry in the HTML by using the entry's element identifier
     let entryElement;
     try {
-        // Try as CSS selector first
         entryElement = $(entry.element);
         
-        // If that doesn't work, try looking for text patterns
         if (!entryElement.length) {
-            // Look for entries containing both title and company/dates
             if (entryType === 'job') {
                 entryElement = $(`*:contains("${entry.title}"):contains("${entry.company}")`).filter(function() {
                     return $(this).children().length > 0 && !$(this).parents('script, style').length;
@@ -814,15 +837,11 @@ async function updateBulletPoints(
         return;
     }
     
-    // Now find or create the bullet list
     let bulletList = entryElement.find('ul');
     if (bulletList.length === 0) {
-        // Try to find any list
         bulletList = entryElement.find('ol, dl');
         
-        // If still no list, create a ul
         if (bulletList.length === 0) {
-            // Find a good place to insert our list (after title/company/dates)
             const possibleContainer = entryElement.find('div, p, section').filter(function() {
                 return $(this).children().length === 0 || 
                        ($(this).children('br').length > 0 && $(this).children().length === $(this).children('br').length);
@@ -842,14 +861,11 @@ async function updateBulletPoints(
         }
     }
     
-    // Determine what element to use for bullets
     const existingBulletTag = entry.bulletPoints.length > 0 ? 
         bulletList.find('li, dt, dd').first().prop('tagName')?.toLowerCase() || 'li' : 'li';
     
-    // Get bullet points either from cache or generate new ones
     let bulletPoints = bulletCache.getBulletsForSection(entryType, targetBulletCount);
     
-    // If we have existing bullets and need full tailoring, use them as a base
     if (fullTailoring && entry.bulletPoints.length > 0) {
         bulletPoints = await generateBullets(
             'tailor', 
@@ -862,15 +878,12 @@ async function updateBulletPoints(
         bulletPoints.forEach(bp => bulletCache.addBulletToSection(bp, entryType));
     }
     
-    // Filter out used bullets
     bulletPoints = bulletPoints
-        .filter(bp => !bulletTracker.isUsed(bp) || bulletTracker.canUseBulletInSection(bp, entryType))
+        .filter(bp => !bulletTracker.isUsed(bp))
         .slice(0, targetBulletCount);
     
-    // Ensure verb variety
     bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, entryType, verbTracker);
     
-    // Clear existing bullets and add new ones
     bulletList.empty();
     const seenPoints = new Set();
     
@@ -901,22 +914,45 @@ async function updateSkillsSectionContent($, skills, keywords) {
             
             let skillsSection;
             try {
-                // Try to find the skills section using the element identifier
                 skillsSection = $(skills.element);
                 
-                // If that doesn't work, look for sections with skill-related text
                 if (!skillsSection.length) {
-                    skillsSection = $('section, div').filter(function() {
+                    const skillsHeadings = $('h1, h2, h3, h4, h5, h6, .section-title, .heading').filter(function() {
                         const text = $(this).text().toLowerCase();
-                        return (text.includes('skills') || text.includes('technologies') || 
-                                text.includes('expertise') || text.includes('proficiencies')) &&
-                               !text.includes('soft skills') &&
-                               $(this).children().length > 0;
+                        return text.includes('skill') || 
+                               text.includes('technolog') || 
+                               text.includes('proficienc') || 
+                               text.includes('expertise');
                     });
+                    
+                    if (skillsHeadings.length) {
+                        skillsHeadings.each((_, heading) => {
+                            const parent = $(heading).closest('section, div.section, div[class*="section"], div[class*="skill"]');
+                            if (parent.length) {
+                                skillsSection = parent;
+                                return false;
+                            }
+                            
+                            const siblings = $(heading).nextUntil('h1, h2, h3, h4, h5, h6, .section-title, .heading');
+                            if (siblings.length) {
+                                skillsSection = $('<div></div>').append(siblings.clone());
+                                return false;
+                            }
+                        });
+                    }
+                    
+                    if (!skillsSection || !skillsSection.length) {
+                        skillsSection = $('section, div').filter(function() {
+                            const text = $(this).text().toLowerCase();
+                            return (text.includes('skills') || text.includes('technologies') || 
+                                   text.includes('expertise') || text.includes('proficiencies')) &&
+                                   !text.includes('soft skills') &&
+                                   $(this).children().length > 0;
+                        });
+                    }
                 }
             } catch (e) {
                 console.error('Error finding skills section:', e);
-                // Fallback to looking for any section with "skills" in the title
                 skillsSection = $('*:contains("Skills")').filter(function() {
                     return $(this).children().length > 0 && !$(this).parents('script, style').length;
                 });
@@ -935,10 +971,8 @@ async function updateSkillsSectionContent($, skills, keywords) {
                 "Machine Learning Libraries": "Machine Learning Libraries:"
             };
             
-            // Clear existing skills content while preserving the section structure
             skillsSection.find('p').remove();
             
-            // Add new categorized skills
             Object.entries(categoryMapping).forEach(([dataKey, htmlLabel]) => {
                 if (categorizedKeywords[dataKey] && categorizedKeywords[dataKey].length > 0) {
                     const keywordsList = categorizedKeywords[dataKey].join(', ');
@@ -966,22 +1000,17 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     const verbTracker = new ActionVerbTracker();
     const bulletCache = new BulletCache();
     
-    // Define initial bullet counts and minimum counts
     const INITIAL_BULLET_COUNT = 4;
     const MIN_BULLETS = 2;
     
-    // Format keywords for use in generation
     const keywordString = fullTailoring ?
         keywords.join(', ') :
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
     
-    // Update skills section
     await updateSkillsSectionContent($, resumeContent.skills, keywords);
     
-    // Pre-generate bullets for all sections
     await bulletCache.generateAllBullets($, keywords, 'resume section', 12, verbTracker);
     
-    // Update job entries
     console.log(`Processing ${resumeContent.jobEntries.length} job entries`);
     for (const jobEntry of resumeContent.jobEntries) {
         await updateBulletPoints(
@@ -990,7 +1019,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         );
     }
     
-    // Update project entries
     console.log(`Processing ${resumeContent.projectEntries.length} project entries`);
     for (const projectEntry of resumeContent.projectEntries) {
         await updateBulletPoints(
@@ -999,7 +1027,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         );
     }
     
-    // Check page length and adjust if necessary
     let currentBulletCount = INITIAL_BULLET_COUNT;
     let attempts = 0;
     
@@ -1007,11 +1034,9 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         const { exceedsOnePage } = await convertHtmlToPdf($.html());
         if (!exceedsOnePage) break;
         
-        // Reduce bullet count and adjust
         currentBulletCount--;
         console.log(`Resume exceeds one page. Reducing bullets to ${currentBulletCount}`);
         
-        // Adjust job entries
         for (const jobEntry of resumeContent.jobEntries) {
             const bulletLists = $(jobEntry.element).find('ul, ol, dl');
             bulletLists.each((_, list) => {
@@ -1022,7 +1047,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
             });
         }
         
-        // Adjust project entries
         for (const projectEntry of resumeContent.projectEntries) {
             const bulletLists = $(projectEntry.element).find('ul, ol, dl');
             bulletLists.each((_, list) => {
@@ -1036,7 +1060,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         attempts++;
     }
     
-    // Log final counts
     const jobBullets = $('li, dt, dd').filter(function() {
         return resumeContent.jobEntries.some(job => 
             $(this).closest(job.element).length > 0);
