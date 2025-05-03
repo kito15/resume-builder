@@ -157,7 +157,8 @@ FORMATTING RULES:
 2. One specific metric per bullet (%, $, time, or quantity)
 3. Each bullet MUST begin with a strong action verb
 4. NEVER reuse the same starting verb across bullet points
-5. Each bullet MUST be ${wordLimit} words or less - THIS IS CRITICAL
+5. Each bullet MUST be ${wordLimit} words or less - STRICT LIMIT
+6. Be extremely concise - remove all unnecessary words
 
 KEYWORD INTEGRATION RULES:
 1. Use keywords from this list: ${keywords}
@@ -165,13 +166,6 @@ KEYWORD INTEGRATION RULES:
 3. NEVER combine unrelated technologies in the same bullet point
 4. Each keyword MUST be used at least once across all bullets
 5. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
-
-BREVITY RULES:
-1. STRICTLY enforce the ${wordLimit}-word limit
-2. Focus on impactful achievements rather than responsibilities
-3. Prioritize quantitative metrics (numbers, percentages)
-4. Eliminate unnecessary articles and adjectives
-5. Use precise, concise action verbs
 
 TECHNOLOGY COMBINATION RULES:
 1. Keep technologies within their domain (frontend, backend, etc.)
@@ -227,7 +221,7 @@ ${(existingBullets || []).join('\n')}`;
                 messages: [
                     {
                         role: "system",
-                        content: "You are a specialized resume bullet point optimizer. First, think out loud: analyze the user's input, context, and keyword list step by step, reflecting on which keywords and technologies should be included or omitted, and justify each decision to ensure logical, ATS-friendly, and relevant results. Avoid illogical pairings (e.g., Apex with Java). After your chain-of-thought, generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
+                        content: "You are a specialized resume bullet point optimizer. First, think out loud: analyze the user's input, context, and keyword list step by step, reflecting on which keywords and technologies should be included or omitted, and justify each decision to ensure logical, ATS-friendly, and relevant results. Avoid illogical pairings (e.g., Apex with Java). After your chain-of-thought, generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. NEVER exceed word limit - this is critical\n7. Be extremely concise - remove all unnecessary words\n8. Never mix unrelated technologies\n9. Focus on concrete achievements"
                     },
                     {
                         role: "user",
@@ -313,8 +307,8 @@ class BulletCache {
             project: new Set()
         };
         this.targetBulletCounts = {
-            job: 5,
-            project: 4
+            job: 4,
+            project: 3
         };
     }
     async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
@@ -397,9 +391,26 @@ async function updateResumeSection($, sectionSelector, bulletSelector, keywords,
         bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, sectionType, verbTracker);
         bulletList.empty();
         bulletPoints.forEach(point => {
-            bulletTracker.addBullet(point, sectionType);
-            verbTracker.addVerb(getFirstVerb(point), sectionType);
-            bulletList.append(`<${bulletElementSelector}>${point}</${bulletElementSelector}>`);
+            // Trim bullet points that exceed the word limit
+            const wordCount = countWordsInBullet(point);
+            let trimmedPoint = point;
+            if (wordCount > wordLimit) {
+                const words = point.split(/\s+/);
+                trimmedPoint = words.slice(0, wordLimit).join(' ');
+                // Ensure the trimmed point still has the metric
+                if (!trimmedPoint.match(/\d+%|\$\d+|\d+\s*(seconds|minutes|hours|days|weeks|months|years|users|records|calls|requests|entries)/i)) {
+                    // Find the metric in the original point and ensure it's in the trimmed version
+                    const metricMatch = point.match(/\d+%|\$\d+|\d+\s*(seconds|minutes|hours|days|weeks|months|years|users|records|calls|requests|entries)/i);
+                    if (metricMatch) {
+                        const trimmedWords = trimmedPoint.split(/\s+/);
+                        trimmedWords.pop(); // Remove last word to make room for metric
+                        trimmedPoint = trimmedWords.join(' ') + ' ' + metricMatch[0];
+                    }
+                }
+            }
+            bulletTracker.addBullet(trimmedPoint, sectionType);
+            verbTracker.addVerb(getFirstVerb(trimmedPoint), sectionType);
+            bulletList.append(`<${bulletElementSelector}>${trimmedPoint}</${bulletElementSelector}>`);
         });
     }
 }
@@ -481,16 +492,19 @@ async function convertHtmlToPdf(htmlContent) {
         body {
             margin: 0;
             padding: 0;
-            font-size: 95%;
-            line-height: 1.3;
+            font-size: 0.95em;
+        }
+        p, li {
+            margin-bottom: 0.2em;
+            line-height: 1.2;
         }
         ul {
-            margin-top: 2px;
-            margin-bottom: 4px;
-            padding-left: 20px;
+            margin-top: 0.2em;
+            margin-bottom: 0.2em;
+            padding-left: 1.2em;
         }
-        li {
-            margin-bottom: 2px;
+        .section {
+            margin-bottom: 0.4em;
         }
     `;
     await page.setContent(htmlContent);
@@ -500,7 +514,7 @@ async function convertHtmlToPdf(htmlContent) {
         document.head.appendChild(style);
     }, customCSS);
     const height = await checkPageHeight(page);
-    const MAX_HEIGHT = 1056;
+    const MAX_HEIGHT = 1080;
     const pdfBuffer = await page.pdf({
         format: 'Letter',
         printBackground: true,
@@ -652,37 +666,6 @@ function updateSkillsSection($, keywords, selectors) {
     });
 }
 
-function optimizeHtmlForCompactness($) {
-    // Remove excessive empty space
-    $('p').each((i, el) => {
-        const $el = $(el);
-        const text = $el.text().trim();
-        if (text === '') {
-            $el.remove();
-        }
-    });
-    
-    // Reduce margins on section elements
-    $('.section').css('margin-bottom', '10px');
-    
-    // Optimize spacing in lists
-    $('ul').css({
-        'margin-top': '2px',
-        'margin-bottom': '3px',
-        'padding-left': '18px'
-    });
-    
-    $('li').css('margin-bottom', '1px');
-    
-    // Compress heading margins
-    $('h1, h2, h3, h4, h5, h6').css({
-        'margin-top': '5px',
-        'margin-bottom': '5px'
-    });
-    
-    return $;
-}
-
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const selectors = await getDynamicSelectors(htmlContent);
     if (!selectors || Object.keys(selectors).length === 0) {
@@ -778,7 +761,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         await updateResumeSection(
             $, section.selector, section.bulletSelector,
             keywordString, section.context,
-            fullTailoring, sectionWordCounts[section.type] || 15,
+            fullTailoring, sectionWordCounts[section.type] || 12,
             bulletTracker, section.type, section.bullets,
             INITIAL_BULLET_COUNT, verbTracker, bulletCache
         );
@@ -789,9 +772,8 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         const { exceedsOnePage } = await convertHtmlToPdf($.html());
         if (!exceedsOnePage) break;
         
-        // More aggressive reduction when still overflowing
-        currentBulletCount = attempts < 2 ? currentBulletCount - 1 : currentBulletCount - 2;
-        currentBulletCount = Math.max(MIN_BULLETS, currentBulletCount);
+        // More aggressive reduction after first attempt
+        currentBulletCount = (attempts === 0) ? currentBulletCount - 1 : currentBulletCount - 2;
         
         for (const section of sectionsToProcessBullets) {
             const adjustedCount = Math.max(
@@ -810,10 +792,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     const finalProjectBullets = $(selectors.projectBulletSelector).length;
     const finalEducationBullets = $(selectors.educationBulletSelector).length;
     console.log(`Final bullet counts: Jobs=${finalJobBullets}, Projects=${finalProjectBullets}, Education=${finalEducationBullets}`);
-    
-    // Apply optimizations for compact layout before returning HTML
-    optimizeHtmlForCompactness($);
-    
     return $.html();
 }
 
@@ -947,47 +925,16 @@ async function customizeResume(req, res) {
         if (htmlContent.length < 100) {
             return res.status(400).send('Invalid HTML content: Content too short');
         }
-        
-        // First pass - generate tailored content
-        let updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
-        let $ = cheerio.load(updatedHtmlContent);
-        
-        // Check if still overflowing
-        let { pdfBuffer, exceedsOnePage } = await convertHtmlToPdf(updatedHtmlContent);
-        
-        // If still overflowing, apply more aggressive reduction
+        const updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
+        const $ = cheerio.load(updatedHtmlContent);
+        const jobBullets = $('.job-details li').length;
+        const projectBullets = $('.project-details li').length;
+        const educationBullets = $('.education-details li').length;
+        console.log(`Generated bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}, Education=${educationBullets}`);
+        const { pdfBuffer, exceedsOnePage } = await convertHtmlToPdf(updatedHtmlContent);
         if (exceedsOnePage) {
-            console.warn('Warning: Resume still exceeds one page after initial adjustments - applying emergency reduction');
-            
-            // More aggressive formatting
-            $ = cheerio.load(updatedHtmlContent);
-            $('.section').css('margin-bottom', '8px');
-            $('ul').css({
-                'margin-top': '1px',
-                'margin-bottom': '1px',
-                'padding-left': '15px'
-            });
-            
-            // Emergency bullet reduction
-            $('ul').each((_, ul) => {
-                const $bullets = $(ul).find('li');
-                if ($bullets.length > 3) {
-                    $bullets.slice(3).remove();
-                }
-            });
-            
-            updatedHtmlContent = $.html();
-            const finalResult = await convertHtmlToPdf(updatedHtmlContent);
-            pdfBuffer = finalResult.pdfBuffer;
-            exceedsOnePage = finalResult.exceedsOnePage;
+            console.warn('Warning: Resume still exceeds one page after adjustments');
         }
-        
-        if (exceedsOnePage) {
-            console.warn('Warning: Resume still exceeds one page after emergency adjustments');
-        } else {
-            console.log('Resume successfully fit to one page');
-        }
-        
         res.contentType('application/pdf');
         res.set('Content-Disposition', 'attachment; filename=resume.pdf');
         res.send(Buffer.from(pdfBuffer));
