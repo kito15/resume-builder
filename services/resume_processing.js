@@ -163,10 +163,9 @@ KEYWORD INTEGRATION RULES:
 1. Use keywords from this list: ${keywords}
 2. Use ONLY 1-2 related technologies per bullet
 3. NEVER combine unrelated technologies in the same bullet point
-4. Each keyword MUST be used in at least one bullet
-5. ALL provided keywords MUST be integrated into the bullet points—do not omit any keyword
+4. Each keyword MUST be used at least once across all bullets
+5. ALL provided keywords MUST be integrated across the set of bullets—do not omit any keyword
 6. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
-7. You MUST NOT leave out any keyword. If a keyword cannot be integrated naturally, rewrite the bullet so that the keyword is included in a way that makes sense, while keeping the original achievement and metric.
 
 TECHNOLOGY COMBINATION RULES:
 1. Keep technologies within their domain (frontend, backend, etc.)
@@ -211,8 +210,8 @@ INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
     const prompt = mode === 'tailor' 
-        ? `${basePrompt}\n\nTASK: Enhance the above bullets by thoroughly and explicitly integrating EVERY provided keyword into the bullet points. You MUST use every keyword at least once, and you MUST NOT omit any keyword. If a keyword does not fit naturally, you must rewrite the bullet so that the keyword is included in a way that makes sense, while keeping the original achievement and metric. Maintain all original metrics and achievements.`
-        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs. You MUST use EVERY provided keyword at least once, and you MUST NOT omit any keyword. If a keyword does not fit naturally, you must rewrite the bullet so that the keyword is included in a way that makes sense, while keeping the achievement and metric.`;
+        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally and thoroughly integrating ALL provided keywords. Every keyword must appear at least once across the set. Maintain original metrics and achievements.`
+        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs, ensuring that ALL provided keywords are integrated at least once across the set.`;
 
     try {
         const response = await axios.post(
@@ -222,7 +221,7 @@ ${(existingBullets || []).join('\n')}`;
                 messages: [
                     {
                         role: "system",
-                        content: "You are a specialized resume bullet point optimizer. First, think out loud: analyze the user's input, context, and keyword list step by step, reflecting on which keywords and technologies should be included or omitted, and justify each decision to ensure logical, ATS-friendly, and relevant results. Avoid illogical pairings (e.g., Apex with Java). After your chain-of-thought, generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. You MUST use EVERY provided keyword at least once, and you MUST NOT omit any keyword. If a keyword does not fit naturally, you must rewrite the bullet so that the keyword is included in a way that makes sense, while keeping the achievement and metric.\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
+                        content: "You are a specialized resume bullet point optimizer. First, think out loud: analyze the user's input, context, and keyword list step by step, reflecting on which keywords and technologies should be included or omitted, and justify each decision to ensure logical, ATS-friendly, and relevant results. Avoid illogical pairings (e.g., Apex with Java). After your chain-of-thought, generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once, and ensure ALL keywords are integrated across the set\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
                     },
                     {
                         role: "user",
