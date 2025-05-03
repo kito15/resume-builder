@@ -661,103 +661,76 @@ function updateSkillsSection($, keywords, selectors) {
     });
 }
 
-async function updateResume(htmlContent, keywords, fullTailoring) {
-    const structure = await extractResumeStructure(htmlContent);
-    if (!structure) {
-        console.error('Failed to extract resume structure. Aborting.');
-        return htmlContent;
-    }
-    const $ = cheerio.load(htmlContent);
-    // Helper to update bullets for a section (jobs, projects, education)
-    async function updateSection(entries, sectionType) {
-        for (const entry of entries) {
-            // Generate/tailor new bullets for this entry
-            let tailoredBullets = entry.bullets;
-            if (fullTailoring && Array.isArray(entry.bullets) && entry.bullets.length > 0) {
-                tailoredBullets = await generateBullets(
-                    'tailor', entry.bullets, keywords, `for a ${sectionType} entry`, 12
-                );
-            }
-            // Find the section in the HTML by matching title/company/dates (fuzzy)
-            // We'll look for a block containing all of these as text
-            let foundSection = null;
-            $('body *').each((_, el) => {
-                const text = $(el).text();
-                if (
-                    (entry.title && text.includes(entry.title)) &&
-                    ((entry.company && text.includes(entry.company)) || (entry.organization && text.includes(entry.organization)) || (entry.institution && text.includes(entry.institution))) &&
-                    (entry.dates && text.includes(entry.dates))
-                ) {
-                    foundSection = $(el);
-                    return false;
-                }
-            });
-            if (foundSection) {
-                // Replace the bullet list in this section
-                // Remove any <ul>/<ol> with <li> children inside this section
-                foundSection.find('ul,ol').each((_, ul) => {
-                    $(ul).remove();
-                });
-                // Insert new bullet list after the header (title/company/dates)
-                const bulletList = $('<ul></ul>');
-                for (const bullet of tailoredBullets) {
-                    bulletList.append(`<li>${bullet}</li>`);
-                }
-                foundSection.append(bulletList);
-            } else {
-                console.warn(`Could not find section in HTML for ${sectionType} entry:`, entry.title || entry.degree);
-            }
-        }
-    }
-    // Update all sections
-    if (Array.isArray(structure.jobs)) await updateSection(structure.jobs, 'job');
-    if (Array.isArray(structure.projects)) await updateSection(structure.projects, 'project');
-    if (Array.isArray(structure.education)) await updateSection(structure.education, 'education');
-    // Update skills section
-    if (Array.isArray(structure.skills)) {
-        // Remove all existing skills sections
-        $('[class*=skill], [id*=skill]').remove();
-        // Add a new skills section at the end of the body
-        const skillsBlock = $('<div class="skills-section"><h2>Skills</h2><p>' + structure.skills.join(', ') + '</p></div>');
-        $('body').append(skillsBlock);
-    }
-    return $.html();
-}
-
-async function extractResumeStructure(htmlContent) {
-    const cacheKey = `resumeStructure_${generateHash(htmlContent)}`;
+async function parseResumeContent(htmlContent) {
+    const cacheKey = `resumeContent_${generateHash(htmlContent)}`;
     if (lmCache.has(cacheKey)) {
+        console.log('Returning cached resume content structure.');
         return lmCache.get(cacheKey);
     }
-    const prompt = `Parse the following HTML resume and extract the following structured data as a valid JSON object:
+    
+    console.log('Parsing resume content with OpenAI...');
+    const prompt = `Analyze the following HTML content of a resume and extract its semantic structure. Parse the HTML to identify different sections (Job Experience, Projects, Education, Skills) and their contents.
 
-{
-  "jobs": [
-    { "title": string, "company": string, "dates": string, "bullets": [string, ...] }, ...
-  ],
-  "projects": [
-    { "title": string, "organization": string, "dates": string, "bullets": [string, ...] }, ...
-  ],
-  "education": [
-    { "degree": string, "institution": string, "dates": string, "bullets": [string, ...] }, ...
-  ],
-  "skills": [string, ...]
-}
+Return ONLY a valid JSON object with the following structure:
+- "jobEntries": Array of job experience entries, each containing:
+  - "title": Job title (string)
+  - "company": Company name (string)
+  - "dates": Employment dates (string)
+  - "bulletPoints": Array of bullet point texts exactly as they appear (array of strings)
+  - "element": Unique identifier for this job entry (like a CSS selector or combination of attributes/text that can uniquely locate this entry)
 
-- For each job/project/education entry, extract all visible bullet points (as text) that belong to that entry.
-- For skills, extract all technical skills/keywords found in the skills section(s).
-- Do not include any explanations or markdown, only the JSON object.`;
+- "projectEntries": Array of project entries, each containing:
+  - "title": Project title (string)
+  - "dates": Project dates if available (string or null)
+  - "technologies": Technologies used, if explicitly listed (string or null)
+  - "bulletPoints": Array of bullet point texts exactly as they appear (array of strings)
+  - "element": Unique identifier for this project entry (CSS selector or textual pattern)
+
+- "educationEntries": Array of education entries, each containing:
+  - "institution": Name of educational institution (string)
+  - "degree": Degree earned (string)
+  - "dates": Study period (string)
+  - "bulletPoints": Array of any bullet points or additional details (array of strings)
+  - "element": Unique identifier for this education entry
+
+- "skills": Object containing:
+  - "allSkills": Array of all skills listed in the resume (array of strings)
+  - "categorizedSkills": Object mapping skill categories to arrays of skills (if categories exist)
+  - "element": CSS selector or identifier for the skills section
+
+- "resumeStructure": Object containing:
+  - "jobSectionIdentifier": A unique text pattern or element that identifies the job experience section
+  - "projectSectionIdentifier": A unique text pattern or element that identifies the project section
+  - "educationSectionIdentifier": A unique text pattern or element that identifies the education section
+  - "skillsSectionIdentifier": A unique text pattern or element that identifies the skills section
+
+Focus on extracting the EXACT text content as it appears in the HTML. For bullet points, preserve the exact wording.
+The "element" fields should contain information that can be used to identify and locate the specific entries in the HTML (could be a CSS selector, a combination of text patterns, or other unique identifiers).
+
+HTML Content to Analyze:
+\`\`\`html
+${htmlContent}
+\`\`\`
+
+Return ONLY the JSON object without any explanations or markdown formatting around it.`;
+
     try {
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
                 model: "gpt-4.1-nano",
                 messages: [
-                    { role: "system", content: "You are an expert at parsing resumes and returning structured JSON." },
-                    { role: "user", content: prompt + "\n\nHTML:\n" + htmlContent }
+                    {
+                        role: "system",
+                        content: "You are an AI assistant specialized in analyzing resume HTML to extract its semantic structure. You return only valid JSON matching the requested format. Extract the EXACT text content as it appears, especially for bullet points."
+                    },
+                    {
+                        role: "user",
+                        content: prompt
+                    }
                 ],
                 temperature: 0.2,
-                max_tokens: 4096,
+                max_tokens: 3000,
                 response_format: { type: "json_object" }
             },
             {
@@ -767,25 +740,321 @@ async function extractResumeStructure(htmlContent) {
                 }
             }
         );
-        let content = response.data.choices[0].message.content;
-        // Try to parse JSON
-        let structure;
+        
+        const content = response.data.choices[0].message.content;
         try {
-            structure = JSON.parse(content);
-        } catch (e) {
-            // Try to extract JSON from markdown/code block
-            const match = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/{[\s\S]*}/);
-            structure = match ? JSON.parse(match[1] || match[0]) : null;
+            const resumeContent = JSON.parse(content);
+            const requiredKeys = [
+                "jobEntries", "projectEntries", "educationEntries", 
+                "skills", "resumeStructure"
+            ];
+            
+            const hasAllKeys = requiredKeys.every(key => key in resumeContent);
+            if (typeof resumeContent === 'object' && resumeContent !== null && hasAllKeys) {
+                console.log('Successfully parsed resume content structure');
+                lmCache.set(cacheKey, resumeContent);
+                return resumeContent;
+            } else {
+                console.error('LLM returned invalid JSON structure or missing keys');
+                return null;
+            }
+        } catch (jsonError) {
+            console.error('Error parsing JSON from LLM response:', jsonError);
+            return null;
         }
-        if (structure && typeof structure === 'object') {
-            lmCache.set(cacheKey, structure);
-            return structure;
-        }
-        throw new Error('Invalid LLM output');
-    } catch (err) {
-        console.error('Error extracting resume structure:', err.response?.data || err.message);
+    } catch (error) {
+        console.error('Error calling OpenAI API for resume parsing:', error.response?.data || error.message);
         return null;
     }
+}
+
+async function updateBulletPoints(
+    $, 
+    entry, 
+    entryType, 
+    keywords, 
+    fullTailoring, 
+    wordLimit, 
+    bulletTracker, 
+    verbTracker, 
+    bulletCache,
+    targetBulletCount
+) {
+    if (entryType === 'education') {
+        console.log("Skipping bullet point generation for Education entry");
+        return;
+    }
+    
+    // Find this specific entry in the HTML by using the entry's element identifier
+    let entryElement;
+    try {
+        // Try as CSS selector first
+        entryElement = $(entry.element);
+        
+        // If that doesn't work, try looking for text patterns
+        if (!entryElement.length) {
+            // Look for entries containing both title and company/dates
+            if (entryType === 'job') {
+                entryElement = $(`*:contains("${entry.title}"):contains("${entry.company}")`).filter(function() {
+                    return $(this).children().length > 0 && !$(this).parents('script, style').length;
+                });
+            } else if (entryType === 'project') {
+                entryElement = $(`*:contains("${entry.title}")`).filter(function() {
+                    return $(this).children().length > 0 && !$(this).parents('script, style').length;
+                });
+            }
+        }
+    } catch (e) {
+        console.error(`Error finding entry element for ${entryType}:`, e);
+        return;
+    }
+    
+    if (!entryElement || !entryElement.length) {
+        console.warn(`Could not find element for ${entryType} entry: ${entry.title}`);
+        return;
+    }
+    
+    // Now find or create the bullet list
+    let bulletList = entryElement.find('ul');
+    if (bulletList.length === 0) {
+        // Try to find any list
+        bulletList = entryElement.find('ol, dl');
+        
+        // If still no list, create a ul
+        if (bulletList.length === 0) {
+            // Find a good place to insert our list (after title/company/dates)
+            const possibleContainer = entryElement.find('div, p, section').filter(function() {
+                return $(this).children().length === 0 || 
+                       ($(this).children('br').length > 0 && $(this).children().length === $(this).children('br').length);
+            }).first();
+            
+            if (possibleContainer.length) {
+                possibleContainer.append('<ul></ul>');
+            } else {
+                entryElement.append('<ul></ul>');
+            }
+            
+            bulletList = entryElement.find('ul');
+            if (bulletList.length === 0) {
+                console.warn(`Could not find or create bullet list for ${entryType} entry: ${entry.title}`);
+                return;
+            }
+        }
+    }
+    
+    // Determine what element to use for bullets
+    const existingBulletTag = entry.bulletPoints.length > 0 ? 
+        bulletList.find('li, dt, dd').first().prop('tagName')?.toLowerCase() || 'li' : 'li';
+    
+    // Get bullet points either from cache or generate new ones
+    let bulletPoints = bulletCache.getBulletsForSection(entryType, targetBulletCount);
+    
+    // If we have existing bullets and need full tailoring, use them as a base
+    if (fullTailoring && entry.bulletPoints.length > 0) {
+        bulletPoints = await generateBullets(
+            'tailor', 
+            entry.bulletPoints,
+            keywords, 
+            `for ${entryType === 'job' ? 'a job experience' : 'a project'}`, 
+            wordLimit, 
+            verbTracker
+        );
+        bulletPoints.forEach(bp => bulletCache.addBulletToSection(bp, entryType));
+    }
+    
+    // Filter out used bullets
+    bulletPoints = bulletPoints
+        .filter(bp => !bulletTracker.isUsed(bp) || bulletTracker.canUseBulletInSection(bp, entryType))
+        .slice(0, targetBulletCount);
+    
+    // Ensure verb variety
+    bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, entryType, verbTracker);
+    
+    // Clear existing bullets and add new ones
+    bulletList.empty();
+    const seenPoints = new Set();
+    
+    bulletPoints.forEach(point => {
+        const norm = point.toLowerCase().replace(/\s+/g, ' ').trim();
+        if (seenPoints.has(norm)) return;
+        
+        seenPoints.add(norm);
+        bulletTracker.addBullet(point, entryType);
+        verbTracker.addVerb(getFirstVerb(point), entryType);
+        
+        const cleanPoint = point.replace(/^>>\s*/, '');
+        bulletList.append(`<${existingBulletTag}>${cleanPoint}</${existingBulletTag}>`);
+    });
+    
+    return bulletPoints.length;
+}
+
+async function updateSkillsSectionContent($, skills, keywords) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const categorizedKeywords = await categorizeKeywords(keywords);
+            if (!categorizedKeywords) {
+                console.warn('Could not categorize keywords, skills section unchanged');
+                resolve($);
+                return;
+            }
+            
+            let skillsSection;
+            try {
+                // Try to find the skills section using the element identifier
+                skillsSection = $(skills.element);
+                
+                // If that doesn't work, look for sections with skill-related text
+                if (!skillsSection.length) {
+                    skillsSection = $('section, div').filter(function() {
+                        const text = $(this).text().toLowerCase();
+                        return (text.includes('skills') || text.includes('technologies') || 
+                                text.includes('expertise') || text.includes('proficiencies')) &&
+                               !text.includes('soft skills') &&
+                               $(this).children().length > 0;
+                    });
+                }
+            } catch (e) {
+                console.error('Error finding skills section:', e);
+                // Fallback to looking for any section with "skills" in the title
+                skillsSection = $('*:contains("Skills")').filter(function() {
+                    return $(this).children().length > 0 && !$(this).parents('script, style').length;
+                });
+            }
+            
+            if (!skillsSection.length) {
+                console.warn('Skills section not found');
+                resolve($);
+                return;
+            }
+            
+            const categoryMapping = {
+                "Languages": "Languages:",
+                "Frameworks/Libraries": "Frameworks/Libraries:",
+                "Others": "Others (APIs, Services, Protocols):",
+                "Machine Learning Libraries": "Machine Learning Libraries:"
+            };
+            
+            // Clear existing skills content while preserving the section structure
+            skillsSection.find('p').remove();
+            
+            // Add new categorized skills
+            Object.entries(categoryMapping).forEach(([dataKey, htmlLabel]) => {
+                if (categorizedKeywords[dataKey] && categorizedKeywords[dataKey].length > 0) {
+                    const keywordsList = categorizedKeywords[dataKey].join(', ');
+                    skillsSection.append(`<p><strong>${htmlLabel}</strong> ${keywordsList}</p>`);
+                }
+            });
+            
+            resolve($);
+        } catch (error) {
+            console.error('Error updating skills section:', error);
+            resolve($);
+        }
+    });
+}
+
+async function updateResume(htmlContent, keywords, fullTailoring) {
+    const resumeContent = await parseResumeContent(htmlContent);
+    if (!resumeContent) {
+        console.error("Failed to parse resume content. Aborting resume update.");
+        return htmlContent;
+    }
+    
+    const $ = cheerio.load(htmlContent);
+    const bulletTracker = new SectionBulletTracker();
+    const verbTracker = new ActionVerbTracker();
+    const bulletCache = new BulletCache();
+    
+    // Define initial bullet counts and minimum counts
+    const INITIAL_BULLET_COUNT = 4;
+    const MIN_BULLETS = 2;
+    
+    // Format keywords for use in generation
+    const keywordString = fullTailoring ?
+        keywords.join(', ') :
+        keywords.slice(0, Math.min(5, keywords.length)).join(', ');
+    
+    // Update skills section
+    await updateSkillsSectionContent($, resumeContent.skills, keywords);
+    
+    // Pre-generate bullets for all sections
+    await bulletCache.generateAllBullets($, keywords, 'resume section', 12, verbTracker);
+    
+    // Update job entries
+    console.log(`Processing ${resumeContent.jobEntries.length} job entries`);
+    for (const jobEntry of resumeContent.jobEntries) {
+        await updateBulletPoints(
+            $, jobEntry, 'job', keywordString, fullTailoring, 12,
+            bulletTracker, verbTracker, bulletCache, INITIAL_BULLET_COUNT
+        );
+    }
+    
+    // Update project entries
+    console.log(`Processing ${resumeContent.projectEntries.length} project entries`);
+    for (const projectEntry of resumeContent.projectEntries) {
+        await updateBulletPoints(
+            $, projectEntry, 'project', keywordString, fullTailoring, 12,
+            bulletTracker, verbTracker, bulletCache, INITIAL_BULLET_COUNT
+        );
+    }
+    
+    // Check page length and adjust if necessary
+    let currentBulletCount = INITIAL_BULLET_COUNT;
+    let attempts = 0;
+    
+    while (attempts < 3 && currentBulletCount >= MIN_BULLETS) {
+        const { exceedsOnePage } = await convertHtmlToPdf($.html());
+        if (!exceedsOnePage) break;
+        
+        // Reduce bullet count and adjust
+        currentBulletCount--;
+        console.log(`Resume exceeds one page. Reducing bullets to ${currentBulletCount}`);
+        
+        // Adjust job entries
+        for (const jobEntry of resumeContent.jobEntries) {
+            const bulletLists = $(jobEntry.element).find('ul, ol, dl');
+            bulletLists.each((_, list) => {
+                const bullets = $(list).children('li, dt, dd');
+                if (bullets.length > currentBulletCount) {
+                    bullets.slice(currentBulletCount).remove();
+                }
+            });
+        }
+        
+        // Adjust project entries
+        for (const projectEntry of resumeContent.projectEntries) {
+            const bulletLists = $(projectEntry.element).find('ul, ol, dl');
+            bulletLists.each((_, list) => {
+                const bullets = $(list).children('li, dt, dd');
+                if (bullets.length > currentBulletCount) {
+                    bullets.slice(currentBulletCount).remove();
+                }
+            });
+        }
+        
+        attempts++;
+    }
+    
+    // Log final counts
+    const jobBullets = $('li, dt, dd').filter(function() {
+        return resumeContent.jobEntries.some(job => 
+            $(this).closest(job.element).length > 0);
+    }).length;
+    
+    const projectBullets = $('li, dt, dd').filter(function() {
+        return resumeContent.projectEntries.some(project => 
+            $(this).closest(project.element).length > 0);
+    }).length;
+    
+    const educationBullets = $('li, dt, dd').filter(function() {
+        return resumeContent.educationEntries.some(edu => 
+            $(this).closest(edu.element).length > 0);
+    }).length;
+    
+    console.log(`Final bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}, Education=${educationBullets}`);
+    
+    return $.html();
 }
 
 async function customizeResume(req, res) {
@@ -808,8 +1077,15 @@ async function customizeResume(req, res) {
         res.set('Content-Disposition', 'attachment; filename=resume.pdf');
         res.send(Buffer.from(pdfBuffer));
     } catch (error) {
+        console.error('Error in customizeResume:', error);
         res.status(500).send('Error processing resume: ' + error.message);
     }
 }
 
-module.exports = { customizeResume, extractResumeStructure };
+// Export both parseResumeContent and getDynamicSelectors (for backward compatibility)
+// getDynamicSelectors is kept as an alias to parseResumeContent
+module.exports = { 
+    customizeResume, 
+    parseResumeContent,
+    getDynamicSelectors: parseResumeContent 
+};
