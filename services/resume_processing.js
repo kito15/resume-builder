@@ -157,7 +157,6 @@ FORMATTING RULES:
 2. One specific metric per bullet (%, $, time, or quantity)
 3. Each bullet MUST begin with a strong action verb
 4. NEVER reuse the same starting verb across bullet points
-5. Each bullet MUST be ${wordLimit} words or less
 
 KEYWORD INTEGRATION RULES:
 1. Use keywords from this list: ${keywords}
@@ -220,7 +219,7 @@ ${(existingBullets || []).join('\n')}`;
                 messages: [
                     {
                         role: "system",
-                        content: "You are a specialized resume bullet point optimizer. First, think out loud: analyze the user's input, context, and keyword list step by step, reflecting on which keywords and technologies should be included or omitted, and justify each decision to ensure logical, ATS-friendly, and relevant results. Avoid illogical pairings (e.g., Apex with Java). After your chain-of-thought, generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
+                        content: "You are a specialized resume bullet point optimizer. First, think out loud: analyze the user's input, context, and keyword list step by step, reflecting on which keywords and technologies should be included or omitted, and justify each decision to ensure logical, ATS-friendly, and relevant results. Avoid illogical pairings (e.g., Apex with Java). After your chain-of-thought, generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
                     },
                     {
                         role: "user",
