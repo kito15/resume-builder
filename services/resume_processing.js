@@ -157,8 +157,7 @@ FORMATTING RULES:
 2. One specific metric per bullet (%, $, time, or quantity)
 3. Each bullet MUST begin with a strong action verb
 4. NEVER reuse the same starting verb across bullet points
-5. Each bullet MUST be ${wordLimit} words or less - STRICT LIMIT
-6. Be extremely concise - remove all unnecessary words
+5. Each bullet MUST be ${wordLimit} words or less
 
 KEYWORD INTEGRATION RULES:
 1. Use keywords from this list: ${keywords}
@@ -221,7 +220,7 @@ ${(existingBullets || []).join('\n')}`;
                 messages: [
                     {
                         role: "system",
-                        content: "You are a specialized resume bullet point optimizer. First, think out loud: analyze the user's input, context, and keyword list step by step, reflecting on which keywords and technologies should be included or omitted, and justify each decision to ensure logical, ATS-friendly, and relevant results. Avoid illogical pairings (e.g., Apex with Java). After your chain-of-thought, generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. NEVER exceed word limit - this is critical\n7. Be extremely concise - remove all unnecessary words\n8. Never mix unrelated technologies\n9. Focus on concrete achievements"
+                        content: "You are a specialized resume bullet point optimizer. First, think out loud: analyze the user's input, context, and keyword list step by step, reflecting on which keywords and technologies should be included or omitted, and justify each decision to ensure logical, ATS-friendly, and relevant results. Avoid illogical pairings (e.g., Apex with Java). After your chain-of-thought, generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
                     },
                     {
                         role: "user",
@@ -307,8 +306,8 @@ class BulletCache {
             project: new Set()
         };
         this.targetBulletCounts = {
-            job: 4,
-            project: 3
+            job: 5,
+            project: 4
         };
     }
     async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
@@ -391,26 +390,9 @@ async function updateResumeSection($, sectionSelector, bulletSelector, keywords,
         bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, sectionType, verbTracker);
         bulletList.empty();
         bulletPoints.forEach(point => {
-            // Trim bullet points that exceed the word limit
-            const wordCount = countWordsInBullet(point);
-            let trimmedPoint = point;
-            if (wordCount > wordLimit) {
-                const words = point.split(/\s+/);
-                trimmedPoint = words.slice(0, wordLimit).join(' ');
-                // Ensure the trimmed point still has the metric
-                if (!trimmedPoint.match(/\d+%|\$\d+|\d+\s*(seconds|minutes|hours|days|weeks|months|years|users|records|calls|requests|entries)/i)) {
-                    // Find the metric in the original point and ensure it's in the trimmed version
-                    const metricMatch = point.match(/\d+%|\$\d+|\d+\s*(seconds|minutes|hours|days|weeks|months|years|users|records|calls|requests|entries)/i);
-                    if (metricMatch) {
-                        const trimmedWords = trimmedPoint.split(/\s+/);
-                        trimmedWords.pop(); // Remove last word to make room for metric
-                        trimmedPoint = trimmedWords.join(' ') + ' ' + metricMatch[0];
-                    }
-                }
-            }
-            bulletTracker.addBullet(trimmedPoint, sectionType);
-            verbTracker.addVerb(getFirstVerb(trimmedPoint), sectionType);
-            bulletList.append(`<${bulletElementSelector}>${trimmedPoint}</${bulletElementSelector}>`);
+            bulletTracker.addBullet(point, sectionType);
+            verbTracker.addVerb(getFirstVerb(point), sectionType);
+            bulletList.append(`<${bulletElementSelector}>${point}</${bulletElementSelector}>`);
         });
     }
 }
@@ -487,24 +469,11 @@ async function convertHtmlToPdf(htmlContent) {
     const customCSS = `
         @page {
             size: Letter;
-            margin: 0.2in;
+            margin: 0.25in;
         }
         body {
             margin: 0;
             padding: 0;
-            font-size: 0.95em;
-        }
-        p, li {
-            margin-bottom: 0.2em;
-            line-height: 1.2;
-        }
-        ul {
-            margin-top: 0.2em;
-            margin-bottom: 0.2em;
-            padding-left: 1.2em;
-        }
-        .section {
-            margin-bottom: 0.4em;
         }
     `;
     await page.setContent(htmlContent);
@@ -514,16 +483,16 @@ async function convertHtmlToPdf(htmlContent) {
         document.head.appendChild(style);
     }, customCSS);
     const height = await checkPageHeight(page);
-    const MAX_HEIGHT = 1080;
+    const MAX_HEIGHT = 1056;
     const pdfBuffer = await page.pdf({
         format: 'Letter',
         printBackground: true,
         preferCSSPageSize: true,
         margin: {
-            top: '0.2in',
-            right: '0.2in',
-            bottom: '0.2in',
-            left: '0.2in'
+            top: '0.25in',
+            right: '0.25in',
+            bottom: '0.25in',
+            left: '0.25in'
         }
     });
     await browser.close();
@@ -761,28 +730,21 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         await updateResumeSection(
             $, section.selector, section.bulletSelector,
             keywordString, section.context,
-            fullTailoring, sectionWordCounts[section.type] || 12,
+            fullTailoring, 12,
             bulletTracker, section.type, section.bullets,
             INITIAL_BULLET_COUNT, verbTracker, bulletCache
         );
     }
     let currentBulletCount = INITIAL_BULLET_COUNT;
     let attempts = 0;
-    while (attempts < 5 && currentBulletCount >= MIN_BULLETS) {
+    while (attempts < 3 && currentBulletCount >= MIN_BULLETS) {
         const { exceedsOnePage } = await convertHtmlToPdf($.html());
         if (!exceedsOnePage) break;
-        
-        // More aggressive reduction after first attempt
-        currentBulletCount = (attempts === 0) ? currentBulletCount - 1 : currentBulletCount - 2;
-        
+        currentBulletCount--;
         for (const section of sectionsToProcessBullets) {
-            const adjustedCount = Math.max(
-                MIN_BULLETS,
-                Math.floor(currentBulletCount * (section.type === 'job' ? 1 : 0.7))
-            );
             await adjustSectionBullets(
                 $, section.selector, section.bulletSelector,
-                adjustedCount, section.type, bulletTracker,
+                currentBulletCount, section.type, bulletTracker,
                 keywordString, section.context, bulletCache
             );
         }
