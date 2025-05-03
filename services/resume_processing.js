@@ -268,6 +268,65 @@ function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
     return sortedBullets;
 }
 
+function findElementByContent($, content, elements = ['div', 'section', 'ul']) {
+    let element = null;
+    elements.some(tag => {
+        const matches = $(tag).filter((_, el) => {
+            const text = $(el).text().trim().toLowerCase();
+            return text.includes(content.toLowerCase());
+        });
+        if (matches.length > 0) {
+            element = matches.first();
+            return true;
+        }
+        return false;
+    });
+    return element;
+}
+
+function findSectionElement($, entry, sectionType) {
+    // Try to find the section by matching unique content
+    let identifyingContent = '';
+    if (sectionType === 'job') {
+        identifyingContent = `${entry.company}${entry.title}`.toLowerCase();
+    } else if (sectionType === 'project') {
+        identifyingContent = `${entry.title}${entry.technologies || ''}`.toLowerCase();
+    }
+
+    // Find elements that contain the identifying content
+    const elements = $('div, section').filter((_, el) => {
+        const text = $(el).text().trim().toLowerCase();
+        return text.includes(identifyingContent);
+    });
+
+    return elements.first();
+}
+
+function updateBulletList($, element, newBullets) {
+    if (!element || !element.length) {
+        console.error('No element found to update bullets');
+        return false;
+    }
+
+    // Find the bullet list within or near the section
+    let bulletList = element.find('ul');
+    if (!bulletList.length) {
+        bulletList = element.next('ul');
+    }
+    if (!bulletList.length) {
+        console.error('No bullet list found in or after section');
+        return false;
+    }
+
+    // Update existing bullets or create new ones
+    bulletList.empty();
+    newBullets.forEach(bullet => {
+        bulletList.append(`<li>${bullet}</li>`);
+    });
+
+    return true;
+}
+
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     
@@ -290,11 +349,12 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
 
     console.log('Processing sections with keywords:', keywordString);
 
+    let totalUpdates = 0;
     for (const section of sections) {
         console.log(`Processing ${section.type} section`);
         for (const entry of section.entries) {
             const originalBullets = entry.bulletPoints || [];
-            console.log(`Generating bullets for ${section.type} entry with ${originalBullets.length} original bullets`);
+            console.log(`Generating bullets for ${section.type} entry: ${section.type === 'job' ? entry.company : entry.title}`);
             
             const newBullets = await generateBullets(
                 fullTailoring ? 'tailor' : 'generate',
@@ -304,24 +364,21 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
                 12
             );
 
-            console.log(`Generated ${newBullets.length} new bullets for ${section.type} entry`);
+            console.log(`Generated ${newBullets.length} new bullets`);
 
-            // Update DOM with new bullets
-            const sectionSelector = section.type === 'job' ? '.job-experience' : '.projects';
-            const bulletListSelector = `${sectionSelector} ul`;
+            // Find the correct section element using content matching
+            const sectionElement = findSectionElement($, entry, section.type);
             
-            const bulletLists = $(bulletListSelector);
-            bulletLists.each((_, list) => {
-                const $list = $(list);
-                const existingBullets = $list.find('li');
-                if (existingBullets.length > 0) {
-                    existingBullets.each((i, bullet) => {
-                        if (i < newBullets.length) {
-                            $(bullet).text(newBullets[i]);
-                        }
-                    });
+            if (sectionElement && sectionElement.length) {
+                console.log(`Found matching section element for ${section.type}`);
+                const updated = updateBulletList($, sectionElement, newBullets);
+                if (updated) {
+                    totalUpdates++;
+                    console.log(`Successfully updated bullets for ${section.type}`);
                 }
-            });
+            } else {
+                console.error(`Could not find matching section element for ${section.type}`);
+            }
 
             newBullets.forEach(bullet => {
                 const verb = getFirstVerb(bullet);
@@ -343,21 +400,44 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         currentBulletCount--;
         console.log(`Reducing bullets to ${currentBulletCount} due to page overflow`);
         
+        // Update bullet counts using content matching
         for (const section of sections) {
-            const sectionSelector = section.type === 'job' ? '.job-experience' : '.projects';
-            $(sectionSelector).find('ul li').each((i, bullet) => {
-                if (i >= currentBulletCount) {
-                    $(bullet).remove();
+            for (const entry of section.entries) {
+                const sectionElement = findSectionElement($, entry, section.type);
+                if (sectionElement && sectionElement.length) {
+                    const bulletList = sectionElement.find('ul');
+                    const bullets = bulletList.find('li');
+                    bullets.each((i, bullet) => {
+                        if (i >= currentBulletCount) {
+                            $(bullet).remove();
+                        }
+                    });
                 }
-            });
+            }
         }
         attempts++;
     }
 
-    // Log final bullet counts for debugging
-    const jobBullets = $('.job-experience li').length;
-    const projectBullets = $('.projects li').length;
-    console.log(`Final bullet counts - Jobs: ${jobBullets}, Projects: ${projectBullets}`);
+    // Verify and log final bullet counts
+    let finalJobBullets = 0;
+    let finalProjectBullets = 0;
+
+    resumeContent.jobs.forEach(job => {
+        const element = findSectionElement($, job, 'job');
+        if (element && element.length) {
+            finalJobBullets += element.find('li').length;
+        }
+    });
+
+    resumeContent.projects.forEach(project => {
+        const element = findSectionElement($, project, 'project');
+        if (element && element.length) {
+            finalProjectBullets += element.find('li').length;
+        }
+    });
+
+    console.log(`Final verified bullet counts - Jobs: ${finalJobBullets}, Projects: ${finalProjectBullets}`);
+    console.log(`Total section updates completed: ${totalUpdates}`);
 
     return $.html();
 }
