@@ -251,9 +251,9 @@ ${(existingBullets || []).join('\n')}`;
                       .replace(/\s*\([^)]*\)$/, '')
             )
             .filter(bullet => {
-                const normalized = bullet.toLowerCase().replace(/\s+/g, ' ').trim();
-                if (seenBullets.has(normalized)) return false;
-                seenBullets.add(normalized);
+                const norm = bullet.toLowerCase().replace(/\s+/g, ' ').trim();
+                if (seenBullets.has(norm)) return false;
+                seenBullets.add(norm);
                 return true;
             });
         return bullets;
@@ -342,13 +342,13 @@ class BulletCache {
         return allBullets;
     }
     getBulletsForSection(section, count) {
-        const uniqueBullets = [];
         const seen = new Set();
+        const uniqueBullets = [];
         for (const bullet of this.sectionPools[section]) {
-            const normalized = bullet.toLowerCase().replace(/\s+/g, ' ').trim();
-            if (!seen.has(normalized)) {
+            const norm = bullet.toLowerCase().replace(/\s+/g, ' ').trim();
+            if (!seen.has(norm)) {
+                seen.add(norm);
                 uniqueBullets.push(bullet);
-                seen.add(normalized);
             }
             if (uniqueBullets.length >= count) break;
         }
@@ -405,17 +405,12 @@ async function updateResumeSection($, sectionSelector, bulletSelector, keywords,
                         bulletTracker.canUseBulletInSection(bp, sectionType))
             .slice(0, targetBulletCount);
         bulletPoints = shuffleBulletsWithVerbCheck(bulletPoints, sectionType, verbTracker);
-        const uniqueBulletPoints = [];
-        const seenBulletsInSection = new Set();
-        for (const point of bulletPoints) {
-            const normalized = point.toLowerCase().replace(/\s+/g, ' ').trim();
-            if (!seenBulletsInSection.has(normalized)) {
-                uniqueBulletPoints.push(point);
-                seenBulletsInSection.add(normalized);
-            }
-        }
         bulletList.empty();
-        uniqueBulletPoints.forEach(point => {
+        const seenPoints = new Set();
+        bulletPoints.forEach(point => {
+            const norm = point.toLowerCase().replace(/\s+/g, ' ').trim();
+            if (seenPoints.has(norm)) return;
+            seenPoints.add(norm);
             bulletTracker.addBullet(point, sectionType);
             verbTracker.addVerb(getFirstVerb(point), sectionType);
             bulletList.append(`<${bulletElementSelector}>${point}</${bulletElementSelector}>`);
@@ -439,16 +434,15 @@ async function adjustSectionBullets($, sectionSelector, bulletSelector, targetCo
         } else if (currentCount < targetCount) {
             const needed = targetCount - currentCount;
             const cachedBullets = bulletCache.getBulletsForSection(sectionType, needed * 2);
-            const validBullets = [];
-            const seenBullets = new Set();
-            for (const bp of cachedBullets) {
-                const normalized = bp.toLowerCase().replace(/\s+/g, ' ').trim();
-                if (!bulletTracker.isUsed(bp) && !seenBullets.has(normalized)) {
-                    validBullets.push(bp);
-                    seenBullets.add(normalized);
-                }
-                if (validBullets.length >= needed) break;
-            }
+            const seen = new Set();
+            const validBullets = cachedBullets
+                .filter(bp => {
+                    const norm = bp.toLowerCase().replace(/\s+/g, ' ').trim();
+                    if (seen.has(norm) || bulletTracker.isUsed(bp)) return false;
+                    seen.add(norm);
+                    return true;
+                })
+                .slice(0, needed);
             validBullets.forEach(bullet => {
                 bulletTracker.addBullet(bullet, sectionType);
                 bulletList.append(`<${bulletElementSelector}>${bullet}</${bulletElementSelector}>`);
