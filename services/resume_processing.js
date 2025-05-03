@@ -413,7 +413,8 @@ async function updateResumeSection($, sectionSelector, bulletSelector, keywords,
             seenPoints.add(norm);
             bulletTracker.addBullet(point, sectionType);
             verbTracker.addVerb(getFirstVerb(point), sectionType);
-            bulletList.append(`<${bulletElementSelector}>${point}</${bulletElementSelector}>`);
+            const cleanPoint = point.replace(/^>>\s*/, '');
+            bulletList.append(`<${bulletElementSelector}>${cleanPoint}</${bulletElementSelector}>`);
         });
     }
 }
@@ -445,7 +446,8 @@ async function adjustSectionBullets($, sectionSelector, bulletSelector, targetCo
                 .slice(0, needed);
             validBullets.forEach(bullet => {
                 bulletTracker.addBullet(bullet, sectionType);
-                bulletList.append(`<${bulletElementSelector}>${bullet}</${bulletElementSelector}>`);
+                const cleanBullet = bullet.replace(/^>>\s*/, '');
+                bulletList.append(`<${bulletElementSelector}>${cleanBullet}</${bulletElementSelector}>`);
             });
         }
     });
