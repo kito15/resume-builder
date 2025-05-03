@@ -390,34 +390,58 @@ async function checkPageHeight(page) {
 
 async function convertHtmlToPdf(htmlContent) {
     const browser = await puppeteer.launch({
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=medium']
     });
     
     try {
         const page = await browser.newPage();
 
-        // Set content with minimal interference
+        // Set high-DPI viewport for better quality
+        await page.setViewport({
+            width: 816 * 2,  // 8.5 inches * 96 DPI * 2
+            height: 1056 * 2, // 11 inches * 96 DPI * 2
+            deviceScaleFactor: 2
+        });
+
+        // Optimize font rendering
+        await page.addStyleTag({
+            content: `
+                * {
+                    -webkit-font-smoothing: antialiased;
+                    -moz-osx-font-smoothing: grayscale;
+                    text-rendering: optimizeLegibility;
+                }
+            `
+        });
+
+        // Set content and wait for everything to load
         await page.setContent(htmlContent, {
             waitUntil: ['networkidle0', 'load', 'domcontentloaded']
         });
 
-        // Wait for fonts and images to load
+        // Ensure proper font loading
         await page.evaluate(async () => {
-            // Wait for fonts
+            // Wait for fonts to load
             await document.fonts.ready;
             
-            // Wait for images
-            const images = Array.from(document.images);
-            await Promise.all(images.map(img => {
-                if (img.complete) return;
-                return new Promise((resolve, reject) => {
-                    img.addEventListener('load', resolve);
-                    img.addEventListener('error', reject);
-                });
-            }));
+            // Force load all fonts
+            await Promise.all(
+                Array.from(document.fonts)
+                    .map(font => font.load())
+            );
+
+            // Wait for any images
+            await Promise.all(
+                Array.from(document.images)
+                    .filter(img => !img.complete)
+                    .map(img => new Promise((resolve, reject) => {
+                        img.onload = resolve;
+                        img.onerror = reject;
+                    }))
+            );
         });
 
-        // Calculate content height for page overflow detection
+        // Calculate content height
         const height = await page.evaluate(() => {
             return Math.max(
                 document.body.scrollHeight,
@@ -428,18 +452,23 @@ async function convertHtmlToPdf(htmlContent) {
             );
         });
 
-        const MAX_HEIGHT = 1056; // 11 inches * 96 DPI
+        const MAX_HEIGHT = 1056 * 2; // Adjusted for 2x scale
 
-        // Generate PDF with minimal settings
+        // Generate high-quality PDF
         const pdfBuffer = await page.pdf({
             format: 'Letter',
             printBackground: true,
+            preferCSSPageSize: false,
             margin: {
                 top: '0.25in',
                 right: '0.25in',
                 bottom: '0.25in',
                 left: '0.25in'
-            }
+            },
+            scale: 0.5, // Compensate for 2x viewport
+            timeout: 30000,
+            omitBackground: false,
+            quality: 100
         });
 
         return { 
