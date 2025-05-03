@@ -396,11 +396,11 @@ async function convertHtmlToPdf(htmlContent) {
     try {
         const page = await browser.newPage();
         
-        // Set viewport to a standard browser width with lower DPI
+        // Set viewport to a standard screen width to prevent scaling issues
         await page.setViewport({
-            width: 794,    // Reduced from 816
-            height: 1123,  // Adjusted for proportion
-            deviceScaleFactor: 0.75  // Reduce effective DPI
+            width: 1024,  // Standard screen width
+            height: 1320, // Larger than letter size to accommodate content
+            deviceScaleFactor: 1
         });
 
         // Configure resource loading
@@ -430,7 +430,7 @@ async function convertHtmlToPdf(htmlContent) {
             }
         });
 
-        // Inject print-specific styles while preserving original styling
+        // Enhanced print styles with font size controls
         const printStyles = `
             @page {
                 size: Letter;
@@ -438,15 +438,20 @@ async function convertHtmlToPdf(htmlContent) {
             }
             @media print {
                 html {
-                    zoom: 0.75;
+                    /* Set base font size to control scaling */
+                    font-size: 12px !important;
                 }
-                html, body {
-                    height: 100%;
-                    width: 100%;
+                body {
+                    /* Preserve original proportions */
+                    width: 8.5in;
+                    min-height: 11in;
                     margin: 0;
                     padding: 0;
+                    /* Prevent text inflation */
                     -webkit-text-size-adjust: 100%;
+                    text-size-adjust: 100%;
                 }
+                /* Ensure background colors and images are printed */
                 * {
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
@@ -454,18 +459,8 @@ async function convertHtmlToPdf(htmlContent) {
             }
         `;
 
-        // Add viewport meta tag and base font size control
-        const modifiedHtml = htmlContent.replace('</head>',
-            `<meta name="viewport" content="width=device-width, initial-scale=0.75, maximum-scale=0.75">
-             <style>
-                html { font-size: 12px; }
-                body { transform-origin: top left; transform: scale(0.75); }
-             </style>
-             </head>`
-        );
-
         // Set content and wait for resources to load
-        await page.setContent(modifiedHtml, {
+        await page.setContent(htmlContent, {
             waitUntil: ['networkidle0', 'load', 'domcontentloaded']
         });
 
@@ -499,7 +494,7 @@ async function convertHtmlToPdf(htmlContent) {
 
         const MAX_HEIGHT = 1056; // 11 inches * 96 DPI
 
-        // Generate PDF with optimized settings
+        // Generate PDF with optimized settings for proper scaling
         const pdfBuffer = await page.pdf({
             format: 'Letter',
             printBackground: true,
@@ -511,7 +506,7 @@ async function convertHtmlToPdf(htmlContent) {
                 left: '0.25in'
             },
             displayHeaderFooter: false,
-            scale: 0.75,  // Explicitly set scale to match viewport
+            scale: 0.85, // Slightly reduce scale to prevent overflow
         });
 
         return { 
