@@ -314,7 +314,6 @@ class BulletCache {
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     
-    // Parse the resume content using LLM
     const resumeContent = await parseResumeContent(htmlContent);
     if (!resumeContent) {
         console.error("Failed to parse resume content. Aborting resume update.");
@@ -324,7 +323,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     const verbTracker = new ActionVerbTracker();
     const bulletCache = new BulletCache();
 
-    // Process each section
     const sections = [
         { type: 'job', entries: resumeContent.jobs, targetBulletCount: 4 },
         { type: 'project', entries: resumeContent.projects, targetBulletCount: 3 }
@@ -334,12 +332,10 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         keywords.join(', ') : 
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
 
-    // Generate and update bullets for each section
     for (const section of sections) {
         for (const entry of section.entries) {
             const originalBullets = entry.bulletPoints || [];
             
-            // Generate new bullets
             const newBullets = await generateBullets(
                 fullTailoring ? 'tailor' : 'generate',
                 originalBullets,
@@ -348,10 +344,8 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
                 12
             );
 
-            // Update the bullets in the HTML
             await updateBulletPoints($, originalBullets, newBullets);
 
-            // Cache the generated bullets
             newBullets.forEach(bullet => {
                 bulletCache.addBulletToSection(bullet, section.type);
                 const verb = getFirstVerb(bullet);
@@ -360,11 +354,9 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         }
     }
 
-    // Update skills section
     await updateSkillsContent($, resumeContent.skills);
 
-    // Check page length and adjust if necessary
-    let currentBulletCount = 4; // Start with maximum
+    let currentBulletCount = 4;
     let attempts = 0;
     const MIN_BULLETS = 2;
 
@@ -372,7 +364,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         const { exceedsOnePage } = await convertHtmlToPdf($.html());
         if (!exceedsOnePage) break;
 
-        // Reduce bullet count and regenerate
         currentBulletCount--;
         for (const section of sections) {
             for (const entry of section.entries) {
@@ -572,7 +563,6 @@ function updateSkillsSection($, keywords, selectors) {
 }
 
 async function updateSkillsContent($, skillsData) {
-    // Find all elements that might contain skills
     const skillElements = $('p, div, section').filter((_, el) => {
         const text = $(el).text().toLowerCase();
         return text.includes('skills') || text.includes('technologies') || text.includes('tools');
@@ -583,7 +573,6 @@ async function updateSkillsContent($, skillsData) {
         return;
     }
 
-    // Find the most likely skills container (the one with the most skill-related content)
     let skillsContainer = null;
     let maxSkillCount = 0;
 
@@ -605,15 +594,12 @@ async function updateSkillsContent($, skillsData) {
         return;
     }
 
-    // Clear existing skills content while preserving the container
     skillsContainer.empty();
 
-    // Add style for skills section
     const styleElement = $('<style></style>');
     styleElement.text('.skills-section p { margin: 0; padding: 2px 0; }');
     $('head').append(styleElement);
 
-    // Get categorized skills from the LLM
     const categorizedSkills = await categorizeKeywords(
         Object.values(skillsData).flat()
     );
@@ -623,24 +609,20 @@ async function updateSkillsContent($, skillsData) {
         return;
     }
 
-    // Create new skills content with categories
     const categories = Object.entries(categorizedSkills);
     categories.forEach(([category, skills], index) => {
         if (skills && skills.length > 0) {
-            // Format the category name to be more readable
             const formattedCategory = category
                 .split(/(?=[A-Z])/)
                 .join(' ')
                 .replace(/^\w/, c => c.toUpperCase());
 
-            // Create a new paragraph for each category
             const categoryElement = $('<p></p>');
             categoryElement.html(`<strong>${formattedCategory}:</strong> ${skills.join(', ')}`);
             skillsContainer.append(categoryElement);
         }
     });
 
-    // Add a class to the skills container for better identification
     skillsContainer.addClass('skills-section');
 }
 
@@ -729,7 +711,6 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
         try {
             const parsedContent = JSON.parse(content);
             
-            // Validate the structure
             const requiredSections = ['jobs', 'projects', 'education', 'skills'];
             const hasAllSections = requiredSections.every(section => 
                 Array.isArray(parsedContent[section]) || 
@@ -784,7 +765,6 @@ async function customizeResume(req, res) {
 }
 
 async function updateBulletPoints($, originalBullets, newBullets) {
-    // Create a map of original bullet text to its HTML element
     const bulletMap = new Map();
     $('li').each((_, el) => {
         const text = $(el).text().trim();
@@ -793,7 +773,6 @@ async function updateBulletPoints($, originalBullets, newBullets) {
         }
     });
 
-    // Replace each original bullet with its corresponding new bullet
     originalBullets.forEach((originalText, index) => {
         if (index < newBullets.length && bulletMap.has(originalText)) {
             const element = bulletMap.get(originalText);
