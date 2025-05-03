@@ -268,66 +268,6 @@ function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
     return sortedBullets;
 }
 
-class BulletCache {
-    constructor() {
-        this.cache = new Map();
-        this.sectionPools = {
-            job: new Set(),
-            project: new Set()
-        };
-        this.targetBulletCounts = {
-            job: 5,
-            project: 4
-        };
-    }
-    async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
-        const sections = ['job', 'project'];
-        const cacheKey = `${keywords.join(',')}_${context}`;
-        if (this.cache.has(cacheKey)) {
-            return this.cache.get(cacheKey);
-        }
-        const allBullets = {};
-        const promises = sections.map(async (section) => {
-            const targetCount = this.targetBulletCounts[section];
-            const bullets = await generateBullets(
-                'generate',
-                null,
-                keywords,
-                `for ${section} experience`,
-                wordLimit,
-                verbTracker
-            );
-            allBullets[section] = bullets.slice(0, targetCount);
-            bullets.forEach(bullet => this.sectionPools[section].add(bullet));
-        });
-        await Promise.all(promises);
-        this.cache.set(cacheKey, allBullets);
-        return allBullets;
-    }
-    getBulletsForSection(section, count) {
-        const seen = new Set();
-        const uniqueBullets = [];
-        for (const bullet of this.sectionPools[section]) {
-            const norm = bullet.toLowerCase().replace(/\s+/g, ' ').trim();
-            if (!seen.has(norm)) {
-                seen.add(norm);
-                uniqueBullets.push(bullet);
-            }
-            if (uniqueBullets.length >= count) break;
-        }
-        return uniqueBullets;
-    }
-    addBulletToSection(bullet, section) {
-        if (bullet && bullet.trim().length > 0) {
-            this.sectionPools[section].add(bullet);
-        }
-    }
-    clear() {
-        this.cache.clear();
-        Object.values(this.sectionPools).forEach(pool => pool.clear());
-    }
-}
-
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     
@@ -338,7 +278,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     }
 
     const verbTracker = new ActionVerbTracker();
-    const bulletCache = new BulletCache();
 
     const sections = [
         { type: 'job', entries: resumeContent.jobs, targetBulletCount: 4 },
@@ -349,9 +288,13 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         keywords.join(', ') : 
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
 
+    console.log('Processing sections with keywords:', keywordString);
+
     for (const section of sections) {
+        console.log(`Processing ${section.type} section`);
         for (const entry of section.entries) {
             const originalBullets = entry.bulletPoints || [];
+            console.log(`Generating bullets for ${section.type} entry with ${originalBullets.length} original bullets`);
             
             const newBullets = await generateBullets(
                 fullTailoring ? 'tailor' : 'generate',
@@ -361,10 +304,26 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
                 12
             );
 
-            await updateBulletPoints($, originalBullets, newBullets);
+            console.log(`Generated ${newBullets.length} new bullets for ${section.type} entry`);
+
+            // Update DOM with new bullets
+            const sectionSelector = section.type === 'job' ? '.job-experience' : '.projects';
+            const bulletListSelector = `${sectionSelector} ul`;
+            
+            const bulletLists = $(bulletListSelector);
+            bulletLists.each((_, list) => {
+                const $list = $(list);
+                const existingBullets = $list.find('li');
+                if (existingBullets.length > 0) {
+                    existingBullets.each((i, bullet) => {
+                        if (i < newBullets.length) {
+                            $(bullet).text(newBullets[i]);
+                        }
+                    });
+                }
+            });
 
             newBullets.forEach(bullet => {
-                bulletCache.addBulletToSection(bullet, section.type);
                 const verb = getFirstVerb(bullet);
                 if (verb) verbTracker.addVerb(verb, section.type);
             });
@@ -382,15 +341,23 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         if (!exceedsOnePage) break;
 
         currentBulletCount--;
+        console.log(`Reducing bullets to ${currentBulletCount} due to page overflow`);
+        
         for (const section of sections) {
-            for (const entry of section.entries) {
-                const originalBullets = entry.bulletPoints || [];
-                const cachedBullets = bulletCache.getBulletsForSection(section.type, currentBulletCount);
-                await updateBulletPoints($, originalBullets, cachedBullets);
-            }
+            const sectionSelector = section.type === 'job' ? '.job-experience' : '.projects';
+            $(sectionSelector).find('ul li').each((i, bullet) => {
+                if (i >= currentBulletCount) {
+                    $(bullet).remove();
+                }
+            });
         }
         attempts++;
     }
+
+    // Log final bullet counts for debugging
+    const jobBullets = $('.job-experience li').length;
+    const projectBullets = $('.projects li').length;
+    console.log(`Final bullet counts - Jobs: ${jobBullets}, Projects: ${projectBullets}`);
 
     return $.html();
 }
@@ -768,23 +735,6 @@ async function customizeResume(req, res) {
     } catch (error) {
         res.status(500).send('Error processing resume: ' + error.message);
     }
-}
-
-async function updateBulletPoints($, originalBullets, newBullets) {
-    const bulletMap = new Map();
-    $('li').each((_, el) => {
-        const text = $(el).text().trim();
-        if (text && originalBullets.includes(text)) {
-            bulletMap.set(text, el);
-        }
-    });
-
-    originalBullets.forEach((originalText, index) => {
-        if (index < newBullets.length && bulletMap.has(originalText)) {
-            const element = bulletMap.get(originalText);
-            $(element).text(newBullets[index]);
-        }
-    });
 }
 
 module.exports = { customizeResume };
