@@ -546,6 +546,8 @@ async function categorizeKeywords(keywords) {
     try {
         const prompt = `Analyze the provided keywords for relevance to Applicant Tracking Systems (ATS) focused on technical roles. Your goal is to select ONLY the most impactful technical skills, tools, platforms, and specific methodologies.
 
+HIGHEST PRIORITY: Under NO circumstances should you generate more than THREE (3) categories/sections for technical skills. If there would be more, you MUST combine or merge categories/types so that the total is 3 or fewer. This is the most important rule. Do NOT return 4 or more categories, even if it means grouping types together.
+
 CRITERIA FOR INCLUSION (Prioritize these):
 - Programming Languages (e.g., Python, Java, JavaScript, C++, SQL, HTML, CSS)
 - Frameworks & Libraries (e.g., React, Node.js, Angular, TensorFlow, Scikit-learn, jQuery, Spring, Next.js, Pytorch)
@@ -561,17 +563,9 @@ CRITERIA FOR EXCLUSION (STRICTLY Exclude these types):
 - Vague or Abstract Terms (e.g., Services, Modern Foundation, Data Sets, POCs, Coding Standards, Full Stack Engineering)
 - Redundant terms if a more specific one exists (e.g., prefer 'REST APIs' over 'API' or 'APIs' if both contextually fit; prefer 'Agile Methodologies' over 'Agile' if present). Only include the most specific applicable term.
 
-IMPORTANT: Return NO MORE THAN 3 categories/sections. Prioritize the most relevant and impactful categories for technical roles (e.g., Languages, Frameworks/Libraries, and one other category such as Cloud, Tools, or Databases). If there are more than 3 possible categories, merge or omit the least relevant ones.
+Based on these criteria, categorize the SELECTED keywords into NO MORE THAN THREE (3) categories. If you would have more, merge or combine them. Example groupings: (1) Languages, (2) Frameworks/Libraries/Tools, (3) Other Technical Skills. You may combine as needed, but never return more than 3 categories.
 
-Based on these criteria, categorize the SELECTED keywords into up to 3 categories using the following pool of possible categories:
-- Languages: Programming and markup languages only.
-- Frameworks/Libraries: Software frameworks and libraries only.
-- Others: Relevant and specific APIs, cloud services, protocols, tools, methodologies, platforms, OS, databases, technical concepts from the inclusion list that don't fit elsewhere.
-- Machine Learning Libraries: ML-specific libraries and frameworks ONLY (e.g., Tensorflow, Scikit-learn, Pytorch).
-
-Keywords to analyze and select from: ${keywords.join(', ')}
-
-Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. Use up to 3 of these exact category names as keys: "Languages", "Frameworks/Libraries", "Others", "Machine Learning Libraries". The values should be arrays of the selected keywords. Every selected keyword MUST be placed in exactly one category. Do not include any keywords from the original list that fail the inclusion criteria or meet the exclusion criteria. Ensure the output is clean, valid JSON. Example format: {"Languages": ["Python", "SQL"], "Frameworks/Libraries": ["React"], "Others": ["AWS", "Git", "REST APIs"]}`;
+Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. The keys should be the category names (maximum 3). The values should be arrays of the selected keywords. Every selected keyword MUST be placed in exactly one category. Do not include any keywords from the original list that fail the inclusion criteria or meet the exclusion criteria. Ensure the output is clean, valid JSON. Example format: {"Languages": ["Python", "SQL"], "Frameworks/Libraries/Tools": ["React"], "Other Technical Skills": ["AWS", "Git", "REST APIs"]}`;
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
