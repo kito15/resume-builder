@@ -443,28 +443,28 @@ async function categorizeKeywords(keywords) {
         return lmCache.get(cacheKey);
     }
     try {
-        const prompt = `Analyze the provided keywords for relevance to Applicant Tracking Systems (ATS) focused on technical roles. Your goal is to select ONLY the most impactful technical skills, tools, platforms, and specific methodologies.
+        const prompt = `Analyze the provided keywords for relevance to Applicant Tracking Systems (ATS) focused on technical roles. Categorize them into exactly three categories:
 
-HIGHEST PRIORITY: Under NO circumstances should you generate more than THREE (3) categories/sections for technical skills. If there would be more, you MUST combine or merge categories/types so that the total is 3 or fewer. This is the most important rule. Do NOT return 4 or more categories, even if it means grouping types together.
+1. Languages: Programming languages and query languages (e.g., Python, Java, JavaScript, SQL, HTML, CSS)
 
-CRITERIA FOR INCLUSION (Prioritize these):
-- Programming Languages (e.g., Python, Java, JavaScript, C++, SQL, HTML, CSS)
-- Frameworks & Libraries (e.g., React, Node.js, Angular, TensorFlow, Scikit-learn, jQuery, Spring, Next.js, Pytorch)
-- Databases & Caching (e.g., MySQL, Postgres, Redis)
-- Cloud Platforms & Services (e.g., AWS, Kubeflow)
-- Tools & Technologies (e.g., Git, Jira, Selenium)
-- Specific Methodologies (e.g., Agile)
-- Key Technical Concepts (e.g., REST APIs, Microservices, Computer Vision, Data Analytics, Machine Learning, OAuth, Encryption, Containerization)
+2. Frameworks & Tools: Development frameworks, libraries, and tools (e.g., React, Node.js, Git, Docker, Jenkins, Kubernetes)
 
-CRITERIA FOR EXCLUSION (STRICTLY Exclude these types):
-- Soft Skills (e.g., Problem-Solving, Leadership, Collaboration)
-- General Business Concepts (e.g., Development Lifecycle, Performance Engineering, User Experience, Reusability, Consistency, Simplicity, Testing Practices, Project Management)
-- Vague or Abstract Terms (e.g., Services, Modern Foundation, Data Sets, POCs, Coding Standards, Full Stack Engineering)
-- Redundant terms if a more specific one exists (e.g., prefer 'REST APIs' over 'API' or 'APIs' if both contextually fit; prefer 'Agile Methodologies' over 'Agile' if present). Only include the most specific applicable term.
+3. Technologies & Platforms: Platforms, services, and broader technical concepts (e.g., AWS, Azure, REST APIs, Microservices, Machine Learning)
 
-Based on these criteria, categorize the SELECTED keywords into NO MORE THAN THREE (3) categories. If you would have more, merge or combine them. Example groupings: (1) Languages, (2) Frameworks/Libraries/Tools, (3) Other Technical Skills. You may combine as needed, but never return more than 3 categories.
+RULES:
+- Every keyword MUST be placed in exactly ONE of these three categories
+- Do not create additional categories
+- Do not leave any valid technical keyword uncategorized
+- Remove any non-technical or soft skill keywords
+- Ensure consistent categorization (e.g., all programming languages go in Languages)
 
-Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. The keys should be the category names (maximum 3). The values should be arrays of the selected keywords. Every selected keyword MUST be placed in exactly one category. Do not include any keywords from the original list that fail the inclusion criteria or meet the exclusion criteria. Ensure the output is clean, valid JSON. Example format: {"Languages": ["Python", "SQL"], "Frameworks/Libraries/Tools": ["React"], "Other Technical Skills": ["AWS", "Git", "REST APIs"]}`;
+Return ONLY a JSON object with exactly these three categories as keys and arrays of keywords as values. Example format:
+{
+    "Languages": ["Python", "JavaScript", "SQL"],
+    "Frameworks & Tools": ["React", "Node.js", "Docker"],
+    "Technologies & Platforms": ["AWS", "REST APIs", "Machine Learning"]
+}`;
+
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
@@ -472,7 +472,7 @@ Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. The 
                 messages: [
                     {
                         role: "system",
-                        content: "You are an AI trained to categorize technical keywords for resumes."
+                        content: "You are an AI trained to categorize technical keywords for resumes into exactly three categories."
                     },
                     {
                         role: "user",
@@ -495,17 +495,23 @@ Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. The 
         const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
         try {
             const categorized = JSON.parse(jsonString);
-            lmCache.set(cacheKey, categorized);
-            return categorized;
+            // Validate that only the three required categories exist
+            const validCategories = ["Languages", "Frameworks & Tools", "Technologies & Platforms"];
+            const cleanedCategories = {};
+            validCategories.forEach(category => {
+                cleanedCategories[category] = categorized[category] || [];
+            });
+            lmCache.set(cacheKey, cleanedCategories);
+            return cleanedCategories;
         } catch (jsonError) {
             console.error('Error parsing JSON from LLM response:', jsonError);
             const fallbackCategories = {
                 "Languages": [],
-                "Frameworks/Libraries": [],
-                "Others": [],
-                "Machine Learning Libraries": []
+                "Frameworks & Tools": [],
+                "Technologies & Platforms": []
             };
-            fallbackCategories["Others"] = keywords;
+            // Put all keywords in Technologies & Platforms as a fallback
+            fallbackCategories["Technologies & Platforms"] = keywords;
             lmCache.set(cacheKey, fallbackCategories);
             return fallbackCategories;
         }
@@ -591,14 +597,38 @@ async function updateSkillsContent($, skillsData) {
         return;
     }
 
-    // Create new skills content
-    let skillsContent = '';
+    // Define the three main categories
+    const mainCategories = {
+        "Languages": [],
+        "Frameworks & Tools": [],
+        "Technologies & Platforms": []
+    };
+
+    // Map existing skills into the three main categories
     for (const [category, skills] of Object.entries(skillsData)) {
-        if (skills.length > 0) {
-            const categoryTitle = category.charAt(0).toUpperCase() + category.slice(1);
-            skillsContent += `<p><strong>${categoryTitle}:</strong> ${skills.join(', ')}</p>`;
+        if (category.toLowerCase().includes('language')) {
+            mainCategories["Languages"].push(...skills);
+        } else if (category.toLowerCase().includes('framework') || 
+                   category.toLowerCase().includes('tool') || 
+                   category.toLowerCase().includes('library')) {
+            mainCategories["Frameworks & Tools"].push(...skills);
+        } else {
+            mainCategories["Technologies & Platforms"].push(...skills);
         }
     }
+
+    // Create new skills content with proper formatting
+    let skillsContent = '';
+    for (const [category, skills] of Object.entries(mainCategories)) {
+        if (skills.length > 0) {
+            // Remove duplicates and sort alphabetically
+            const uniqueSkills = [...new Set(skills)].sort();
+            skillsContent += `<p class="skills-category"><strong>${category}:</strong> ${uniqueSkills.join(', ')}</p>`;
+        }
+    }
+
+    // Add a container div for better styling
+    skillsContent = `<div class="skills-section">${skillsContent}</div>`;
 
     // Replace the content of the skills container
     $(skillsContainer).html(skillsContent);
