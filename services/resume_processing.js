@@ -306,7 +306,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     if (!resumeContent) {
         console.error("Failed to parse resume content. Aborting resume update.");
         return htmlContent;
-            }
+    }
 
     const verbTracker = new ActionVerbTracker();
     const bulletCache = new BulletCache();
@@ -390,93 +390,88 @@ async function checkPageHeight(page) {
 
 async function convertHtmlToPdf(htmlContent) {
     const browser = await puppeteer.launch({
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=medium']
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     
     try {
         const page = await browser.newPage();
 
-        // Set high-DPI viewport for better quality
+        // Set viewport to match US Letter size in pixels (at 96 DPI)
         await page.setViewport({
-            width: 816 * 2,  // 8.5 inches * 96 DPI * 2
-            height: 1056 * 2, // 11 inches * 96 DPI * 2
-            deviceScaleFactor: 2
+            width: 816,    // 8.5 inches * 96 DPI
+            height: 1056,  // 11 inches * 96 DPI
+            deviceScaleFactor: 1
         });
 
-        // Optimize font rendering
-        await page.addStyleTag({
-            content: `
-                * {
-                    -webkit-font-smoothing: antialiased;
-                    -moz-osx-font-smoothing: grayscale;
-                    text-rendering: optimizeLegibility;
+        // Only set page margins and size, avoid overriding other styles
+        const customCSS = `
+            @page {
+                size: Letter;
+                margin: 0.25in;
+            }
+            @media print {
+                html, body {
+                    height: 100%;
+                    width: 100%;
+                    margin: 0;
+                    padding: 0;
                 }
-            `
-        });
+            }
+        `;
 
-        // Set content and wait for everything to load
+        // Configure page for optimal rendering
+        await page.emulateMediaType('screen');
+        await page.setJavaScriptEnabled(true);
+
+        // Inject custom CSS and content with proper resource loading
         await page.setContent(htmlContent, {
-            waitUntil: ['networkidle0', 'load', 'domcontentloaded']
+            waitUntil: ['networkidle0', 'load', 'domcontentloaded'],
+            timeout: 30000
         });
 
-        // Ensure proper font loading
-        await page.evaluate(async () => {
-            // Wait for fonts to load
-            await document.fonts.ready;
-            
-            // Force load all fonts
-            await Promise.all(
-                Array.from(document.fonts)
-                    .map(font => font.load())
-            );
+        // Inject print-specific CSS after content is loaded
+        await page.addStyleTag({ content: customCSS });
 
-            // Wait for any images
-            await Promise.all(
-                Array.from(document.images)
-                    .filter(img => !img.complete)
-                    .map(img => new Promise((resolve, reject) => {
-                        img.onload = resolve;
-                        img.onerror = reject;
-                    }))
-            );
+        // Wait for any custom fonts to load
+        await page.evaluate(() => {
+            return document.fonts ? document.fonts.ready : Promise.resolve();
         });
 
-        // Calculate content height
+        // Get the actual content height
         const height = await page.evaluate(() => {
+            const body = document.body;
+            const html = document.documentElement;
             return Math.max(
-                document.body.scrollHeight,
-                document.body.offsetHeight,
-                document.documentElement.clientHeight,
-                document.documentElement.scrollHeight,
-                document.documentElement.offsetHeight
+                body.scrollHeight,
+                body.offsetHeight,
+                html.clientHeight,
+                html.scrollHeight,
+                html.offsetHeight
             );
         });
 
-        const MAX_HEIGHT = 1056 * 2; // Adjusted for 2x scale
-
-        // Generate high-quality PDF
+        // Generate PDF with optimal settings
         const pdfBuffer = await page.pdf({
             format: 'Letter',
             printBackground: true,
-            preferCSSPageSize: false,
+            preferCSSPageSize: true,
+            displayHeaderFooter: false,
             margin: {
                 top: '0.25in',
                 right: '0.25in',
                 bottom: '0.25in',
                 left: '0.25in'
             },
-            scale: 0.5, // Compensate for 2x viewport
-            timeout: 30000,
-            omitBackground: false,
-            quality: 100
+            scale: 1,
+            timeout: 30000
         });
 
         return { 
             pdfBuffer, 
-            exceedsOnePage: height > MAX_HEIGHT 
+            exceedsOnePage: height > 1056 // 11 inches * 96 DPI
         };
     } catch (error) {
-        console.error('PDF conversion error:', error);
+        console.error('Error during PDF conversion:', error);
         throw error;
     } finally {
         await browser.close();
@@ -627,12 +622,14 @@ async function updateSkillsContent($, skillsData) {
         return;
     }
 
-    // Find the most likely skills container (the one with the most skill-related content)
+    // Find the most likely skills container
     let skillsContainer = null;
     let maxSkillCount = 0;
+    let containerTemplate = null;
 
     skillElements.each((_, el) => {
-        const text = $(el).text().toLowerCase();
+        const $el = $(el);
+        const text = $el.text().toLowerCase();
         const skillCount = Object.values(skillsData)
             .flat()
             .filter(skill => text.includes(skill.toLowerCase()))
@@ -641,7 +638,17 @@ async function updateSkillsContent($, skillsData) {
         if (skillCount > maxSkillCount) {
             maxSkillCount = skillCount;
             skillsContainer = el;
+            
+            // Store the HTML structure of an existing skill entry as template
+            const firstSkillEntry = $el.find('p').first();
+            if (firstSkillEntry.length) {
+                containerTemplate = {
+                    html: firstSkillEntry.html(),
+                    structure: firstSkillEntry.html().replace(firstSkillEntry.text(), '{{content}}'),
+                    attrs: firstSkillEntry.prop('attributes')
+                };
             }
+        }
     });
 
     if (!skillsContainer) {
@@ -649,17 +656,43 @@ async function updateSkillsContent($, skillsData) {
         return;
     }
 
-    // Create new skills content
+    const $container = $(skillsContainer);
+    
+    // Store container's original attributes
+    const containerAttrs = skillsContainer.attribs || {};
+    const containerClasses = $container.attr('class');
+    const containerStyle = $container.attr('style');
+
+    // Create new skills content while preserving structure
     let skillsContent = '';
     for (const [category, skills] of Object.entries(skillsData)) {
         if (skills.length > 0) {
             const categoryTitle = category.charAt(0).toUpperCase() + category.slice(1);
-            skillsContent += `<p><strong>${categoryTitle}:</strong> ${skills.join(', ')}</p>`;
-    }
+            const content = `<strong>${categoryTitle}:</strong> ${skills.join(', ')}`;
+            
+            if (containerTemplate) {
+                // Use the original structure if available
+                const newEntry = containerTemplate.structure.replace('{{content}}', content);
+                skillsContent += `<p ${Object.values(containerTemplate.attrs).map(attr => 
+                    `${attr.name}="${attr.value}"`).join(' ')}>${newEntry}</p>`;
+            } else {
+                // Fallback to basic structure
+                skillsContent += `<p>${content}</p>`;
+            }
+        }
     }
 
-    // Replace the content of the skills container
-    $(skillsContainer).html(skillsContent);
+    // Update content while preserving container attributes
+    $container.html(skillsContent);
+    
+    // Restore container attributes
+    Object.entries(containerAttrs).forEach(([key, value]) => {
+        if (key !== 'class' && key !== 'style') {
+            $container.attr(key, value);
+        }
+    });
+    if (containerClasses) $container.attr('class', containerClasses);
+    if (containerStyle) $container.attr('style', containerStyle);
 }
 
 async function parseResumeContent(htmlContent) {
@@ -811,11 +844,35 @@ async function updateBulletPoints($, originalBullets, newBullets) {
         }
     });
 
-    // Replace each original bullet with its corresponding new bullet
+    // Replace each original bullet with its corresponding new bullet while preserving attributes
     originalBullets.forEach((originalText, index) => {
         if (index < newBullets.length && bulletMap.has(originalText)) {
             const element = bulletMap.get(originalText);
-            $(element).text(newBullets[index]);
+            const $element = $(element);
+            
+            // Store all original attributes and classes
+            const originalAttrs = element.attribs || {};
+            const originalClasses = $element.attr('class');
+            const originalStyle = $element.attr('style');
+            
+            // Update text content while preserving HTML structure
+            const originalHtml = $element.html();
+            const originalWrapper = originalHtml.replace($element.text(), '{{content}}');
+            const newHtml = originalWrapper.replace('{{content}}', newBullets[index]);
+            
+            // Apply the new HTML while preserving attributes
+            $element.html(newHtml);
+            
+            // Restore all original attributes
+            Object.entries(originalAttrs).forEach(([key, value]) => {
+                if (key !== 'class' && key !== 'style') {
+                    $element.attr(key, value);
+                }
+            });
+            
+            // Restore classes and styles
+            if (originalClasses) $element.attr('class', originalClasses);
+            if (originalStyle) $element.attr('style', originalStyle);
         }
     });
 }
