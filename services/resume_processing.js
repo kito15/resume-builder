@@ -96,8 +96,7 @@ KEYWORD INTEGRATION RULES:
 2. Use ONLY 1-2 related technologies per bullet
 3. NEVER combine unrelated technologies in the same bullet point
 4. Each keyword MUST be used at least once across all bullets
-5. ALL provided keywords MUST be integrated across the set of bullets—do not omit any keyword
-6. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
+5. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
 
 TECHNOLOGY COMBINATION RULES:
 1. Keep technologies within their domain (frontend, backend, etc.)
