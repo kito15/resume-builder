@@ -388,55 +388,6 @@ async function checkPageHeight(page) {
     });
 }
 
-async function validateExternalResources(page) {
-    // Get all external resources
-    const resources = await page.evaluate(() => {
-        const getHref = (el) => el.href || el.src || null;
-        return {
-            stylesheets: Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(getHref).filter(Boolean),
-            fonts: Array.from(document.querySelectorAll('link[rel="preload"][as="font"], link[rel="font"]')).map(getHref).filter(Boolean),
-            images: Array.from(document.querySelectorAll('img')).map(getHref).filter(Boolean)
-        };
-    });
-
-    // Track failed resources
-    const failedResources = [];
-
-    // Helper function to check resource status
-    const checkResource = async (url) => {
-        try {
-            const response = await page.evaluate(async (resourceUrl) => {
-                const res = await fetch(resourceUrl, { method: 'HEAD' });
-                return res.ok;
-            }, url);
-            if (!response) {
-                failedResources.push(url);
-            }
-        } catch (error) {
-            console.warn(`Failed to validate resource: ${url}`, error);
-            failedResources.push(url);
-        }
-    };
-
-    // Check all resources with a timeout
-    const promises = [
-        ...resources.stylesheets,
-        ...resources.fonts,
-        ...resources.images
-    ].map(url => Promise.race([
-        checkResource(url),
-        new Promise(resolve => setTimeout(resolve, 5000)) // 5s timeout per resource
-    ]));
-
-    await Promise.all(promises);
-
-    return {
-        success: failedResources.length === 0,
-        failedResources,
-        totalResources: Object.values(resources).flat().length
-    };
-}
-
 async function convertHtmlToPdf(htmlContent) {
     const browser = await puppeteer.launch({
         args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -445,15 +396,42 @@ async function convertHtmlToPdf(htmlContent) {
     try {
         const page = await browser.newPage();
         
-        // Set viewport to standard letter size dimensions (in pixels)
+        // Set viewport to letter size dimensions (8.5" x 11" at 96 DPI)
         await page.setViewport({
-            width: 816,    // 8.5 inches at 96 DPI
-            height: 1056,  // 11 inches at 96 DPI
+            width: 816,  // 8.5 inches * 96 DPI
+            height: 1056, // 11 inches * 96 DPI
             deviceScaleFactor: 1
         });
 
-        // Minimal custom CSS that only handles page formatting
-        const customCSS = `
+        // Configure resource loading
+        await page.setRequestInterception(true);
+        const resourceCache = new Map();
+        
+        page.on('request', async request => {
+            const url = request.url();
+            if (resourceCache.has(url)) {
+                await request.respond({
+                    body: resourceCache.get(url)
+                });
+                return;
+            }
+            request.continue();
+        });
+
+        page.on('response', async response => {
+            const url = response.url();
+            if (response.ok() && !resourceCache.has(url)) {
+                try {
+                    const buffer = await response.buffer();
+                    resourceCache.set(url, buffer);
+                } catch (e) {
+                    console.warn(`Failed to cache resource ${url}:`, e.message);
+                }
+            }
+        });
+
+        // Inject print-specific styles while preserving original styling
+        const printStyles = `
             @page {
                 size: Letter;
                 margin: 0.25in;
@@ -465,43 +443,35 @@ async function convertHtmlToPdf(htmlContent) {
                     margin: 0;
                     padding: 0;
                 }
+                /* Ensure background colors and images are printed */
+                * {
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
             }
         `;
 
-        // Enable request interception for better resource handling
-        await page.setRequestInterception(true);
-        page.on('request', request => {
-            // Allow all resource types but abort after timeout
-            const timeout = setTimeout(() => request.abort(), 10000);
-            request.continue().then(() => clearTimeout(timeout));
-        });
-
-        // Inject custom CSS and original HTML
+        // Set content and wait for resources to load
         await page.setContent(htmlContent, {
-            waitUntil: ['networkidle0', 'load', 'domcontentloaded'],
-            timeout: 30000 // 30 second timeout
+            waitUntil: ['networkidle0', 'load', 'domcontentloaded']
         });
 
-        // Validate external resources
-        const resourceStatus = await validateExternalResources(page);
-        if (!resourceStatus.success) {
-            console.warn('Some resources failed to load:', resourceStatus.failedResources);
-        }
+        // Inject print styles and handle fonts
+        await page.evaluate((styles) => {
+            // Add print styles
+            const styleElement = document.createElement('style');
+            styleElement.textContent = styles;
+            document.head.appendChild(styleElement);
 
-        // Add custom CSS after content is loaded
-        await page.addStyleTag({ content: customCSS });
+            // Force load custom fonts
+            const fontPromises = Array.from(document.fonts).map(font => font.load());
+            return Promise.all(fontPromises);
+        }, printStyles);
 
-        // Ensure screen media type for proper CSS handling
+        // Ensure screen styles are used for PDF generation
         await page.emulateMediaType('screen');
 
-        // Wait for fonts to load
-        await page.evaluate(async () => {
-            if (document.fonts) {
-                await document.fonts.ready;
-            }
-        });
-
-        // Get the actual height after all content is loaded
+        // Calculate actual content height
         const height = await page.evaluate(() => {
             const body = document.body;
             const html = document.documentElement;
@@ -514,9 +484,9 @@ async function convertHtmlToPdf(htmlContent) {
             );
         });
 
-        const MAX_HEIGHT = 1056; // 11 inches at 96 DPI
-        
-        // Enhanced PDF options for better style preservation
+        const MAX_HEIGHT = 1056; // 11 inches * 96 DPI
+
+        // Generate PDF with optimized settings
         const pdfBuffer = await page.pdf({
             format: 'Letter',
             printBackground: true,
@@ -527,19 +497,16 @@ async function convertHtmlToPdf(htmlContent) {
                 bottom: '0.25in',
                 left: '0.25in'
             },
-            scale: 1.0,
             displayHeaderFooter: false,
-            landscape: false
+            scale: 1,
         });
 
         return { 
             pdfBuffer, 
-            exceedsOnePage: height > MAX_HEIGHT,
-            pageHeight: height,
-            resourceStatus
+            exceedsOnePage: height > MAX_HEIGHT 
         };
     } catch (error) {
-        console.error('Error during PDF conversion:', error);
+        console.error('PDF conversion error:', error);
         throw error;
     } finally {
         await browser.close();
