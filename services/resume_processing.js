@@ -561,7 +561,9 @@ CRITERIA FOR EXCLUSION (STRICTLY Exclude these types):
 - Vague or Abstract Terms (e.g., Services, Modern Foundation, Data Sets, POCs, Coding Standards, Full Stack Engineering)
 - Redundant terms if a more specific one exists (e.g., prefer 'REST APIs' over 'API' or 'APIs' if both contextually fit; prefer 'Agile Methodologies' over 'Agile' if present). Only include the most specific applicable term.
 
-Based on these criteria, categorize the SELECTED keywords into the following specific categories:
+IMPORTANT: Return NO MORE THAN 3 categories/sections. Prioritize the most relevant and impactful categories for technical roles (e.g., Languages, Frameworks/Libraries, and one other category such as Cloud, Tools, or Databases). If there are more than 3 possible categories, merge or omit the least relevant ones.
+
+Based on these criteria, categorize the SELECTED keywords into up to 3 categories using the following pool of possible categories:
 - Languages: Programming and markup languages only.
 - Frameworks/Libraries: Software frameworks and libraries only.
 - Others: Relevant and specific APIs, cloud services, protocols, tools, methodologies, platforms, OS, databases, technical concepts from the inclusion list that don't fit elsewhere.
@@ -569,7 +571,7 @@ Based on these criteria, categorize the SELECTED keywords into the following spe
 
 Keywords to analyze and select from: ${keywords.join(', ')}
 
-Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. Use these exact category names as keys: "Languages", "Frameworks/Libraries", "Others", "Machine Learning Libraries". The values should be arrays of the selected keywords. Every selected keyword MUST be placed in exactly one category. Do not include any keywords from the original list that fail the inclusion criteria or meet the exclusion criteria. Ensure the output is clean, valid JSON. Example format: {"Languages": ["Python", "SQL"], "Frameworks/Libraries": ["React"], "Others": ["AWS", "Git", "REST APIs"], "Machine Learning Libraries": ["Tensorflow"]}`;
+Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. Use up to 3 of these exact category names as keys: "Languages", "Frameworks/Libraries", "Others", "Machine Learning Libraries". The values should be arrays of the selected keywords. Every selected keyword MUST be placed in exactly one category. Do not include any keywords from the original list that fail the inclusion criteria or meet the exclusion criteria. Ensure the output is clean, valid JSON. Example format: {"Languages": ["Python", "SQL"], "Frameworks/Libraries": ["React"], "Others": ["AWS", "Git", "REST APIs"]}`;
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
