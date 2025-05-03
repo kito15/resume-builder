@@ -396,11 +396,11 @@ async function convertHtmlToPdf(htmlContent) {
     try {
         const page = await browser.newPage();
         
-        // Set viewport to letter size dimensions (8.5" x 11" at 96 DPI)
+        // Set viewport to a standard browser width with lower DPI
         await page.setViewport({
-            width: 816,  // 8.5 inches * 96 DPI
-            height: 1056, // 11 inches * 96 DPI
-            deviceScaleFactor: 1
+            width: 794,    // Reduced from 816
+            height: 1123,  // Adjusted for proportion
+            deviceScaleFactor: 0.75  // Reduce effective DPI
         });
 
         // Configure resource loading
@@ -437,13 +437,16 @@ async function convertHtmlToPdf(htmlContent) {
                 margin: 0.25in;
             }
             @media print {
+                html {
+                    zoom: 0.75;
+                }
                 html, body {
                     height: 100%;
                     width: 100%;
                     margin: 0;
                     padding: 0;
+                    -webkit-text-size-adjust: 100%;
                 }
-                /* Ensure background colors and images are printed */
                 * {
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
@@ -451,8 +454,18 @@ async function convertHtmlToPdf(htmlContent) {
             }
         `;
 
+        // Add viewport meta tag and base font size control
+        const modifiedHtml = htmlContent.replace('</head>',
+            `<meta name="viewport" content="width=device-width, initial-scale=0.75, maximum-scale=0.75">
+             <style>
+                html { font-size: 12px; }
+                body { transform-origin: top left; transform: scale(0.75); }
+             </style>
+             </head>`
+        );
+
         // Set content and wait for resources to load
-        await page.setContent(htmlContent, {
+        await page.setContent(modifiedHtml, {
             waitUntil: ['networkidle0', 'load', 'domcontentloaded']
         });
 
@@ -498,7 +511,7 @@ async function convertHtmlToPdf(htmlContent) {
                 left: '0.25in'
             },
             displayHeaderFooter: false,
-            scale: 1,
+            scale: 0.75,  // Explicitly set scale to match viewport
         });
 
         return { 
