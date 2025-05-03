@@ -604,21 +604,25 @@ async function updateSkillsContent($, skillsData) {
         return;
     }
 
-    // Create new skills content with categories
-    Object.entries(categorizedSkills).forEach(([category, skills]) => {
-        if (skills && skills.length > 0) {
-            // Format the category name to be more readable
+    // Create a single paragraph for all categories
+    const skillsParagraph = $('<p></p>');
+    
+    // Add each category to the paragraph
+    const categoryStrings = Object.entries(categorizedSkills)
+        .filter(([_, skills]) => skills && skills.length > 0)
+        .map(([category, skills]) => {
             const formattedCategory = category
                 .split(/(?=[A-Z])/)
                 .join(' ')
                 .replace(/^\w/, c => c.toUpperCase());
+            return `<strong>${formattedCategory}:</strong> ${skills.join(', ')}`;
+        });
 
-            // Create a new paragraph for each category
-            const categoryElement = $('<p></p>');
-            categoryElement.html(`<strong>${formattedCategory}:</strong> ${skills.join(', ')}`);
-            skillsContainer.append(categoryElement);
-        }
-    });
+    // Join all categories with a space
+    skillsParagraph.html(categoryStrings.join(' '));
+    
+    // Add the paragraph to the container
+    skillsContainer.append(skillsParagraph);
 
     // Add a class to the skills container for better identification
     skillsContainer.addClass('skills-section');
