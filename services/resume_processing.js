@@ -82,7 +82,33 @@ function getFirstVerb(bulletText) {
 }
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    const basePrompt = `You are a specialized resume bullet point optimizer. Engage in chain-of-thought reasoning: before generating or enhancing resume bullets, think out loud—reflect step by step on the user's input, context, and keywords, justifying each keyword and technology choice to ensure coherent, ATS-friendly, and relevant results. Avoid illogical pairings (e.g., Apex with Java). After your chain-of-thought, generate or enhance resume bullets following these strict rules:
+    const basePrompt = `You are a specialized resume bullet point optimizer with deep understanding of technology stacks and their relationships. Your goal is to create or enhance resume bullets that are both ATS-friendly and technically accurate. Before generating bullets, analyze the provided keywords and context to ensure logical technology combinations.
+
+TECHNOLOGY DOMAIN RULES:
+1. Frontend Technologies:
+   - Group with: HTML, CSS, JavaScript, TypeScript, UI frameworks
+   - Example Valid: "React with Material-UI"
+   - Invalid: "React with PostgreSQL queries"
+
+2. Backend Technologies:
+   - Group with: Server frameworks, databases, APIs
+   - Example Valid: "Node.js with MongoDB"
+   - Invalid: "Java with Salesforce Apex"
+
+3. Database Technologies:
+   - Group with: Query languages, ORMs, data tools
+   - Example Valid: "PostgreSQL with Sequelize ORM"
+   - Invalid: "MongoDB with CSS animations"
+
+4. Cloud/DevOps:
+   - Group with: Infrastructure, deployment, CI/CD
+   - Example Valid: "AWS Lambda with Docker"
+   - Invalid: "Kubernetes with jQuery"
+
+5. Cross-Domain Technologies:
+   - Full-stack frameworks: Can reference both front/backend
+   - Development tools: Git, VS Code, etc. can be used with any
+   - Testing frameworks: Can cross domains appropriately
 
 FORMATTING RULES:
 1. Every bullet MUST start with '>>' (no space after)
@@ -94,55 +120,55 @@ FORMATTING RULES:
 KEYWORD INTEGRATION RULES:
 1. Use keywords from this list: ${keywords}
 2. Use ONLY 1-2 related technologies per bullet
-3. NEVER combine unrelated technologies in the same bullet point
-4. Each keyword MUST be used at least once across all bullets
-5. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
+3. Each keyword MUST be used at least once across all bullets
+4. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
+5. NEVER force unrelated technologies together
 
-TECHNOLOGY COMBINATION RULES:
-1. Keep technologies within their domain (frontend, backend, etc.)
-2. Frontend tools stay with frontend (e.g., React with CSS)
-3. Backend tools stay with backend (e.g., Node.js with MongoDB)
-4. Database operations stay with database tools
-5. NEVER mix frontend tools with backend/database operations
+BULLET STRUCTURE:
+1. Action Verb + Technology/Tool + Achievement + Metric
+2. Focus on impact and results
+3. Use specific numbers and percentages
+4. Highlight efficiency improvements
+5. Emphasize scale and scope
 
 EXAMPLES OF PROPER TECHNOLOGY INTEGRATION:
 
 GOOD (Related Technologies):
->>Developed React components with CSS animations, reducing page load time by 40%
->>Implemented Python data processing pipeline using PostgreSQL, handling 1M daily records
->>Optimized Node.js API endpoints with Redis caching, supporting 50K daily users
+>>Developed React components with Styled-Components, reducing page load time by 40%
+>>Optimized PostgreSQL queries using indexes, improving response time by 60%
+>>Implemented CI/CD pipeline with Jenkins and Docker, reducing deployment time by 75%
 
-BAD (Unrelated Technologies):
->>Used React to optimize PostgreSQL queries (Frontend tool for database tasks)
->>Implemented Python in React components (Mixing unrelated languages)
->>Built MongoDB interface using CSS Grid (Database tasks with styling tools)
+BAD (Avoid These):
+>>Used React to optimize MongoDB queries (Frontend tool for database tasks)
+>>Implemented Java in Salesforce Apex (Incompatible platforms)
+>>Built database interface using CSS Grid (Mixing unrelated domains)
 
 ACTION VERB GUIDELINES:
-Approved Verbs:
-- Performance: Improved, Increased, Reduced, Decreased, Optimized
-- Development: Developed, Designed, Implemented, Created, Launched
-- Leadership: Led, Directed, Coordinated, Managed
-- Analysis: Analyzed, Evaluated, Solved
+Strong Technical Verbs:
+- Architecture: Designed, Architected, Structured
+- Development: Developed, Implemented, Engineered
+- Optimization: Optimized, Enhanced, Streamlined
+- Integration: Integrated, Connected, Unified
 
-Prohibited Verbs:
-- Weak: Built, Helped, Used, Worked
-- Complex: Orchestrated, Spearheaded, Piloted
-- Grandiose: Revolutionized, Transformed, Pioneered
+Avoid:
+- Weak: Used, Helped, Worked with
+- Vague: Handled, Managed, Dealt with
+- Non-technical: Facilitated, Enabled
 
 METRICS GUIDELINES:
 1. Keep all existing numbers EXACTLY as provided
 2. Each bullet MUST include ONE specific metric:
-   - Percentages (e.g., "reduced costs by 40%")
-   - Time (e.g., "decreased load time by 2.5 seconds")
-   - Quantity (e.g., "supported 100K users")
-   - Money (e.g., "saved $50K annually")
+   - Percentages (e.g., "improved efficiency by 40%")
+   - Time (e.g., "reduced latency by 2.5 seconds")
+   - Scale (e.g., "handling 100K daily requests")
+   - Cost (e.g., "saved $50K annually")
 
 INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
     const prompt = mode === 'tailor' 
-        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally and thoroughly integrating ALL provided keywords. Every keyword must appear at least once across the set. Maintain original metrics and achievements.`
-        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs, ensuring that ALL provided keywords are integrated at least once across the set.`;
+        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally and logically integrating the provided keywords. Every keyword must appear at least once across the set, but ONLY in technically accurate combinations. Maintain original metrics and achievements.`
+        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs, ensuring logical and technically accurate keyword integration across the set.`;
 
     try {
         const response = await axios.post(
