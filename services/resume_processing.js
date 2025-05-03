@@ -4,7 +4,6 @@ const cheerio = require('cheerio');
 const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimilarity } = require('../config/util');
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
-const lmCache = new Map();
 
 function countWordsInBullet(text) {
     const cleaned = text.trim()
@@ -461,10 +460,7 @@ async function adjustBulletPoints($, sections, currentBulletCount) {
 
 async function categorizeKeywords(keywords) {
     if (!keywords || keywords.length === 0) return null;
-    const cacheKey = `categorize_v2_${keywords.sort().join(',')}`;
-    if (lmCache.has(cacheKey)) {
-        return lmCache.get(cacheKey);
-    }
+    
     try {
         const prompt = `Analyze the provided keywords for relevance to Applicant Tracking Systems (ATS) focused on technical roles. Your goal is to select ONLY the most impactful technical skills, tools, platforms, and specific methodologies.
 
@@ -488,6 +484,7 @@ CRITERIA FOR EXCLUSION (STRICTLY Exclude these types):
 Based on these criteria, categorize the SELECTED keywords into NO MORE THAN THREE (3) categories. If you would have more, merge or combine them. Example groupings: (1) Languages, (2) Frameworks/Libraries/Tools, (3) Other Technical Skills. You may combine as needed, but never return more than 3 categories.
 
 Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. The keys should be the category names (maximum 3). The values should be arrays of the selected keywords. Every selected keyword MUST be placed in exactly one category. Do not include any keywords from the original list that fail the inclusion criteria or meet the exclusion criteria. Ensure the output is clean, valid JSON. Example format: {"Languages": ["Python", "SQL"], "Frameworks/Libraries/Tools": ["React"], "Other Technical Skills": ["AWS", "Git", "REST APIs"]}`;
+
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
@@ -513,23 +510,21 @@ Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. The 
                 }
             }
         );
+        
         const content = response.data.choices[0].message.content;
         const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/{[\s\S]*?}/);
         const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
+        
         try {
-            const categorized = JSON.parse(jsonString);
-            lmCache.set(cacheKey, categorized);
-            return categorized;
+            return JSON.parse(jsonString);
         } catch (jsonError) {
             console.error('Error parsing JSON from LLM response:', jsonError);
             const fallbackCategories = {
                 "Languages": [],
                 "Frameworks/Libraries": [],
-                "Others": [],
-                "Machine Learning Libraries": []
+                "Others": []
             };
             fallbackCategories["Others"] = keywords;
-            lmCache.set(cacheKey, fallbackCategories);
             return fallbackCategories;
         }
     } catch (error) {
@@ -645,12 +640,6 @@ async function updateSkillsContent($, skillsData) {
 }
 
 async function parseResumeContent(htmlContent) {
-    const cacheKey = `resumeContent_${generateHash(htmlContent)}`;
-    if (lmCache.has(cacheKey)) {
-        console.log('Returning cached resume content structure.');
-        return lmCache.get(cacheKey);
-    }
-
     console.log('Parsing resume content structure using LLM...');
     const prompt = `Analyze the following HTML resume content and extract its semantic structure. Focus on identifying and extracting the actual content of each section, regardless of HTML structure or CSS classes used.
 
@@ -737,7 +726,6 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
 
             if (typeof parsedContent === 'object' && parsedContent !== null && hasAllSections) {
                 console.log('Successfully parsed resume content structure');
-                lmCache.set(cacheKey, parsedContent);
                 return parsedContent;
             } else {
                 console.error('LLM returned invalid JSON structure:', content);
