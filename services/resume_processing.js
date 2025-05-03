@@ -82,33 +82,58 @@ function getFirstVerb(bulletText) {
 }
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    const basePrompt = `You are a specialized resume bullet point optimizer focused on creating technically accurate and ATS-friendly content. Your task is to generate or enhance resume bullets that demonstrate technical expertise while maintaining logical technology relationships.
+    const basePrompt = `You are a specialized resume bullet point optimizer focused on creating technically accurate and ATS-friendly content. Your task is to generate or enhance resume bullets that demonstrate technical expertise while maintaining STRICTLY ACCURATE technology relationships.
 
-TECHNOLOGY DOMAIN RULES:
-1. Frontend Domain:
-   - UI frameworks (React, Angular, Vue) pair with CSS/SCSS, HTML, JavaScript/TypeScript
-   - State management tools (Redux, MobX) pair with their respective frameworks
-   - UI/UX tools pair with design technologies
+CRITICAL TECHNOLOGY RELATIONSHIP RULES:
+1. NEVER combine technologies from different ecosystems that don't naturally work together
+2. Each bullet should focus on 1-2 closely related technologies maximum
+3. Always verify technology relationships before combining them
+4. If unsure about a technology relationship, use only the primary technology
 
-2. Backend Domain:
-   - Server technologies (Node.js, Django, Spring) pair with their native languages
-   - Database operations pair with database technologies only
-   - API development pairs with relevant protocols and backend frameworks
+TECHNOLOGY DOMAIN RULES AND RELATIONSHIPS:
+1. Programming Languages & Their Ecosystems:
+   - Java → Spring, Hibernate, Maven, JUnit
+   - Python → Django, Flask, NumPy, Pandas
+   - JavaScript → Node.js, React, Angular, Express
+   - TypeScript → Angular, React, Next.js
+   - C# → .NET, ASP.NET, Entity Framework
+   NEVER MIX: Java with Python libraries, JavaScript with Java frameworks, etc.
 
-3. Database Domain:
-   - SQL databases pair with SQL queries and relevant ORMs
-   - NoSQL databases pair with appropriate query languages and frameworks
-   - Caching solutions pair with relevant backend technologies
+2. Frontend Development:
+   - React → Redux, React Router, Material-UI
+   - Angular → RxJS, NgRx, Angular Material
+   - Vue.js → Vuex, Vue Router
+   NEVER MIX: React hooks with Angular services, Vue with Redux, etc.
 
-4. Cloud/DevOps Domain:
-   - Cloud services pair with relevant deployment technologies
-   - CI/CD tools pair with appropriate testing and deployment frameworks
-   - Container technologies pair with orchestration tools
+3. Backend & Databases:
+   - Node.js → Express, MongoDB, Mongoose
+   - Django → PostgreSQL, SQLite
+   - Spring → MySQL, Oracle, Hibernate
+   NEVER MIX: Django ORM with MongoDB, Hibernate with MongoDB, etc.
 
-5. Language-Specific Rules:
-   - Each programming language pairs only with its ecosystem tools
-   - Framework usage must match its parent language
-   - Language-specific tools stay within their domain
+4. Cloud & DevOps:
+   - AWS → EC2, S3, Lambda, CloudFormation
+   - Azure → App Service, Functions, DevOps
+   - GCP → Compute Engine, Cloud Functions
+   NEVER MIX: AWS services with Azure-specific terms, GCP with AWS-specific services
+
+5. Mobile Development:
+   - iOS → Swift, SwiftUI, Cocoa Touch
+   - Android → Kotlin, Java, Android SDK
+   - React Native → JavaScript, React
+   NEVER MIX: Swift with Android SDK, Kotlin with iOS frameworks
+
+6. CRM & Business Systems:
+   - Salesforce → Apex, Visualforce, Lightning
+   - Microsoft Dynamics → C#, .NET
+   NEVER MIX: Apex with Java/Python, Salesforce-specific with general web tech
+
+INVALID COMBINATION EXAMPLES (NEVER GENERATE THESE):
+❌ "Developed Apex triggers using Java" (Apex is Salesforce-specific)
+❌ "Built React components using Angular services" (Different frameworks)
+❌ "Implemented Django models with MongoDB" (Django uses SQL databases)
+❌ "Created AWS Lambda functions using Azure Functions" (Different clouds)
+❌ "Developed iOS apps using Android SDK" (Different mobile platforms)
 
 FORMATTING RULES:
 1. Every bullet MUST start with '>>' (no space after)
@@ -123,13 +148,6 @@ KEYWORD INTEGRATION RULES:
 3. Technologies MUST be from the same domain or have a clear, logical relationship
 4. Each keyword MUST be used at least once across all bullets
 5. If a technology doesn't fit naturally, preserve the achievement without the tech reference
-
-TECHNOLOGY INTEGRATION GUIDELINES:
-1. Focus each bullet on ONE primary technology domain
-2. Only combine technologies that have real-world compatibility
-3. Maintain technical accuracy in technology relationships
-4. Preserve the context of each technology's typical use case
-5. Respect technology stack hierarchies and dependencies
 
 ACTION VERB GUIDELINES:
 Approved Verbs:
@@ -155,8 +173,8 @@ INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
     const prompt = mode === 'tailor' 
-        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally and thoroughly integrating ALL provided keywords. Every keyword must appear at least once across the set. Maintain original metrics and achievements.`
-        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs, ensuring that ALL provided keywords are integrated at least once across the set.`;
+        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally and thoroughly integrating ALL provided keywords. Every keyword must appear at least once across the set. Maintain original metrics and achievements. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`
+        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs, ensuring that ALL provided keywords are integrated at least once across the set. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`;
 
     try {
         const response = await axios.post(
@@ -166,14 +184,14 @@ ${(existingBullets || []).join('\n')}`;
                 messages: [
                     {
                         role: "system",
-                        content: "You are a specialized resume bullet point optimizer. First, think out loud: analyze the user's input, context, and keyword list step by step, reflecting on which keywords and technologies should be included or omitted, and justify each decision to ensure logical, ATS-friendly, and relevant results. Avoid illogical pairings (e.g., Apex with Java). After your chain-of-thought, generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once, and ensure ALL keywords are integrated across the set\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
+                        content: "You are a specialized resume bullet point optimizer with deep understanding of technology relationships. You must NEVER generate bullets with invalid technology combinations. First analyze the keywords to understand their relationships, then generate bullets ensuring technical accuracy."
                     },
                     {
                         role: "user",
                         content: prompt
                     }
                 ],
-                temperature: 0.5,
+                temperature: 0.4,
                 max_tokens: 4096,
                 top_p: 1
             },
