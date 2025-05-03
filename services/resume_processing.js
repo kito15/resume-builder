@@ -392,38 +392,108 @@ async function convertHtmlToPdf(htmlContent) {
     const browser = await puppeteer.launch({
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
-    const page = await browser.newPage();
-    const customCSS = `
-        @page {
-            size: Letter;
-            margin: 0.25in;
+    
+    try {
+        const page = await browser.newPage();
+
+        // Extract any external stylesheets from the HTML
+        const $ = cheerio.load(htmlContent);
+        const stylesheetLinks = [];
+        $('link[rel="stylesheet"]').each((_, el) => {
+            stylesheetLinks.push($(el).attr('href'));
+        });
+
+        // Preserve original styles while ensuring proper page formatting
+        const customCSS = `
+            @page {
+                size: Letter;
+                margin: 0.25in;
+            }
+            @media print {
+                html, body {
+                    height: 100%;
+                    width: 100%;
+                    margin: 0;
+                    padding: 0;
+                }
+                /* Preserve original font rendering */
+                * {
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+            }
+        `;
+
+        // Set viewport to letter size dimensions (8.5 x 11 inches at 96 DPI)
+        await page.setViewport({
+            width: 816,  // 8.5 inches * 96 DPI
+            height: 1056, // 11 inches * 96 DPI
+            deviceScaleFactor: 1
+        });
+
+        // Configure page for optimal PDF conversion
+        await page.emulateMediaType('screen');
+        await page.setJavaScriptEnabled(true);
+
+        // Inject the custom CSS and wait for the page to load
+        await page.setContent(htmlContent, {
+            waitUntil: ['networkidle0', 'load', 'domcontentloaded']
+        });
+
+        // Add custom CSS after content is loaded
+        await page.addStyleTag({ content: customCSS });
+
+        // Wait for external stylesheets if they exist
+        if (stylesheetLinks.length > 0) {
+            await Promise.all(stylesheetLinks.map(href => 
+                page.waitForResponse(
+                    response => response.url().includes(href),
+                    { timeout: 5000 }
+                ).catch(err => console.warn(`Warning: Could not load stylesheet ${href}:`, err.message))
+            ));
         }
-        body {
-            margin: 0;
-            padding: 0;
-        }
-    `;
-    await page.setContent(htmlContent);
-    await page.evaluate((css) => {
-        const style = document.createElement('style');
-        style.textContent = css;
-        document.head.appendChild(style);
-    }, customCSS);
-    const height = await checkPageHeight(page);
-    const MAX_HEIGHT = 1056;
-    const pdfBuffer = await page.pdf({
-        format: 'Letter',
-        printBackground: true,
-        preferCSSPageSize: true,
-        margin: {
-            top: '0.25in',
-            right: '0.25in',
-            bottom: '0.25in',
-            left: '0.25in'
-        }
-    });
-    await browser.close();
-    return { pdfBuffer, exceedsOnePage: height > MAX_HEIGHT };
+
+        // Wait for fonts to load (if any custom fonts are used)
+        await page.evaluateHandle('document.fonts.ready');
+
+        // Get the actual height of the content
+        const height = await page.evaluate(() => {
+            const body = document.body;
+            const html = document.documentElement;
+            return Math.max(
+                body.scrollHeight,
+                body.offsetHeight,
+                html.clientHeight,
+                html.scrollHeight,
+                html.offsetHeight
+            );
+        });
+
+        // Generate PDF with optimal settings for style preservation
+        const pdfBuffer = await page.pdf({
+            format: 'Letter',
+            printBackground: true,
+            preferCSSPageSize: true,
+            margin: {
+                top: '0.25in',
+                right: '0.25in',
+                bottom: '0.25in',
+                left: '0.25in'
+            },
+            displayHeaderFooter: false,
+            scale: 1.0
+        });
+
+        return { 
+            pdfBuffer, 
+            exceedsOnePage: height > 1056 // 11 inches * 96 DPI
+        };
+    } catch (error) {
+        console.error('Error during PDF conversion:', error);
+        throw error;
+    } finally {
+        await browser.close();
+    }
 }
 
 async function adjustBulletPoints($, sections, currentBulletCount) {
@@ -570,12 +640,14 @@ async function updateSkillsContent($, skillsData) {
         return;
     }
 
-    // Find the most likely skills container (the one with the most skill-related content)
+    // Find the most likely skills container
     let skillsContainer = null;
     let maxSkillCount = 0;
+    let containerInfo = null;
 
     skillElements.each((_, el) => {
-        const text = $(el).text().toLowerCase();
+        const $el = $(el);
+        const text = $el.text().toLowerCase();
         const skillCount = Object.values(skillsData)
             .flat()
             .filter(skill => text.includes(skill.toLowerCase()))
@@ -584,25 +656,53 @@ async function updateSkillsContent($, skillsData) {
         if (skillCount > maxSkillCount) {
             maxSkillCount = skillCount;
             skillsContainer = el;
+            // Store the original attributes and structure
+            containerInfo = {
+                attributes: el.attribs,
+                classes: $el.attr('class'),
+                tagName: $el.prop('tagName')
+            };
         }
     });
 
-    if (!skillsContainer) {
+    if (!skillsContainer || !containerInfo) {
         console.warn('Could not identify main skills container');
         return;
     }
 
-    // Create new skills content
+    const $container = $(skillsContainer);
+    
+    // Create new skills content while preserving the original HTML structure
     let skillsContent = '';
     for (const [category, skills] of Object.entries(skillsData)) {
         if (skills.length > 0) {
             const categoryTitle = category.charAt(0).toUpperCase() + category.slice(1);
-            skillsContent += `<p><strong>${categoryTitle}:</strong> ${skills.join(', ')}</p>`;
+            // Preserve any existing paragraph styling classes
+            const existingPClass = $container.find('p').first().attr('class') || '';
+            const existingStrongClass = $container.find('strong').first().attr('class') || '';
+            
+            skillsContent += `<p${existingPClass ? ` class="${existingPClass}"` : ''}>` +
+                `<strong${existingStrongClass ? ` class="${existingStrongClass}"` : ''}>${categoryTitle}:</strong> ` +
+                `${skills.join(', ')}</p>`;
         }
     }
 
-    // Replace the content of the skills container
-    $(skillsContainer).html(skillsContent);
+    // Update content while preserving container attributes
+    $container.html(skillsContent);
+    
+    // Restore all original attributes
+    if (containerInfo.attributes) {
+        Object.entries(containerInfo.attributes).forEach(([attr, value]) => {
+            if (attr !== 'class') { // Handle classes separately
+                $container.attr(attr, value);
+            }
+        });
+    }
+    
+    // Restore original classes
+    if (containerInfo.classes) {
+        $container.attr('class', containerInfo.classes);
+    }
 }
 
 async function parseResumeContent(htmlContent) {
@@ -748,17 +848,41 @@ async function updateBulletPoints($, originalBullets, newBullets) {
     // Create a map of original bullet text to its HTML element
     const bulletMap = new Map();
     $('li').each((_, el) => {
-        const text = $(el).text().trim();
+        const $el = $(el);
+        const text = $el.text().trim();
         if (text && originalBullets.includes(text)) {
-            bulletMap.set(text, el);
+            // Store the entire element with its attributes and classes
+            bulletMap.set(text, {
+                element: el,
+                attributes: el.attribs,
+                classes: $el.attr('class'),
+                parentTag: $el.parent().prop('tagName')
+            });
         }
     });
 
     // Replace each original bullet with its corresponding new bullet
     originalBullets.forEach((originalText, index) => {
         if (index < newBullets.length && bulletMap.has(originalText)) {
-            const element = bulletMap.get(originalText);
-            $(element).text(newBullets[index]);
+            const bulletInfo = bulletMap.get(originalText);
+            const $element = $(bulletInfo.element);
+            
+            // Preserve the original HTML structure and attributes
+            $element.html(newBullets[index]);
+            
+            // Ensure all original attributes are preserved
+            if (bulletInfo.attributes) {
+                Object.entries(bulletInfo.attributes).forEach(([attr, value]) => {
+                    if (attr !== 'class') { // Handle classes separately
+                        $element.attr(attr, value);
+                    }
+                });
+            }
+            
+            // Ensure original classes are preserved
+            if (bulletInfo.classes) {
+                $element.attr('class', bulletInfo.classes);
+            }
         }
     });
 }
