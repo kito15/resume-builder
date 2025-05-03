@@ -392,90 +392,38 @@ async function convertHtmlToPdf(htmlContent) {
     const browser = await puppeteer.launch({
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
-    
-    try {
-        const page = await browser.newPage();
-
-        // Set viewport to match US Letter size in pixels (at 96 DPI)
-        await page.setViewport({
-            width: 816,    // 8.5 inches * 96 DPI
-            height: 1056,  // 11 inches * 96 DPI
-            deviceScaleFactor: 1
-        });
-
-        // Only set page margins and size, avoid overriding other styles
-        const customCSS = `
-            @page {
-                size: Letter;
-                margin: 0.25in;
-            }
-            @media print {
-                html, body {
-                    height: 100%;
-                    width: 100%;
-                    margin: 0;
-                    padding: 0;
-                }
-            }
-        `;
-
-        // Configure page for optimal rendering
-        await page.emulateMediaType('screen');
-        await page.setJavaScriptEnabled(true);
-
-        // Inject custom CSS and content with proper resource loading
-        await page.setContent(htmlContent, {
-            waitUntil: ['networkidle0', 'load', 'domcontentloaded'],
-            timeout: 30000
-        });
-
-        // Inject print-specific CSS after content is loaded
-        await page.addStyleTag({ content: customCSS });
-
-        // Wait for any custom fonts to load
-        await page.evaluate(() => {
-            return document.fonts ? document.fonts.ready : Promise.resolve();
-        });
-
-        // Get the actual content height
-        const height = await page.evaluate(() => {
-            const body = document.body;
-            const html = document.documentElement;
-            return Math.max(
-                body.scrollHeight,
-                body.offsetHeight,
-                html.clientHeight,
-                html.scrollHeight,
-                html.offsetHeight
-            );
-        });
-
-        // Generate PDF with optimal settings
-        const pdfBuffer = await page.pdf({
-            format: 'Letter',
-            printBackground: true,
-            preferCSSPageSize: true,
-            displayHeaderFooter: false,
-            margin: {
-                top: '0.25in',
-                right: '0.25in',
-                bottom: '0.25in',
-                left: '0.25in'
-            },
-            scale: 1,
-            timeout: 30000
-        });
-
-        return { 
-            pdfBuffer, 
-            exceedsOnePage: height > 1056 // 11 inches * 96 DPI
-        };
-    } catch (error) {
-        console.error('Error during PDF conversion:', error);
-        throw error;
-    } finally {
-        await browser.close();
-    }
+    const page = await browser.newPage();
+    const customCSS = `
+        @page {
+            size: Letter;
+            margin: 0.25in;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+        }
+    `;
+    await page.setContent(htmlContent);
+    await page.evaluate((css) => {
+        const style = document.createElement('style');
+        style.textContent = css;
+        document.head.appendChild(style);
+    }, customCSS);
+    const height = await checkPageHeight(page);
+    const MAX_HEIGHT = 1056;
+    const pdfBuffer = await page.pdf({
+        format: 'Letter',
+        printBackground: true,
+        preferCSSPageSize: true,
+        margin: {
+            top: '0.25in',
+            right: '0.25in',
+            bottom: '0.25in',
+            left: '0.25in'
+        }
+    });
+    await browser.close();
+    return { pdfBuffer, exceedsOnePage: height > MAX_HEIGHT };
 }
 
 async function adjustBulletPoints($, sections, currentBulletCount) {
@@ -622,14 +570,12 @@ async function updateSkillsContent($, skillsData) {
         return;
     }
 
-    // Find the most likely skills container
+    // Find the most likely skills container (the one with the most skill-related content)
     let skillsContainer = null;
     let maxSkillCount = 0;
-    let containerTemplate = null;
 
     skillElements.each((_, el) => {
-        const $el = $(el);
-        const text = $el.text().toLowerCase();
+        const text = $(el).text().toLowerCase();
         const skillCount = Object.values(skillsData)
             .flat()
             .filter(skill => text.includes(skill.toLowerCase()))
@@ -638,16 +584,6 @@ async function updateSkillsContent($, skillsData) {
         if (skillCount > maxSkillCount) {
             maxSkillCount = skillCount;
             skillsContainer = el;
-            
-            // Store the HTML structure of an existing skill entry as template
-            const firstSkillEntry = $el.find('p').first();
-            if (firstSkillEntry.length) {
-                containerTemplate = {
-                    html: firstSkillEntry.html(),
-                    structure: firstSkillEntry.html().replace(firstSkillEntry.text(), '{{content}}'),
-                    attrs: firstSkillEntry.prop('attributes')
-                };
-            }
         }
     });
 
@@ -656,43 +592,17 @@ async function updateSkillsContent($, skillsData) {
         return;
     }
 
-    const $container = $(skillsContainer);
-    
-    // Store container's original attributes
-    const containerAttrs = skillsContainer.attribs || {};
-    const containerClasses = $container.attr('class');
-    const containerStyle = $container.attr('style');
-
-    // Create new skills content while preserving structure
+    // Create new skills content
     let skillsContent = '';
     for (const [category, skills] of Object.entries(skillsData)) {
         if (skills.length > 0) {
             const categoryTitle = category.charAt(0).toUpperCase() + category.slice(1);
-            const content = `<strong>${categoryTitle}:</strong> ${skills.join(', ')}`;
-            
-            if (containerTemplate) {
-                // Use the original structure if available
-                const newEntry = containerTemplate.structure.replace('{{content}}', content);
-                skillsContent += `<p ${Object.values(containerTemplate.attrs).map(attr => 
-                    `${attr.name}="${attr.value}"`).join(' ')}>${newEntry}</p>`;
-            } else {
-                // Fallback to basic structure
-                skillsContent += `<p>${content}</p>`;
-            }
+            skillsContent += `<p><strong>${categoryTitle}:</strong> ${skills.join(', ')}</p>`;
         }
     }
 
-    // Update content while preserving container attributes
-    $container.html(skillsContent);
-    
-    // Restore container attributes
-    Object.entries(containerAttrs).forEach(([key, value]) => {
-        if (key !== 'class' && key !== 'style') {
-            $container.attr(key, value);
-        }
-    });
-    if (containerClasses) $container.attr('class', containerClasses);
-    if (containerStyle) $container.attr('style', containerStyle);
+    // Replace the content of the skills container
+    $(skillsContainer).html(skillsContent);
 }
 
 async function parseResumeContent(htmlContent) {
@@ -844,35 +754,11 @@ async function updateBulletPoints($, originalBullets, newBullets) {
         }
     });
 
-    // Replace each original bullet with its corresponding new bullet while preserving attributes
+    // Replace each original bullet with its corresponding new bullet
     originalBullets.forEach((originalText, index) => {
         if (index < newBullets.length && bulletMap.has(originalText)) {
             const element = bulletMap.get(originalText);
-            const $element = $(element);
-            
-            // Store all original attributes and classes
-            const originalAttrs = element.attribs || {};
-            const originalClasses = $element.attr('class');
-            const originalStyle = $element.attr('style');
-            
-            // Update text content while preserving HTML structure
-            const originalHtml = $element.html();
-            const originalWrapper = originalHtml.replace($element.text(), '{{content}}');
-            const newHtml = originalWrapper.replace('{{content}}', newBullets[index]);
-            
-            // Apply the new HTML while preserving attributes
-            $element.html(newHtml);
-            
-            // Restore all original attributes
-            Object.entries(originalAttrs).forEach(([key, value]) => {
-                if (key !== 'class' && key !== 'style') {
-                    $element.attr(key, value);
-                }
-            });
-            
-            // Restore classes and styles
-            if (originalClasses) $element.attr('class', originalClasses);
-            if (originalStyle) $element.attr('style', originalStyle);
+            $(element).text(newBullets[index]);
         }
     });
 }
