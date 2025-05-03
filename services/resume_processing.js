@@ -306,7 +306,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     if (!resumeContent) {
         console.error("Failed to parse resume content. Aborting resume update.");
         return htmlContent;
-    }
+            }
 
     const verbTracker = new ActionVerbTracker();
     const bulletCache = new BulletCache();
@@ -396,11 +396,12 @@ async function convertHtmlToPdf(htmlContent) {
     try {
         const page = await browser.newPage();
         
-        // Set viewport to a standard screen width to prevent scaling issues
+        // Set viewport to match standard letter size at 96 DPI with precise scaling
         await page.setViewport({
-            width: 1024,  // Standard screen width
-            height: 1320, // Larger than letter size to accommodate content
-            deviceScaleFactor: 1
+            width: 816,  // 8.5 inches * 96 DPI
+            height: 1056, // 11 inches * 96 DPI
+            deviceScaleFactor: 1,
+            isMobile: false
         });
 
         // Configure resource loading
@@ -430,53 +431,95 @@ async function convertHtmlToPdf(htmlContent) {
             }
         });
 
-        // Enhanced print styles with font size controls
-        const printStyles = `
+        // Define comprehensive styles for consistent rendering
+        const normalizeStyles = `
+            /* Base normalization */
+            html {
+                -webkit-text-size-adjust: 100%;
+                text-size-adjust: 100%;
+                font-size: 16px;
+                line-height: 1.15;
+            }
+
+            /* Print-specific styles */
             @page {
                 size: Letter;
                 margin: 0.25in;
             }
+
             @media print {
                 html {
-                    /* Set base font size to control scaling */
-                    font-size: 12px !important;
+                    font-size: 12pt;
                 }
+                
                 body {
-                    /* Preserve original proportions */
-                    width: 8.5in;
-                    min-height: 11in;
                     margin: 0;
                     padding: 0;
-                    /* Prevent text inflation */
-                    -webkit-text-size-adjust: 100%;
-                    text-size-adjust: 100%;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
                 }
-                /* Ensure background colors and images are printed */
+
+                /* Preserve original font sizes */
+                * {
+                    font-size: inherit;
+                }
+
+                /* Ensure backgrounds print */
                 * {
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
                 }
             }
+
+            /* Preserve original layout */
+            body {
+                width: 8.5in;
+                min-height: 11in;
+                margin: 0 auto;
+                padding: 0.25in;
+                box-sizing: border-box;
+                overflow-wrap: break-word;
+            }
         `;
 
-        // Set content and wait for resources to load
-        await page.setContent(htmlContent, {
+        // Set content with proper viewport meta tag
+        const enhancedHtml = `
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+                    <style>${normalizeStyles}</style>
+                    ${htmlContent.includes('<head>') ? 
+                        htmlContent.split('<head>')[1].split('</head>')[0] : ''}
+                </head>
+                <body>
+                    ${htmlContent.includes('<body>') ? 
+                        htmlContent.split('<body>')[1].split('</body>')[0] : 
+                        htmlContent}
+                </body>
+            </html>
+        `;
+
+        // Load content and wait for everything to render
+        await page.setContent(enhancedHtml, {
             waitUntil: ['networkidle0', 'load', 'domcontentloaded']
         });
 
-        // Inject print styles and handle fonts
-        await page.evaluate((styles) => {
-            // Add print styles
-            const styleElement = document.createElement('style');
-            styleElement.textContent = styles;
-            document.head.appendChild(styleElement);
-
-            // Force load custom fonts
+        // Ensure proper font loading and rendering
+        await page.evaluate(async () => {
+            // Force load all fonts
+            await document.fonts.ready;
+            
+            // Wait for any web fonts
             const fontPromises = Array.from(document.fonts).map(font => font.load());
-            return Promise.all(fontPromises);
-        }, printStyles);
+            await Promise.all(fontPromises);
 
-        // Ensure screen styles are used for PDF generation
+            // Ensure styles are computed
+            await new Promise(resolve => requestAnimationFrame(resolve));
+        });
+
+        // Use screen media type to maintain original styling
         await page.emulateMediaType('screen');
 
         // Calculate actual content height
@@ -494,7 +537,7 @@ async function convertHtmlToPdf(htmlContent) {
 
         const MAX_HEIGHT = 1056; // 11 inches * 96 DPI
 
-        // Generate PDF with optimized settings for proper scaling
+        // Generate PDF with precise settings
         const pdfBuffer = await page.pdf({
             format: 'Letter',
             printBackground: true,
@@ -506,7 +549,7 @@ async function convertHtmlToPdf(htmlContent) {
                 left: '0.25in'
             },
             displayHeaderFooter: false,
-            scale: 0.85, // Slightly reduce scale to prevent overflow
+            scale: 1,
         });
 
         return { 
@@ -679,7 +722,7 @@ async function updateSkillsContent($, skillsData) {
         if (skillCount > maxSkillCount) {
             maxSkillCount = skillCount;
             skillsContainer = el;
-        }
+            }
     });
 
     if (!skillsContainer) {
@@ -693,7 +736,7 @@ async function updateSkillsContent($, skillsData) {
         if (skills.length > 0) {
             const categoryTitle = category.charAt(0).toUpperCase() + category.slice(1);
             skillsContent += `<p><strong>${categoryTitle}:</strong> ${skills.join(', ')}</p>`;
-        }
+    }
     }
 
     // Replace the content of the skills container
