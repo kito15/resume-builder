@@ -594,6 +594,11 @@ async function updateSkillsContent($, skillsData) {
     // Clear existing skills content while preserving the container
     skillsContainer.empty();
 
+    // Add style for skills section
+    const styleElement = $('<style></style>');
+    styleElement.text('.skills-section p { margin: 0; padding: 2px 0; }');
+    $('head').append(styleElement);
+
     // Get categorized skills from the LLM
     const categorizedSkills = await categorizeKeywords(
         Object.values(skillsData).flat()
@@ -604,25 +609,22 @@ async function updateSkillsContent($, skillsData) {
         return;
     }
 
-    // Create a single paragraph for all categories
-    const skillsParagraph = $('<p></p>');
-    
-    // Add each category to the paragraph
-    const categoryStrings = Object.entries(categorizedSkills)
-        .filter(([_, skills]) => skills && skills.length > 0)
-        .map(([category, skills]) => {
+    // Create new skills content with categories
+    const categories = Object.entries(categorizedSkills);
+    categories.forEach(([category, skills], index) => {
+        if (skills && skills.length > 0) {
+            // Format the category name to be more readable
             const formattedCategory = category
                 .split(/(?=[A-Z])/)
                 .join(' ')
                 .replace(/^\w/, c => c.toUpperCase());
-            return `<strong>${formattedCategory}:</strong> ${skills.join(', ')}`;
-        });
 
-    // Join all categories with a space
-    skillsParagraph.html(categoryStrings.join(' '));
-    
-    // Add the paragraph to the container
-    skillsContainer.append(skillsParagraph);
+            // Create a new paragraph for each category
+            const categoryElement = $('<p></p>');
+            categoryElement.html(`<strong>${formattedCategory}:</strong> ${skills.join(', ')}`);
+            skillsContainer.append(categoryElement);
+        }
+    });
 
     // Add a class to the skills container for better identification
     skillsContainer.addClass('skills-section');
