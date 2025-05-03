@@ -150,6 +150,8 @@ function getFirstVerb(bulletText) {
 }
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
+    // --- REVISED PROMPT TO FORCE INTEGRATION OF ALL BULLETS ---
+
     const basePrompt = `You are a specialized resume bullet point optimizer. Engage in chain-of-thought reasoning: before generating or enhancing resume bullets, think out loud—reflect step by step on the user's input, context, and keywords, justifying each keyword and technology choice to ensure coherent, ATS-friendly, and relevant results. Avoid illogical pairings (e.g., Apex with Java). After your chain-of-thought, generate or enhance resume bullets following these strict rules:
 
 FORMATTING RULES:
@@ -166,6 +168,9 @@ KEYWORD INTEGRATION RULES:
 4. Each keyword MUST be used at least once across all bullets
 5. ALL provided keywords MUST be integrated across the set of bullets—do not omit any keyword
 6. If a technology doesn't fit naturally, preserve the achievement and remove ALL tech references
+
+--- BULLET INTEGRATION REQUIREMENT ---
+You MUST output a set of resume bullets where EVERY bullet point integrates at least ONE provided keyword. Do NOT generate any bullet that does not contain a keyword from the list. If you enhance existing bullets, REWRITE any bullet that does not contain a keyword so that it does. If you generate new bullets, ensure every bullet contains at least one keyword from the list. Do NOT leave any bullet without a keyword. If you cannot naturally fit a keyword, rewrite the bullet or omit it.
 
 TECHNOLOGY COMBINATION RULES:
 1. Keep technologies within their domain (frontend, backend, etc.)
@@ -210,8 +215,8 @@ INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
     const prompt = mode === 'tailor' 
-        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally and thoroughly integrating ALL provided keywords. Every keyword must appear at least once across the set. Maintain original metrics and achievements.`
-        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs, ensuring that ALL provided keywords are integrated at least once across the set.`;
+        ? `${basePrompt}\n\nTASK: Enhance the above bullets by ensuring EVERY bullet point contains at least one provided keyword. If any bullet does not, REWRITE it to include a keyword. Integrate ALL provided keywords across the set, using each at least once. Maintain original metrics and achievements.`
+        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs. EVERY bullet MUST contain at least one provided keyword, and ALL keywords must be integrated at least once across the set. Do NOT generate any bullet that does not contain a keyword.`;
 
     try {
         const response = await axios.post(
@@ -221,7 +226,7 @@ ${(existingBullets || []).join('\n')}`;
                 messages: [
                     {
                         role: "system",
-                        content: "You are a specialized resume bullet point optimizer. First, think out loud: analyze the user's input, context, and keyword list step by step, reflecting on which keywords and technologies should be included or omitted, and justify each decision to ensure logical, ATS-friendly, and relevant results. Avoid illogical pairings (e.g., Apex with Java). After your chain-of-thought, generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once, and ensure ALL keywords are integrated across the set\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements"
+                        content: "You are a specialized resume bullet point optimizer. First, think out loud: analyze the user's input, context, and keyword list step by step, reflecting on which keywords and technologies should be included or omitted, and justify each decision to ensure logical, ATS-friendly, and relevant results. Avoid illogical pairings (e.g., Apex with Java). After your chain-of-thought, generate or enhance resume bullets following these STRICT rules:\n1. Every bullet MUST start with '>>' (no space)\n2. Use ONLY related technologies together\n3. Use each provided keyword at least once, and ensure ALL keywords are integrated across the set\n4. Include ONE specific metric per bullet\n5. Use ONLY approved action verbs\n6. Never exceed word limit\n7. Never mix unrelated technologies\n8. Focus on concrete achievements\n9. EVERY bullet MUST contain at least one provided keyword. Do NOT generate or leave any bullet without a keyword."
                     },
                     {
                         role: "user",
