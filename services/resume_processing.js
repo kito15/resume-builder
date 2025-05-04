@@ -306,34 +306,8 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
 
             console.log(`Generated ${newBullets.length} new bullets for ${section.type} entry`);
 
-            // Locate container dynamically
-            let $container = findContainer($, entry, section.type);
-
-            if (!$container || $container.length === 0) {
-                console.warn(`Could not find matching section element for ${section.type}`);
-                continue;
-            }
-
-            console.log(`Updating bullet list for ${section.type} using resolved container`);
-
-            // Rebuild or update bullet list inside container
-            const containersArray = Array.isArray($container) ? $container : [$container];
-            containersArray.forEach(($cont) => {
-                let $list;
-                if ($cont.is('ul, ol')) {
-                    $list = $cont;
-                } else {
-                    $list = $cont.find('ul, ol').first();
-                }
-
-                if (!$list || $list.length === 0) {
-                    $list = $('<ul></ul>');
-                    $cont.append($list);
-                }
-
-                $list.empty();
-                newBullets.forEach(b => $list.append(`<li>${b}</li>`));
-            });
+            // Replace bullets by matching original text to ensure robustness regardless of HTML structure
+            updateBulletPoints($, originalBullets, newBullets);
 
             newBullets.forEach(bullet => {
                 const verb = getFirstVerb(bullet);
@@ -366,21 +340,10 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         attempts++;
     }
 
-    // Compute bullet counts dynamically based on LLM selectors for accurate logging
-    let jobBulletTotal = 0;
-    resumeContent.jobs.forEach(entry => {
-        if (entry.selector) {
-            jobBulletTotal += $(entry.selector).find('li').length;
-        }
-    });
-    let projectBulletTotal = 0;
-    resumeContent.projects.forEach(entry => {
-        if (entry.selector) {
-            projectBulletTotal += $(entry.selector).find('li').length;
-        }
-    });
-
-    console.log(`Final bullet counts - Jobs: ${jobBulletTotal}, Projects: ${projectBulletTotal}`);
+    // Log final bullet counts for debugging
+    const jobBullets = $('.job-experience li').length;
+    const projectBullets = $('.projects li').length;
+    console.log(`Final bullet counts - Jobs: ${jobBullets}, Projects: ${projectBullets}`);
 
     return $.html();
 }
@@ -631,7 +594,7 @@ async function updateSkillsContent($, skillsData) {
 
 async function parseResumeContent(htmlContent) {
     console.log('Parsing resume content structure using LLM...');
-    const prompt = `Analyze the following HTML resume content and extract its semantic structure. Focus on identifying and extracting the actual content and PRECISE HTML SELECTORS for each section entry, regardless of HTML structure or CSS classes used.
+    const prompt = `Analyze the following HTML resume content and extract its semantic structure. Focus on identifying and extracting the actual content of each section, regardless of HTML structure or CSS classes used.
 
 Return ONLY a valid JSON object with the following structure:
 {
@@ -640,14 +603,12 @@ Return ONLY a valid JSON object with the following structure:
         "company": "Company Name",
         "dates": "Date Range",
         "location": "Location",
-        "selector": "<CSS selector that uniquely identifies the container element (or direct <ul>) holding the bullet points for this job>",
         "bulletPoints": ["Original bullet point 1", "Original bullet point 2", ...]
     }],
     "projects": [{
         "title": "Project Name",
         "technologies": "Technologies Used (if specified)",
         "dates": "Date Range (if specified)",
-        "selector": "<CSS selector that uniquely identifies the container element (or direct <ul>) holding the bullet points for this project>",
         "bulletPoints": ["Original bullet point 1", "Original bullet point 2", ...]
     }],
     "education": [{
@@ -671,7 +632,6 @@ IMPORTANT GUIDELINES:
 4. For skills, categorize them if categories are present in the original, otherwise put all in "technical".
 5. Preserve exact text formatting, including case and punctuation.
 6. If a field is not found (e.g., no location for a job), omit that field rather than returning empty string.
-7. VERY IMPORTANT: For every job and project entry, you MUST include a valid CSS selector ('selector' field) that can be used with JavaScript's querySelectorAll / Cheerio's $() to locate the parent container (or the exact <ul> element) that holds the bullet points for that entry in the provided HTML. The selector should be as specific as necessary to uniquely identify that element.
 
 HTML Content to Analyze:
 \`\`\`html
@@ -734,58 +694,6 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
     }
 }
 
-// Helper to try various selector transformations (e.g., nth-of-type → nth-child)
-function resolveSelector($, selector) {
-    if (!selector) return null;
-    let $el = $(selector);
-    if ($el.length > 0) return $el;
-    // Transform :nth-of-type() → :nth-child()
-    const transformed = selector.replace(/:nth-of-type\((\d+)\)/g, ':nth-child($1)');
-    if (transformed !== selector) {
-        $el = $(transformed);
-        if ($el.length > 0) return $el;
-    }
-    return null;
-}
-
-// Attempt to locate the bullet container if LLM selector fails
-function findContainer($, entry, sectionType) {
-    // 1. Try selector (and transformed version)
-    let $container = resolveSelector($, entry.selector);
-    if ($container && $container.length > 0) return $container;
-
-    // 2. Text-based heuristic search
-    const candidateTexts = [];
-    if (sectionType === 'job') {
-        if (entry.title) candidateTexts.push(entry.title);
-        if (entry.company) candidateTexts.push(entry.company);
-    } else if (sectionType === 'project') {
-        if (entry.title) candidateTexts.push(entry.title);
-    }
-
-    const lowerTexts = candidateTexts.map(t => t.toLowerCase());
-
-    let found = null;
-    $('*').each((_, el) => {
-        if (found) return; // already found
-        const text = $(el).text().toLowerCase();
-        const matches = lowerTexts.every(t => text.includes(t));
-        if (matches) {
-            // ascend to nearest element that has <li> descendants
-            let current = $(el);
-            for (let depth = 0; depth < 5 && current.length > 0; depth++) {
-                if (current.find('li').length > 0) {
-                    found = current;
-                    break;
-                }
-                current = current.parent();
-            }
-        }
-    });
-
-    return found;
-}
-
 async function customizeResume(req, res) {
     try {
         const { htmlContent, keywords, fullTailoring } = req.body;
@@ -813,6 +721,23 @@ async function customizeResume(req, res) {
     } catch (error) {
         res.status(500).send('Error processing resume: ' + error.message);
     }
+}
+
+// Replaces original bullets in the DOM with new bullets by text matching (robust to HTML structure)
+function updateBulletPoints($, originalBullets, newBullets) {
+    if (!Array.isArray(originalBullets) || originalBullets.length === 0) return;
+    const bulletMap = new Map();
+    $('li').each((_, el) => {
+        const text = $(el).text().trim();
+        if (text) bulletMap.set(text, el);
+    });
+
+    originalBullets.forEach((origText, idx) => {
+        if (idx < newBullets.length && bulletMap.has(origText)) {
+            const element = bulletMap.get(origText);
+            $(element).text(newBullets[idx]);
+        }
+    });
 }
 
 module.exports = { customizeResume };
