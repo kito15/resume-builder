@@ -328,58 +328,37 @@ class BulletCache {
     }
 }
 
-async function transformHtmlWithBullets(htmlContent, newBullets, sectionType) {
-    const prompt = `Analyze the following HTML resume content and identify all bullet points in the ${sectionType} section(s). Then, replace ONLY the text content of these bullet points with the provided new bullets, preserving all HTML structure, attributes, and styling. Return the complete modified HTML.
+async function replaceBulletPoints(htmlContent, sectionBullets) {
+    const $ = cheerio.load(htmlContent);
+    
+    // Create a map of existing bullet points to their elements
+    const bulletMap = new Map();
+    $('li').each((_, el) => {
+        const text = $(el).text().trim();
+        if (text) {
+            bulletMap.set(text, $(el));
+        }
+    });
 
-IMPORTANT RULES:
-1. DO NOT modify any HTML structure, classes, IDs, or attributes
-2. DO NOT modify any content outside of the bullet points
-3. DO NOT add or remove any HTML elements
-4. ONLY replace the text content within existing bullet point elements
-5. Preserve all whitespace and formatting
-6. If there are more new bullets than existing ones, ignore extra new bullets
-7. If there are fewer new bullets than existing ones, keep the original bullets
+    // Replace bullet points while preserving HTML structure
+    Object.entries(sectionBullets).forEach(([section, bullets]) => {
+        const existingBullets = Array.from(bulletMap.keys())
+            .filter(text => {
+                const $el = bulletMap.get(text);
+                return $el.closest(`.${section}-details, .${section}-section`).length > 0;
+            });
 
-Original HTML:
-${htmlContent}
-
-New Bullet Points to Insert:
-${JSON.stringify(newBullets)}
-
-Return ONLY the modified HTML with the new bullet points inserted. Do not include any explanation or formatting.`;
-
-    try {
-        const response = await axios.post(
-            'https://api.openai.com/v1/chat/completions',
-            {
-                model: "gpt-4.1-nano",
-                messages: [
-                    {
-                        role: "system",
-                        content: "You are an AI specialized in precise HTML transformation. You only modify bullet point text content while preserving all HTML structure, attributes, and styling."
-                    },
-                    {
-                        role: "user",
-                        content: prompt
-                    }
-                ],
-                temperature: 0.2,
-                max_tokens: 4096
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${openaiApiKey}`
+        existingBullets.forEach((originalText, index) => {
+            if (index < bullets.length) {
+                const $element = bulletMap.get(originalText);
+                if ($element) {
+                    $element.text(bullets[index]);
                 }
             }
-        );
+        });
+    });
 
-        const modifiedHtml = response.data.choices[0].message.content;
-        return modifiedHtml;
-    } catch (error) {
-        console.error('Error transforming HTML:', error.response?.data || error.message);
-        return htmlContent; // Return original content if transformation fails
-    }
+    return $.html();
 }
 
 async function updateResume(htmlContent, keywords, fullTailoring) {
@@ -403,9 +382,11 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         keywords.join(', ') : 
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
 
-    let modifiedHtml = htmlContent;
-
+    // Generate all bullets in one batch
+    const sectionBullets = {};
+    
     for (const section of sections) {
+        const allSectionBullets = [];
         for (const entry of section.entries) {
             const originalBullets = entry.bulletPoints || [];
             
@@ -417,8 +398,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
                 12
             );
 
-            // Use the new transformation function instead of updateBulletPoints
-            modifiedHtml = await transformHtmlWithBullets(modifiedHtml, newBullets, section.type);
+            allSectionBullets.push(...newBullets);
 
             newBullets.forEach(bullet => {
                 bulletCache.addBulletToSection(bullet, section.type);
@@ -426,34 +406,31 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
                 if (verb) verbTracker.addVerb(verb, section.type);
             });
         }
+        sectionBullets[section.type] = allSectionBullets;
     }
 
-    // Update skills section using existing function
-    const $modified = cheerio.load(modifiedHtml);
-    await updateSkillsContent($modified, resumeContent.skills);
-    modifiedHtml = $modified.html();
+    // Update HTML content with new bullets
+    let updatedHtml = await replaceBulletPoints($.html(), sectionBullets);
 
+    // Handle page overflow
     let currentBulletCount = 4;
     let attempts = 0;
     const MIN_BULLETS = 2;
 
     while (attempts < 3 && currentBulletCount >= MIN_BULLETS) {
-        const { exceedsOnePage } = await convertHtmlToPdf(modifiedHtml);
+        const { exceedsOnePage } = await convertHtmlToPdf(updatedHtml);
         if (!exceedsOnePage) break;
 
         currentBulletCount--;
         for (const section of sections) {
-            for (const entry of section.entries) {
-                const originalBullets = entry.bulletPoints || [];
-                const cachedBullets = bulletCache.getBulletsForSection(section.type, currentBulletCount);
-                // Use the new transformation function for bullet reduction
-                modifiedHtml = await transformHtmlWithBullets(modifiedHtml, cachedBullets, section.type);
-            }
+            sectionBullets[section.type] = bulletCache
+                .getBulletsForSection(section.type, currentBulletCount);
         }
+        updatedHtml = await replaceBulletPoints(updatedHtml, sectionBullets);
         attempts++;
     }
 
-    return modifiedHtml;
+    return updatedHtml;
 }
 
 async function checkPageHeight(page) {
