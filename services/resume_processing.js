@@ -175,6 +175,10 @@ ${(existingBullets || []).join('\n')}`;
         : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs, ensuring that ALL provided keywords are integrated at least once across the set. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`;
 
     try {
+        console.log('Generating bullets with mode:', mode);
+        console.log('Existing bullets:', existingBullets);
+        console.log('Keywords:', keywords);
+        
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
@@ -202,22 +206,33 @@ ${(existingBullets || []).join('\n')}`;
         );
 
         const content = response.data.choices[0].message.content;
+        console.log('Raw LLM response:', content);
+        
         const lines = content.split('\n');
+        console.log('Split lines:', lines);
+        
         const seenBullets = new Set();
         const bullets = lines
             .map(line => line.trim())
             .filter(line => line.startsWith('>>'))
-            .map(bullet => 
-                bullet.replace(/^>>\s*/, '')
-                      .replace(/\*\*/g, '')
-                      .replace(/\s*\([^)]*\)$/, '')
-            )
+            .map(bullet => {
+                console.log('Processing bullet:', bullet);
+                return bullet.replace(/^>>\s*/, '')
+                          .replace(/\*\*/g, '')
+                          .replace(/\s*\([^)]*\)$/, '');
+            })
             .filter(bullet => {
                 const norm = bullet.toLowerCase().replace(/\s+/g, ' ').trim();
-                if (seenBullets.has(norm)) return false;
+                console.log('Normalized bullet:', norm);
+                if (seenBullets.has(norm)) {
+                    console.log('Duplicate bullet found, skipping');
+                    return false;
+                }
                 seenBullets.add(norm);
                 return true;
             });
+            
+        console.log('Final processed bullets:', bullets);
         return bullets;
     } catch (error) {
         console.error('Error generating bullets:', error.response?.data || error.message);
@@ -358,7 +373,9 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     
     // Task 8: Iterate through stored ul references and their bullets
     let processedCount = 0;
+    let firstUlElement = null;
     for (const [ulElement, originalBullets] of bulletListMap) {
+        if (!firstUlElement) firstUlElement = ulElement;
         console.log(`Processing stored ul #${++processedCount} with ${originalBullets.length} bullets`);
         
         // Task 9: Generate new bullets
@@ -370,6 +387,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
             12
         );
         console.log(`Generated ${newBullets.length} new bullets`);
+        console.log('New bullets content:', JSON.stringify(newBullets, null, 2));
         
         // Task 10: Find current li elements again
         const currentLiElements = ulElement.children('li');
@@ -377,8 +395,12 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         
         // Task 11: Update text content of each li element
         currentLiElements.each((index, li) => {
+            const originalText = $(li).text();
+            console.log(`Original bullet #${index + 1}:`, originalText);
             if (index < newBullets.length) {
-                $(li).text(newBullets[index]);
+                // Temporary test update
+                $(li).text('---TEST UPDATE---');
+                console.log(`Updated bullet #${index + 1}:`, $(li).text());
             }
         });
         console.log(`Updated ${Math.min(currentLiElements.length, newBullets.length)} bullet points`);
@@ -398,7 +420,13 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         }
     }
     
-    return $.html();
+    if (firstUlElement) {
+        console.log('First UL element HTML after all updates:', firstUlElement.html());
+    }
+    
+    const finalHtml = $.html();
+    console.log('Complete HTML output:', finalHtml);
+    return finalHtml;
 }
 
 async function checkPageHeight(page) {
