@@ -33,52 +33,6 @@ class SectionBulletTracker {
     }
 }
 
-class ActionVerbTracker {
-    constructor() {
-        this.usedVerbs = new Map();
-        this.globalVerbs = new Set();
-        this.verbSynonyms = new Map();
-    }
-    addVerb(verb, sectionType) {
-        verb = verb.toLowerCase().trim();
-        if (!verb || !verb.match(/^[a-z]+$/)) return;
-        if (!this.usedVerbs.has(sectionType)) {
-            this.usedVerbs.set(sectionType, new Set());
-        }
-        this.usedVerbs.get(sectionType).add(verb);
-        this.globalVerbs.add(verb);
-        if (!this.verbSynonyms.has(verb)) {
-            this.verbSynonyms.set(verb, 1);
-        } else {
-            this.verbSynonyms.set(verb, this.verbSynonyms.get(verb) + 1);
-        }
-    }
-    isVerbUsedInSection(verb, sectionType) {
-        verb = verb.toLowerCase().trim();
-        return this.usedVerbs.get(sectionType)?.has(verb) || false;
-    }
-    isVerbUsedGlobally(verb) {
-        verb = verb.toLowerCase().trim();
-        return this.globalVerbs.has(verb);
-    }
-    getUsedVerbs() {
-        return Array.from(this.globalVerbs);
-    }
-    getMostUsedVerbs(limit = 10) {
-        return Array.from(this.verbSynonyms.entries())
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, limit)
-            .map(entry => entry[0]);
-    }
-    clearSection(sectionType) {
-        this.usedVerbs.set(sectionType, new Set());
-    }
-}
-
-function getFirstVerb(bulletText) {
-    return bulletText.trim().split(/\s+/)[0].toLowerCase();
-}
-
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     const basePrompt = `You are a specialized resume bullet point optimizer focused on creating technically accurate and ATS-friendly content. Your task is to generate or enhance resume bullets that demonstrate technical expertise while maintaining STRICTLY ACCURATE technology relationships.
 
@@ -282,66 +236,6 @@ function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
     return sortedBullets;
 }
 
-class BulletCache {
-    constructor() {
-        this.cache = new Map();
-        this.sectionPools = {
-            job: new Set(),
-            project: new Set()
-        };
-        this.targetBulletCounts = {
-            job: 5,
-            project: 4
-        };
-    }
-    async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
-        const sections = ['job', 'project'];
-        const cacheKey = `${keywords.join(',')}_${context}`;
-        if (this.cache.has(cacheKey)) {
-            return this.cache.get(cacheKey);
-        }
-        const allBullets = {};
-        const promises = sections.map(async (section) => {
-            const targetCount = this.targetBulletCounts[section];
-            const bullets = await generateBullets(
-                'generate',
-                null,
-                keywords,
-                `for ${section} experience`,
-                wordLimit,
-                verbTracker
-            );
-            allBullets[section] = bullets.slice(0, targetCount);
-            bullets.forEach(bullet => this.sectionPools[section].add(bullet));
-        });
-        await Promise.all(promises);
-        this.cache.set(cacheKey, allBullets);
-        return allBullets;
-    }
-    getBulletsForSection(section, count) {
-        const seen = new Set();
-        const uniqueBullets = [];
-        for (const bullet of this.sectionPools[section]) {
-            const norm = bullet.toLowerCase().replace(/\s+/g, ' ').trim();
-            if (!seen.has(norm)) {
-                seen.add(norm);
-                uniqueBullets.push(bullet);
-            }
-            if (uniqueBullets.length >= count) break;
-        }
-        return uniqueBullets;
-    }
-    addBulletToSection(bullet, section) {
-        if (bullet && bullet.trim().length > 0) {
-            this.sectionPools[section].add(bullet);
-        }
-    }
-    clear() {
-        this.cache.clear();
-        Object.values(this.sectionPools).forEach(pool => pool.clear());
-    }
-}
-
 async function updateResume(htmlContent, keywords, fullTailoring) {
     // Task 1: Load HTML content using Cheerio
     const $ = cheerio.load(htmlContent);
@@ -386,7 +280,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
             'for experience section',
             12
         );
-        console.log(`Generated ${newBullets.length} new bullets`);
         console.log('New bullets content:', JSON.stringify(newBullets, null, 2));
         
         // Task 10: Find current li elements again
