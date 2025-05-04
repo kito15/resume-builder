@@ -268,143 +268,6 @@ function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
     return sortedBullets;
 }
 
-function findElementByContent($, content, elements = ['div', 'section', 'ul']) {
-    let element = null;
-    elements.some(tag => {
-        const matches = $(tag).filter((_, el) => {
-            const text = $(el).text().trim().toLowerCase();
-            return text.includes(content.toLowerCase());
-        });
-        if (matches.length > 0) {
-            element = matches.first();
-            return true;
-        }
-        return false;
-    });
-    return element;
-}
-
-function normalizeText(text) {
-    return text.toLowerCase()
-        .replace(/[^a-z0-9\s]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-}
-
-function logResumeStructure(resumeContent) {
-    console.log('\nParsed Resume Structure:');
-    console.log('Jobs:', resumeContent.jobs.map(job => ({
-        company: job.company,
-        title: job.title,
-        bulletCount: job.bulletPoints?.length || 0
-    })));
-    console.log('Projects:', resumeContent.projects.map(project => ({
-        title: project.title,
-        bulletCount: project.bulletPoints?.length || 0
-    })));
-}
-
-function findSectionElement($, entry, sectionType) {
-    // Normalize entry content for matching
-    const normalizedCompany = entry.company ? normalizeText(entry.company) : '';
-    const normalizedTitle = entry.title ? normalizeText(entry.title) : '';
-    
-    console.log(`\nSearching for ${sectionType} section:`, {
-        company: entry.company,
-        title: entry.title,
-        normalizedCompany,
-        normalizedTitle
-    });
-
-    // Strategy 1: Direct content matching
-    const elements = $('div, section').filter((_, el) => {
-        const text = normalizeText($(el).text());
-        if (sectionType === 'job') {
-            return text.includes(normalizedCompany) && text.includes(normalizedTitle);
-        } else {
-            return text.includes(normalizedTitle);
-        }
-    });
-
-    if (elements.length > 0) {
-        console.log(`Found section using direct content matching`);
-        return elements.first();
-    }
-
-    // Strategy 2: Proximity matching
-    const potentialElements = $('div, section').filter((_, el) => {
-        const text = normalizeText($(el).text());
-        if (sectionType === 'job') {
-            // Match if either company or title is found
-            return text.includes(normalizedCompany) || text.includes(normalizedTitle);
-        } else {
-            // For projects, try partial matching
-            const words = normalizedTitle.split(' ');
-            return words.some(word => word.length > 3 && text.includes(word));
-        }
-    });
-
-    if (potentialElements.length > 0) {
-        console.log(`Found section using proximity matching`);
-        return potentialElements.first();
-    }
-
-    // Strategy 3: Parent/Child search
-    const parentElements = $('div, section').filter((_, el) => {
-        const $el = $(el);
-        const hasUl = $el.find('ul').length > 0;
-        const text = normalizeText($el.text());
-        if (sectionType === 'job') {
-            return hasUl && (text.includes('experience') || text.includes('work') || text.includes('employment'));
-        } else {
-            return hasUl && (text.includes('project') || text.includes('portfolio'));
-        }
-    });
-
-    if (parentElements.length > 0) {
-        console.log(`Found section using structural matching`);
-        return parentElements.first();
-    }
-
-    console.log(`No matching section found for ${sectionType}`);
-    return null;
-}
-
-function updateBulletList($, element, newBullets) {
-    if (!element || !element.length) {
-        console.error('No element found to update bullets');
-        return false;
-    }
-
-    // Find the bullet list within the section or nearby
-    let bulletList = element.find('ul');
-    if (!bulletList.length) {
-        bulletList = element.next('ul');
-    }
-    if (!bulletList.length) {
-        bulletList = element.parent().find('ul');
-    }
-    if (!bulletList.length) {
-        console.error('No bullet list found in or near section');
-        return false;
-    }
-
-    // Keep track of original bullet count for verification
-    const originalBulletCount = bulletList.find('li').length;
-
-    // Update bullets
-    bulletList.empty();
-    newBullets.forEach(bullet => {
-        bulletList.append(`<li>${bullet}</li>`);
-    });
-
-    // Verify update
-    const newBulletCount = bulletList.find('li').length;
-    console.log(`Bullet count - Original: ${originalBulletCount}, New: ${newBulletCount}`);
-
-    return newBulletCount === newBullets.length;
-}
-
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     
@@ -413,9 +276,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         console.error("Failed to parse resume content. Aborting resume update.");
         return htmlContent;
     }
-
-    // Log parsed structure for debugging
-    logResumeStructure(resumeContent);
 
     const verbTracker = new ActionVerbTracker();
 
@@ -428,20 +288,20 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         keywords.join(', ') : 
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
 
-    console.log('\nProcessing sections with keywords:', keywordString);
-
-    let totalUpdates = 0;
-    const updatedSections = new Set();
+    console.log('Processing sections with keywords:', keywordString);
+    
+    let totalSectionUpdates = 0;
 
     for (const section of sections) {
-        console.log(`\nProcessing ${section.type} section`);
-        for (const entry of section.entries) {
+        console.log(`Processing ${section.type} section`);
+        const sectionEntries = section.entries || [];
+        
+        for (let i = 0; i < sectionEntries.length; i++) {
+            const entry = sectionEntries[i];
+            const entryName = entry.company || entry.title || `Entry ${i+1}`;
+            console.log(`Generating bullets for ${section.type} entry: ${entryName}`);
+            
             const originalBullets = entry.bulletPoints || [];
-            console.log(`\nGenerating bullets for ${section.type} entry:`, {
-                title: entry.title,
-                company: entry.company,
-                originalBulletCount: originalBullets.length
-            });
             
             const newBullets = await generateBullets(
                 fullTailoring ? 'tailor' : 'generate',
@@ -453,21 +313,211 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
 
             console.log(`Generated ${newBullets.length} new bullets`);
 
-            // Find and update section
-            const sectionElement = findSectionElement($, entry, section.type);
-            
-            if (sectionElement && sectionElement.length) {
-                const sectionKey = `${section.type}-${sectionElement.index()}`;
-                if (!updatedSections.has(sectionKey)) {
-                    const updated = updateBulletList($, sectionElement, newBullets);
-                    if (updated) {
-                        totalUpdates++;
-                        updatedSections.add(sectionKey);
+            // First try with the entry's specific selector
+            let updated = false;
+            if (entry.selector) {
+                const entryElement = $(entry.selector);
+                if (entryElement.length > 0) {
+                    console.log(`Found matching section element for ${section.type} using selector: ${entry.selector}`);
+                    
+                    // Try to find bullet list within this entry
+                    let bulletList = entryElement.find('ul');
+                    
+                    // If no direct ul found, try to find it in child elements
+                    if (bulletList.length === 0) {
+                        // Look for any bullets or list items even if not in a ul
+                        bulletList = entryElement.find('li').parent();
+                    }
+                    
+                    // If still not found but we have a ul elsewhere that might match
+                    if (bulletList.length === 0) {
+                        // Find a parent that might contain the bullet list
+                        const parent = entryElement.parent();
+                        bulletList = parent.find('ul');
+                    }
+                    
+                    if (bulletList.length > 0) {
+                        let bulletItems = bulletList.find('li');
+                        
+                        // Update existing bullets
+                        bulletItems.each((idx, item) => {
+                            if (idx < newBullets.length) {
+                                $(item).text(newBullets[idx]);
+                            }
+                        });
+                        
+                        // Add new bullets if needed
+                        if (bulletItems.length < newBullets.length) {
+                            for (let j = bulletItems.length; j < newBullets.length; j++) {
+                                const newItem = $('<li></li>').text(newBullets[j]);
+                                bulletList.append(newItem);
+                            }
+                        }
+                        
                         console.log(`Successfully updated bullets for ${section.type}`);
+                        totalSectionUpdates++;
+                        updated = true;
+                    } else {
+                        // Try to create a new bullet list
+                        console.log(`No bullet list found for ${section.type} entry, attempting to create one`);
+                        const newList = $('<ul></ul>');
+                        newBullets.forEach(bullet => {
+                            newList.append($('<li></li>').text(bullet));
+                        });
+                        entryElement.append(newList);
+                        console.log(`Created new bullet list for ${section.type} entry`);
+                        totalSectionUpdates++;
+                        updated = true;
                     }
                 } else {
-                    console.log(`Section already updated, skipping duplicate update`);
+                    console.log(`Could not find matching section element for ${section.type} using selector: ${entry.selector}`);
                 }
+            }
+            
+            // If we couldn't update using the entry's selector, try the section selector
+            if (!updated && resumeContent.selectors) {
+                const sectionSelector = resumeContent.selectors[`${section.type}Section`];
+                if (sectionSelector) {
+                    console.log(`Trying section-wide selector: ${sectionSelector}`);
+                    const sectionElement = $(sectionSelector);
+                    if (sectionElement.length > 0) {
+                        console.log(`Found section container using selector: ${sectionSelector}`);
+                        
+                        // Find all bullet lists in this section
+                        const bulletLists = sectionElement.find('ul');
+                        
+                        // Try to find a matching bullet list based on the entry's details
+                        let matchingList = null;
+                        let listIndex = null;
+                        
+                        // Try to match by company/title text first
+                        bulletLists.each((idx, list) => {
+                            const $list = $(list);
+                            const listParent = $list.parent();
+                            const listText = listParent.text().toLowerCase();
+                            
+                            if (entry.company && listText.includes(entry.company.toLowerCase()) ||
+                                entry.title && listText.includes(entry.title.toLowerCase())) {
+                                matchingList = $list;
+                                listIndex = idx;
+                                return false; // Break the loop
+                            }
+                        });
+                        
+                        // If we couldn't match by text, take the i-th list
+                        if (!matchingList && i < bulletLists.length) {
+                            matchingList = $(bulletLists[i]);
+                            listIndex = i;
+                        }
+                        
+                        if (matchingList) {
+                            console.log(`Found matching bullet list at index ${listIndex}`);
+                            let bulletItems = matchingList.find('li');
+                            
+                            // Update existing bullets
+                            bulletItems.each((idx, item) => {
+                                if (idx < newBullets.length) {
+                                    $(item).text(newBullets[idx]);
+                                }
+                            });
+                            
+                            // Add new bullets if needed
+                            if (bulletItems.length < newBullets.length) {
+                                for (let j = bulletItems.length; j < newBullets.length; j++) {
+                                    const newItem = $('<li></li>').text(newBullets[j]);
+                                    matchingList.append(newItem);
+                                }
+                            }
+                            
+                            console.log(`Updated bullets for ${section.type} using section-wide selector`);
+                            totalSectionUpdates++;
+                            updated = true;
+                        } else {
+                            console.log(`Could not find matching bullet list for entry index ${i} in section`);
+                        }
+                    } else {
+                        console.log(`Could not find section container using selector: ${sectionSelector}`);
+                    }
+                }
+            }
+            
+            // If still not updated, try fallback selectors
+            if (!updated) {
+                console.log(`Trying fallback selectors for ${section.type} entry`);
+                const fallbackSelectors = section.type === 'job' 
+                    ? ['.work-experience', '.experience', '.employment', '.jobs', '.work-history', '.professional-experience', 
+                       'section:contains("Experience")', 'div:contains("Work Experience")', 'div:contains("Employment")']
+                    : ['.projects', '.portfolio', '.project-section', 
+                       'section:contains("Project")', 'div:contains("Project")', 'div:contains("Portfolio")'];
+                
+                let foundElement = null;
+                let foundSelector = null;
+                
+                for (const fallbackSelector of fallbackSelectors) {
+                    const elements = $(fallbackSelector);
+                    if (elements.length > 0) {
+                        foundElement = elements;
+                        foundSelector = fallbackSelector;
+                        break;
+                    }
+                }
+                
+                if (foundElement) {
+                    console.log(`Found fallback selector ${foundSelector} for ${section.type}`);
+                    
+                    // Try to find a bullet list within this element that might correspond to the current entry
+                    const bulletLists = foundElement.find('ul');
+                    let matchingList = null;
+                    
+                    // First try to match by content (company/title)
+                    bulletLists.each((_, list) => {
+                        const $list = $(list);
+                        const listParent = $list.parent();
+                        const listText = listParent.text().toLowerCase();
+                        
+                        if (entry.company && listText.includes(entry.company.toLowerCase()) ||
+                            entry.title && listText.includes(entry.title.toLowerCase())) {
+                            matchingList = $list;
+                            return false; // Break the loop
+                        }
+                    });
+                    
+                    // If no match by content, try the i-th list
+                    if (!matchingList && i < bulletLists.length) {
+                        matchingList = $(bulletLists[i]);
+                    }
+                    
+                    if (matchingList) {
+                        let bulletItems = matchingList.find('li');
+                        
+                        // Update existing bullets
+                        bulletItems.each((idx, item) => {
+                            if (idx < newBullets.length) {
+                                $(item).text(newBullets[idx]);
+                            }
+                        });
+                        
+                        // Add new bullets if needed
+                        if (bulletItems.length < newBullets.length) {
+                            for (let j = bulletItems.length; j < newBullets.length; j++) {
+                                const newItem = $('<li></li>').text(newBullets[j]);
+                                matchingList.append(newItem);
+                            }
+                        }
+                        
+                        console.log(`Updated bullets for ${section.type} using fallback selector`);
+                        totalSectionUpdates++;
+                        updated = true;
+                    } else {
+                        console.log(`Could not find matching bullet list for entry in fallback section`);
+                    }
+                } else {
+                    console.log(`Could not find any fallback selector matches for ${section.type}`);
+                }
+            }
+            
+            if (!updated) {
+                console.log(`Could not find matching section element for ${section.type}`);
             }
 
             newBullets.forEach(bullet => {
@@ -477,31 +527,43 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         }
     }
 
+    console.log(`Total section updates completed: ${totalSectionUpdates}`);
+
+    // Verify final bullet counts for debugging
+    const jobBullets = $('.work-experience li, .experience li, .employment li, .jobs li, .job-experience li, .professional-experience li, section:contains("Experience") li, div:contains("Work Experience") li, div:contains("Employment") li').length;
+    const projectBullets = $('.projects li, .portfolio li, .project-section li, section:contains("Project") li, div:contains("Project") li, div:contains("Portfolio") li').length;
+    console.log(`Final verified bullet counts - Jobs: ${jobBullets}, Projects: ${projectBullets}`);
+
     await updateSkillsContent($, resumeContent.skills);
 
-    // Verify and log final bullet counts
-    let finalJobBullets = 0;
-    let finalProjectBullets = 0;
+    let currentBulletCount = 4;
+    let attempts = 0;
+    const MIN_BULLETS = 2;
 
-    // Count bullets using the tracked updated sections
-    updatedSections.forEach(sectionKey => {
-        const [type, index] = sectionKey.split('-');
-        const element = $('div, section').eq(parseInt(index));
-        const bulletCount = element.find('li').length;
+    while (attempts < 3 && currentBulletCount >= MIN_BULLETS) {
+        const { exceedsOnePage } = await convertHtmlToPdf($.html());
+        if (!exceedsOnePage) break;
+
+        currentBulletCount--;
+        console.log(`Reducing bullets to ${currentBulletCount} due to page overflow`);
         
-        if (type === 'job') {
-            finalJobBullets += bulletCount;
-        } else if (type === 'project') {
-            finalProjectBullets += bulletCount;
+        for (const section of sections) {
+            if (section.type === 'job') {
+                $('.work-experience li, .experience li, .employment li, .jobs li, .job-experience li, .professional-experience li, section:contains("Experience") li, div:contains("Work Experience") li, div:contains("Employment") li').each((i, bullet) => {
+                    if (i >= currentBulletCount * resumeContent.jobs.length) {
+                        $(bullet).remove();
+                    }
+                });
+            } else {
+                $('.projects li, .portfolio li, .project-section li, section:contains("Project") li, div:contains("Project") li, div:contains("Portfolio") li').each((i, bullet) => {
+                    if (i >= currentBulletCount * resumeContent.projects.length) {
+                        $(bullet).remove();
+                    }
+                });
+            }
         }
-    });
-
-    console.log('\nFinal Counts:', {
-        jobBullets: finalJobBullets,
-        projectBullets: finalProjectBullets,
-        totalUpdates,
-        updatedSections: Array.from(updatedSections)
-    });
+        attempts++;
+    }
 
     return $.html();
 }
@@ -752,44 +814,69 @@ async function updateSkillsContent($, skillsData) {
 
 async function parseResumeContent(htmlContent) {
     console.log('Parsing resume content structure using LLM...');
-    const prompt = `Analyze the following HTML resume content and extract its semantic structure. Focus on identifying and extracting the actual content of each section, regardless of HTML structure or CSS classes used.
+    const prompt = `Analyze the following HTML resume content and extract its semantic structure AND SELECTORS. Focus on identifying the actual content of each section and the selectors needed to update them, regardless of HTML structure or CSS classes used.
+
+CRITICAL: Pay special attention to job/work experience sections as they often have varied structures in resumes. You MUST provide accurate selectors that can locate each individual job entry and its bullet points.
 
 Return ONLY a valid JSON object with the following structure:
 {
     "jobs": [{
         "title": "Job Title",
-        "company": "Company Name",
+        "company": "Company Name", 
         "dates": "Date Range",
         "location": "Location",
-        "bulletPoints": ["Original bullet point 1", "Original bullet point 2", ...]
+        "bulletPoints": ["Original bullet point 1", "Original bullet point 2", ...],
+        "selector": "CSS selector to uniquely identify this specific job entry and its bullet points"
     }],
     "projects": [{
         "title": "Project Name",
         "technologies": "Technologies Used (if specified)",
         "dates": "Date Range (if specified)",
-        "bulletPoints": ["Original bullet point 1", "Original bullet point 2", ...]
+        "bulletPoints": ["Original bullet point 1", "Original bullet point 2", ...],
+        "selector": "CSS selector to uniquely identify this specific project entry and its bullet points"
     }],
     "education": [{
         "degree": "Degree Name",
         "institution": "Institution Name",
         "dates": "Date Range",
         "location": "Location",
-        "bulletPoints": ["Original bullet point or achievement 1", ...]
+        "bulletPoints": ["Original bullet point or achievement 1", ...],
+        "selector": "CSS selector to uniquely identify this specific education entry"
     }],
     "skills": {
         "technical": ["Skill 1", "Skill 2", ...],
         "tools": ["Tool 1", "Tool 2", ...],
-        "other": ["Other skill 1", ...]
+        "other": ["Other skill 1", ...],
+        "selector": "CSS selector to identify the skills section"
+    },
+    "selectors": {
+        "jobSection": "CSS selector for the overall job section container (CRITICAL)",
+        "projectSection": "CSS selector for the overall project section container",
+        "educationSection": "CSS selector for the overall education section container",
+        "skillsSection": "CSS selector for the overall skills section container"
     }
 }
 
-IMPORTANT GUIDELINES:
+IMPORTANT GUIDELINES FOR SELECTOR GENERATION:
+1. For job/work experience entries, provide selectors that can uniquely identify each specific job entry AND its associated bullet points list.
+2. If the HTML doesn't use IDs or clear class names, create selectors using combinations of:
+   - Element hierarchy (e.g., 'section:nth-child(2) > div:nth-child(3)')
+   - Text content (e.g., 'div:contains("Company Name")')
+   - Attribute selectors (e.g., '[data-section="experience"]')
+   - Parent-child relationships (e.g., '.experience-section div:has(h3:contains("Job Title"))')
+3. Avoid overly broad selectors that might match multiple unrelated elements.
+4. When using :contains(), prefer exact text matches over partial ones.
+5. Always test mentally if your selector would uniquely identify the target element.
+6. For job entries, provide a selector that captures both the job header info AND its bullet points container.
+7. Use multiple alternative selectors separated by commas if needed (e.g., '#job-1, .job-entry, div:contains("Company Name")').
+8. For sections, identify both the section container AND the bullet list containers within.
+
+CONTENT EXTRACTION GUIDELINES:
 1. Extract ONLY text that actually exists in the HTML. Do not generate or infer content.
 2. Include ALL bullet points found in each section, preserving their exact text.
-3. For each section (jobs, projects, education), ensure bullet points are correctly associated with their parent entry.
-4. For skills, categorize them if categories are present in the original, otherwise put all in "technical".
-5. Preserve exact text formatting, including case and punctuation.
-6. If a field is not found (e.g., no location for a job), omit that field rather than returning empty string.
+3. For each section entry, include a precise CSS selector that can be used to uniquely identify it in the DOM.
+4. Preserve exact text formatting, including case and punctuation.
+5. If a field is not found (e.g., no location for a job), omit that field rather than returning empty string.
 
 HTML Content to Analyze:
 \`\`\`html
@@ -806,7 +893,7 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
                 messages: [
                     {
                         role: "system",
-                        content: "You are an AI assistant specialized in parsing resume content. You extract the semantic structure and content from HTML resumes, preserving the exact text while organizing it into a clear JSON structure. You return only valid JSON matching the requested format."
+                        content: "You are an AI assistant specialized in parsing resume content and creating precise CSS selectors. You extract the semantic structure, content, and accurate CSS selectors from HTML resumes, organizing it into a clear JSON structure. You are particularly skilled at identifying job experience sections in varied resume formats. You return only valid JSON matching the requested format."
                     },
                     {
                         role: "user",
@@ -814,7 +901,7 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
                     }
                 ],
                 temperature: 0.2,
-                max_tokens: 2000,
+                max_tokens: 2500,
                 response_format: { type: "json_object" }
             },
             {
@@ -829,14 +916,24 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
         try {
             const parsedContent = JSON.parse(content);
             
-            const requiredSections = ['jobs', 'projects', 'education', 'skills'];
+            const requiredSections = ['jobs', 'projects', 'education', 'skills', 'selectors'];
             const hasAllSections = requiredSections.every(section => 
                 Array.isArray(parsedContent[section]) || 
-                (section === 'skills' && typeof parsedContent[section] === 'object')
+                (section === 'skills' && typeof parsedContent[section] === 'object') ||
+                (section === 'selectors' && typeof parsedContent[section] === 'object')
             );
 
             if (typeof parsedContent === 'object' && parsedContent !== null && hasAllSections) {
                 console.log('Successfully parsed resume content structure');
+                
+                // Log the selectors for debugging
+                console.log('Job section selector:', parsedContent.selectors.jobSection);
+                if (parsedContent.jobs && parsedContent.jobs.length > 0) {
+                    parsedContent.jobs.forEach((job, index) => {
+                        console.log(`Job ${index + 1} selector:`, job.selector);
+                    });
+                }
+                
                 return parsedContent;
             } else {
                 console.error('LLM returned invalid JSON structure:', content);
@@ -865,10 +962,14 @@ async function customizeResume(req, res) {
         }
         const updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
         const $ = cheerio.load(updatedHtmlContent);
-        const jobBullets = $('.job-details li').length;
-        const projectBullets = $('.project-details li').length;
-        const educationBullets = $('.education-details li').length;
+        
+        // Use comprehensive selectors to count bullets across different resume formats
+        const jobBullets = $('.work-experience li, .experience li, .employment li, .jobs li, .job-experience li, .professional-experience li, section:contains("Experience") li, div:contains("Work Experience") li, div:contains("Employment") li').length;
+        const projectBullets = $('.projects li, .portfolio li, .project-section li, section:contains("Project") li, div:contains("Project") li, div:contains("Portfolio") li').length;
+        const educationBullets = $('.education li, .education-details li, section:contains("Education") li, div:contains("Education") li').length;
+        
         console.log(`Generated bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}, Education=${educationBullets}`);
+        
         const { pdfBuffer, exceedsOnePage } = await convertHtmlToPdf(updatedHtmlContent);
         if (exceedsOnePage) {
             console.warn('Warning: Resume still exceeds one page after adjustments');
@@ -877,6 +978,7 @@ async function customizeResume(req, res) {
         res.set('Content-Disposition', 'attachment; filename=resume.pdf');
         res.send(Buffer.from(pdfBuffer));
     } catch (error) {
+        console.error('Error processing resume:', error);
         res.status(500).send('Error processing resume: ' + error.message);
     }
 }
