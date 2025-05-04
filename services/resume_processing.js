@@ -265,7 +265,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         allBulletsToProcess,
         keywords,
         'for experience section',
-        12
+        15
     );
     console.log('Generated bullets:', processedBullets.length);
     
