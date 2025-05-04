@@ -268,6 +268,120 @@ function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
     return sortedBullets;
 }
 
+class BulletCache {
+    constructor() {
+        this.cache = new Map();
+        this.sectionPools = {
+            job: new Set(),
+            project: new Set()
+        };
+        this.targetBulletCounts = {
+            job: 5,
+            project: 4
+        };
+    }
+    async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
+        const sections = ['job', 'project'];
+        const cacheKey = `${keywords.join(',')}_${context}`;
+        if (this.cache.has(cacheKey)) {
+            return this.cache.get(cacheKey);
+        }
+        const allBullets = {};
+        const promises = sections.map(async (section) => {
+            const targetCount = this.targetBulletCounts[section];
+            const bullets = await generateBullets(
+                'generate',
+                null,
+                keywords,
+                `for ${section} experience`,
+                wordLimit,
+                verbTracker
+            );
+            allBullets[section] = bullets.slice(0, targetCount);
+            bullets.forEach(bullet => this.sectionPools[section].add(bullet));
+        });
+        await Promise.all(promises);
+        this.cache.set(cacheKey, allBullets);
+        return allBullets;
+    }
+    getBulletsForSection(section, count) {
+        const seen = new Set();
+        const uniqueBullets = [];
+        for (const bullet of this.sectionPools[section]) {
+            const norm = bullet.toLowerCase().replace(/\s+/g, ' ').trim();
+            if (!seen.has(norm)) {
+                seen.add(norm);
+                uniqueBullets.push(bullet);
+            }
+            if (uniqueBullets.length >= count) break;
+        }
+        return uniqueBullets;
+    }
+    addBulletToSection(bullet, section) {
+        if (bullet && bullet.trim().length > 0) {
+            this.sectionPools[section].add(bullet);
+        }
+    }
+    clear() {
+        this.cache.clear();
+        Object.values(this.sectionPools).forEach(pool => pool.clear());
+    }
+}
+
+async function transformHtmlWithBullets(htmlContent, newBullets, sectionType) {
+    const prompt = `Analyze the following HTML resume content and identify all bullet points in the ${sectionType} section(s). Then, replace ONLY the text content of these bullet points with the provided new bullets, preserving all HTML structure, attributes, and styling. Return the complete modified HTML.
+
+IMPORTANT RULES:
+1. DO NOT modify any HTML structure, classes, IDs, or attributes
+2. DO NOT modify any content outside of the bullet points
+3. DO NOT add or remove any HTML elements
+4. ONLY replace the text content within existing bullet point elements
+5. Preserve all whitespace and formatting
+6. If there are more new bullets than existing ones, ignore extra new bullets
+7. If there are fewer new bullets than existing ones, keep the original bullets
+
+Original HTML:
+${htmlContent}
+
+New Bullet Points to Insert:
+${JSON.stringify(newBullets)}
+
+Return ONLY the modified HTML with the new bullet points inserted. Do not include any explanation or formatting.`;
+
+    try {
+        const response = await axios.post(
+            'https://api.openai.com/v1/chat/completions',
+            {
+                model: "gpt-4.1-nano",
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are an AI specialized in precise HTML transformation. You only modify bullet point text content while preserving all HTML structure, attributes, and styling."
+                    },
+                    {
+                        role: "user",
+                        content: prompt
+                    }
+                ],
+                temperature: 0.2,
+                max_tokens: 4096
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${openaiApiKey}`
+                }
+            }
+        );
+
+        const modifiedHtml = response.data.choices[0].message.content;
+        return modifiedHtml;
+    } catch (error) {
+        console.error('Error transforming HTML:', error.response?.data || error.message);
+        return htmlContent; // Return original content if transformation fails
+    }
+}
+
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     
@@ -278,6 +392,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     }
 
     const verbTracker = new ActionVerbTracker();
+    const bulletCache = new BulletCache();
 
     const sections = [
         { type: 'job', entries: resumeContent.jobs, targetBulletCount: 4 },
@@ -288,30 +403,12 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         keywords.join(', ') : 
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
 
-    // Process each section type
+    let modifiedHtml = htmlContent;
+
     for (const section of sections) {
-        // Find all section containers in the HTML
-        const sectionContainers = await identifyResumeSections($);
-        const relevantContainers = sectionContainers.filter(s => s.type === section.type);
-        
-        if (relevantContainers.length === 0) {
-            console.warn(`No containers found for section type: ${section.type}`);
-            continue;
-        }
-
-        // Process each entry in the section
-        for (let i = 0; i < section.entries.length; i++) {
-            const entry = section.entries[i];
-            const container = relevantContainers[i] ? relevantContainers[i].element : null;
-            
-            if (!container) {
-                console.warn(`No matching container found for ${section.type} entry ${i + 1}`);
-                continue;
-            }
-
+        for (const entry of section.entries) {
             const originalBullets = entry.bulletPoints || [];
             
-            // Generate new bullets
             const newBullets = await generateBullets(
                 fullTailoring ? 'tailor' : 'generate',
                 originalBullets,
@@ -320,49 +417,43 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
                 12
             );
 
-            if (!newBullets || newBullets.length === 0) {
-                console.warn(`No bullets generated for ${section.type} entry ${i + 1}`);
-                continue;
-            }
+            // Use the new transformation function instead of updateBulletPoints
+            modifiedHtml = await transformHtmlWithBullets(modifiedHtml, newBullets, section.type);
 
-            // Update bullet points in the HTML
-            await updateBulletPoints($, originalBullets, newBullets);
-
-            // Track verbs for variety
             newBullets.forEach(bullet => {
+                bulletCache.addBulletToSection(bullet, section.type);
                 const verb = getFirstVerb(bullet);
                 if (verb) verbTracker.addVerb(verb, section.type);
             });
         }
     }
 
-    // Update skills section
-    await updateSkillsContent($, resumeContent.skills);
+    // Update skills section using existing function
+    const $modified = cheerio.load(modifiedHtml);
+    await updateSkillsContent($modified, resumeContent.skills);
+    modifiedHtml = $modified.html();
 
-    // Validate and adjust content length
     let currentBulletCount = 4;
     let attempts = 0;
     const MIN_BULLETS = 2;
 
     while (attempts < 3 && currentBulletCount >= MIN_BULLETS) {
-        const { exceedsOnePage } = await convertHtmlToPdf($.html());
+        const { exceedsOnePage } = await convertHtmlToPdf(modifiedHtml);
         if (!exceedsOnePage) break;
 
         currentBulletCount--;
-        
-        // Reduce bullets in each section
-        const sections = await identifyResumeSections($);
         for (const section of sections) {
-            const bullets = section.element.find('li');
-            if (bullets.length > currentBulletCount) {
-                bullets.slice(currentBulletCount).remove();
+            for (const entry of section.entries) {
+                const originalBullets = entry.bulletPoints || [];
+                const cachedBullets = bulletCache.getBulletsForSection(section.type, currentBulletCount);
+                // Use the new transformation function for bullet reduction
+                modifiedHtml = await transformHtmlWithBullets(modifiedHtml, cachedBullets, section.type);
             }
         }
-        
         attempts++;
     }
 
-    return $.html();
+    return modifiedHtml;
 }
 
 async function checkPageHeight(page) {
@@ -740,144 +831,21 @@ async function customizeResume(req, res) {
     }
 }
 
-async function updateSectionHTML(sectionHTML, newBullets) {
-    const prompt = `You are a specialized HTML manipulation expert. Your task is to update a resume section's HTML with new bullet points while preserving the exact structure and styling.
-
-INPUT HTML SECTION:
-\`\`\`html
-${sectionHTML}
-\`\`\`
-
-NEW BULLET POINTS TO INSERT:
-${JSON.stringify(newBullets, null, 2)}
-
-REQUIREMENTS:
-1. Replace ONLY the bullet point content while preserving:
-   - HTML structure and nesting
-   - CSS classes and styling
-   - Indentation and formatting
-2. Do NOT modify any other parts of the HTML
-3. If no clear bullet point structure exists, create one using the section's existing style
-4. Return ONLY the modified HTML with no explanation or markdown
-
-CRITICAL: Your response must be valid HTML that matches the input structure exactly, with only bullet point content updated.`;
-
-    try {
-        const response = await axios.post(
-            'https://api.openai.com/v1/chat/completions',
-            {
-                model: "gpt-4.1-nano",
-                messages: [
-                    {
-                        role: "system",
-                        content: "You are an HTML manipulation expert that precisely updates resume bullet points while preserving structure and styling."
-                    },
-                    {
-                        role: "user",
-                        content: prompt
-                    }
-                ],
-                temperature: 0.2,
-                max_tokens: 2000
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${openaiApiKey}`
-                }
-            }
-        );
-
-        const updatedHTML = response.data.choices[0].message.content.trim();
-        return updatedHTML;
-    } catch (error) {
-        console.error('Error updating section HTML:', error.response?.data || error.message);
-        return sectionHTML; // Return original HTML on error
-    }
-}
-
-async function identifyResumeSections($) {
-    const sections = [];
-    
-    // Find potential section containers
-    $('div, section').each((_, element) => {
-        const $el = $(element);
-        const text = $el.text().toLowerCase();
-        
-        // Check if element contains job/work experience
-        if (text.includes('experience') || text.includes('work') || text.includes('employment')) {
-            sections.push({
-                type: 'job',
-                element: $el
-            });
-        }
-        
-        // Check if element contains projects
-        if (text.includes('project')) {
-            sections.push({
-                type: 'project',
-                element: $el
-            });
-        }
-        
-        // Check if element contains education
-        if (text.includes('education') || text.includes('academic')) {
-            sections.push({
-                type: 'education',
-                element: $el
-            });
+async function updateBulletPoints($, originalBullets, newBullets) {
+    const bulletMap = new Map();
+    $('li').each((_, el) => {
+        const text = $(el).text().trim();
+        if (text && originalBullets.includes(text)) {
+            bulletMap.set(text, el);
         }
     });
-    
-    return sections;
-}
 
-async function updateBulletPoints($, originalBullets, newBullets) {
-    try {
-        // Identify resume sections
-        const sections = await identifyResumeSections($);
-        
-        // Process each section
-        for (const section of sections) {
-            const sectionHTML = section.element.html();
-            if (!sectionHTML) continue;
-            
-            // Update section HTML with new bullets
-            const updatedHTML = await updateSectionHTML(sectionHTML, newBullets);
-            if (updatedHTML && updatedHTML !== sectionHTML) {
-                section.element.html(updatedHTML);
-            }
+    originalBullets.forEach((originalText, index) => {
+        if (index < newBullets.length && bulletMap.has(originalText)) {
+            const element = bulletMap.get(originalText);
+            $(element).text(newBullets[index]);
         }
-        
-        // Validate bullet point integration
-        const totalBullets = $('li').length;
-        console.log(`Total bullets after update: ${totalBullets}`);
-        
-        if (totalBullets === 0) {
-            console.warn('Warning: No bullet points found after update. Attempting fallback method...');
-            // Fallback: Try to find any container with text matching bullet content
-            for (const bullet of newBullets) {
-                $('div, p').each((_, el) => {
-                    const $el = $(el);
-                    if ($el.text().includes(bullet)) {
-                        const $ul = $('<ul></ul>');
-                        const $li = $('<li></li>').text(bullet);
-                        $ul.append($li);
-                        $el.after($ul);
-                    }
-                });
-            }
-        }
-        
-    } catch (error) {
-        console.error('Error in updateBulletPoints:', error);
-        // On error, try simple bullet replacement as last resort
-        originalBullets.forEach((originalText, index) => {
-            if (index < newBullets.length) {
-                $(`li:contains("${originalText}")`).text(newBullets[index]);
-            }
-        });
-    }
+    });
 }
 
 module.exports = { customizeResume };
