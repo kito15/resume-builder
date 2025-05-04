@@ -330,68 +330,55 @@ class BulletCache {
 
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
-    
-    const resumeContent = await parseResumeContent(htmlContent);
-    if (!resumeContent) {
-        console.error("Failed to parse resume content. Aborting resume update.");
-        return htmlContent;
-    }
 
-    const verbTracker = new ActionVerbTracker();
-    const bulletCache = new BulletCache();
-
-    const sections = [
-        { type: 'job', entries: resumeContent.jobs, targetBulletCount: 4 },
-        { type: 'project', entries: resumeContent.projects, targetBulletCount: 3 }
-    ];
-
+    // 1. Identify all <ul> elements
+    const bulletLists = $('ul');
     const keywordString = fullTailoring ? 
         keywords.join(', ') : 
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
-
-    for (const section of sections) {
-        for (const entry of section.entries) {
-            const originalBullets = entry.bulletPoints || [];
-            
-            const newBullets = await generateBullets(
-                fullTailoring ? 'tailor' : 'generate',
-                originalBullets,
-                keywordString,
-                `for ${section.type} experience`,
-                12
-            );
-
-            await updateBulletPoints($, originalBullets, newBullets, resumeContent.bulletIdMap);
-
-            newBullets.forEach(bullet => {
-                bulletCache.addBulletToSection(bullet, section.type);
-                const verb = getFirstVerb(bullet);
-                if (verb) verbTracker.addVerb(verb, section.type);
-            });
-        }
+    const wordLimit = 12;
+    // 2. Process each bullet list independently
+    for (let i = 0; i < bulletLists.length; i++) {
+        const ul = bulletLists.eq(i);
+        // Extract original bullets
+        const originalBullets = ul.children('li').map((_, li) => $(li).text().trim()).get();
+        if (originalBullets.length === 0) continue;
+        // Generate new bullets
+        const newBullets = await generateBullets(
+            fullTailoring ? 'tailor' : 'generate',
+            originalBullets,
+            keywordString,
+            'for this section',
+            wordLimit
+        );
+        // Replace bullets in place
+        ul.empty();
+        newBullets.forEach(bullet => {
+            ul.append(`<li>${bullet}</li>`);
+        });
     }
 
-    await updateSkillsContent($, resumeContent.skills);
+    // 3. Update skills section using heuristic
+    await updateSkillsContent($, keywords);
 
+    // 4. Adapt PDF page fitting: trim bullets if needed
     let currentBulletCount = 4;
     let attempts = 0;
     const MIN_BULLETS = 2;
-
     while (attempts < 3 && currentBulletCount >= MIN_BULLETS) {
         const { exceedsOnePage } = await convertHtmlToPdf($.html());
         if (!exceedsOnePage) break;
-
         currentBulletCount--;
-        for (const section of sections) {
-            for (const entry of section.entries) {
-                const originalBullets = entry.bulletPoints || [];
-                const cachedBullets = bulletCache.getBulletsForSection(section.type, currentBulletCount);
-                await updateBulletPoints($, originalBullets, cachedBullets, resumeContent.bulletIdMap);
+        // For each <ul>, trim to currentBulletCount bullets
+        bulletLists.each((_, ul) => {
+            const $ul = $(ul);
+            const bullets = $ul.children('li');
+            while (bullets.length > currentBulletCount) {
+                bullets.last().remove();
             }
-        }
+        });
         attempts++;
     }
-
     return $.html();
 }
 
@@ -639,130 +626,6 @@ async function updateSkillsContent($, skillsData) {
     skillsContainer.addClass('skills-section');
 }
 
-async function parseResumeContent(htmlContent) {
-    console.log('Parsing resume content structure using LLM...');
-    
-    // Create a temporary DOM to manipulate and add identifiers to li elements
-    const tempDom = cheerio.load(htmlContent);
-    const bulletIdMap = new Map();
-    
-    // Add unique data-bullet-id attributes to all li elements
-    tempDom('li').each((index, element) => {
-        const bulletText = tempDom(element).text().trim();
-        if (bulletText) {
-            const bulletId = `bullet-${generateHash(bulletText)}-${index}`;
-            tempDom(element).attr('data-bullet-id', bulletId);
-            bulletIdMap.set(bulletText, bulletId);
-        }
-    });
-    
-    // Use the modified HTML for the LLM to parse
-    const modifiedHtml = tempDom.html();
-    
-    const prompt = `Analyze the following HTML resume content and extract its semantic structure. Focus on identifying and extracting the actual content of each section, regardless of HTML structure or CSS classes used.
-
-Return ONLY a valid JSON object with the following structure:
-{
-    "jobs": [{
-        "title": "Job Title",
-        "company": "Company Name",
-        "dates": "Date Range",
-        "location": "Location",
-        "bulletPoints": ["Original bullet point 1", "Original bullet point 2", ...]
-    }],
-    "projects": [{
-        "title": "Project Name",
-        "technologies": "Technologies Used (if specified)",
-        "dates": "Date Range (if specified)",
-        "bulletPoints": ["Original bullet point 1", "Original bullet point 2", ...]
-    }],
-    "education": [{
-        "degree": "Degree Name",
-        "institution": "Institution Name",
-        "dates": "Date Range",
-        "location": "Location",
-        "bulletPoints": ["Original bullet point or achievement 1", ...]
-    }],
-    "skills": {
-        "technical": ["Skill 1", "Skill 2", ...],
-        "tools": ["Tool 1", "Tool 2", ...],
-        "other": ["Other skill 1", ...]
-    }
-}
-
-IMPORTANT GUIDELINES:
-1. Extract ONLY text that actually exists in the HTML. Do not generate or infer content.
-2. Include ALL bullet points found in each section, preserving their exact text.
-3. For each section (jobs, projects, education), ensure bullet points are correctly associated with their parent entry.
-4. For skills, categorize them if categories are present in the original, otherwise put all in "technical".
-5. Preserve exact text formatting, including case and punctuation.
-6. If a field is not found (e.g., no location for a job), omit that field rather than returning empty string.
-
-HTML Content to Analyze:
-\`\`\`html
-${modifiedHtml}
-\`\`\`
-
-Return ONLY the JSON object. Do not include any explanations or markdown formatting.`;
-
-    try {
-        const response = await axios.post(
-            'https://api.openai.com/v1/chat/completions',
-            {
-                model: "gpt-4.1-nano",
-                messages: [
-                    {
-                        role: "system",
-                        content: "You are an AI assistant specialized in parsing resume content. You extract the semantic structure and content from HTML resumes, preserving the exact text while organizing it into a clear JSON structure. You return only valid JSON matching the requested format."
-                    },
-                    {
-                        role: "user",
-                        content: prompt
-                    }
-                ],
-                temperature: 0.2,
-                max_tokens: 2000,
-                response_format: { type: "json_object" }
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${openaiApiKey}`
-                }
-            }
-        );
-
-        const content = response.data.choices[0].message.content;
-        try {
-            const parsedContent = JSON.parse(content);
-            
-            const requiredSections = ['jobs', 'projects', 'education', 'skills'];
-            const hasAllSections = requiredSections.every(section => 
-                Array.isArray(parsedContent[section]) || 
-                (section === 'skills' && typeof parsedContent[section] === 'object')
-            );
-
-            if (typeof parsedContent === 'object' && parsedContent !== null && hasAllSections) {
-                console.log('Successfully parsed resume content structure');
-                
-                // Add the bulletIdMap to the parsed content
-                parsedContent.bulletIdMap = Object.fromEntries(bulletIdMap);
-                
-                return parsedContent;
-            } else {
-                console.error('LLM returned invalid JSON structure:', content);
-                return null;
-            }
-        } catch (jsonError) {
-            console.error('Error parsing JSON from LLM response:', jsonError);
-            return null;
-        }
-    } catch (error) {
-        console.error('Error calling OpenAI API for resume parsing:', error.response?.data || error.message);
-        return null;
-    }
-}
-
 async function customizeResume(req, res) {
     try {
         const { htmlContent, keywords, fullTailoring } = req.body;
@@ -792,31 +655,14 @@ async function customizeResume(req, res) {
     }
 }
 
-async function updateBulletPoints($, originalBullets, newBullets, bulletIdMap) {
+async function updateBulletPoints($, originalBullets, newBullets) {
     const bulletMap = new Map();
-    
-    // First try to find li elements by their data-bullet-id attribute
-    if (bulletIdMap) {
-        originalBullets.forEach(originalText => {
-            const bulletId = bulletIdMap[originalText];
-            if (bulletId) {
-                const element = $(`li[data-bullet-id="${bulletId}"]`);
-                if (element.length > 0) {
-                    bulletMap.set(originalText, element);
-                }
-            }
-        });
-    }
-    
-    // Fall back to finding by text content for any bullets not found by ID
-    if (bulletMap.size < originalBullets.length) {
-        $('li').each((_, el) => {
-            const text = $(el).text().trim();
-            if (text && originalBullets.includes(text) && !bulletMap.has(text)) {
-                bulletMap.set(text, $(el));
-            }
-        });
-    }
+    $('li').each((_, el) => {
+        const text = $(el).text().trim();
+        if (text && originalBullets.includes(text)) {
+            bulletMap.set(text, el);
+        }
+    });
 
     originalBullets.forEach((originalText, index) => {
         if (index < newBullets.length && bulletMap.has(originalText)) {
