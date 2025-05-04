@@ -306,51 +306,33 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
 
             console.log(`Generated ${newBullets.length} new bullets for ${section.type} entry`);
 
-            let targetContainers = [];
+            // Locate container dynamically
+            let $container = findContainer($, entry, section.type);
 
-            // 1) Prefer selector returned by LLM for this specific entry
-            if (entry.selector) {
-                const container = $(entry.selector);
-                if (container.length > 0) {
-                    console.log(`Found matching section element via LLM selector for ${section.type}`);
-                    targetContainers.push(container);
-                } else {
-                    console.warn(`LLM selector did not match any elements for ${section.type}: ${entry.selector}`);
-                }
+            if (!$container || $container.length === 0) {
+                console.warn(`Could not find matching section element for ${section.type}`);
+                continue;
             }
 
-            // 2) Fallback to broader hard-coded selectors (legacy behaviour)
-            if (targetContainers.length === 0) {
-                const fallbackSelector = section.type === 'job' ? '.job-experience' : '.projects';
-                $(fallbackSelector).each((_, el) => targetContainers.push($(el)));
-                if (targetContainers.length === 0) {
-                    console.warn(`Could not find matching section element for ${section.type}`);
-                } else {
-                    console.log(`Using fallback selector for ${section.type}`);
-                }
-            }
+            console.log(`Updating bullet list for ${section.type} using resolved container`);
 
-            // Rebuild or update bullet lists inside each target container
-            targetContainers.forEach(($container) => {
-                // Determine the list element (<ul>/<ol>) to update or create one
+            // Rebuild or update bullet list inside container
+            const containersArray = Array.isArray($container) ? $container : [$container];
+            containersArray.forEach(($cont) => {
                 let $list;
-                if ($container.is('ul, ol')) {
-                    $list = $container;
+                if ($cont.is('ul, ol')) {
+                    $list = $cont;
                 } else {
-                    $list = $container.find('ul, ol').first();
+                    $list = $cont.find('ul, ol').first();
                 }
 
-                // If no list exists, create a new <ul> inside the container
                 if (!$list || $list.length === 0) {
                     $list = $('<ul></ul>');
-                    $container.append($list);
+                    $cont.append($list);
                 }
 
-                // Clear existing bullet elements and insert fresh ones
                 $list.empty();
-                newBullets.forEach(b => {
-                    $list.append(`<li>${b}</li>`);
-                });
+                newBullets.forEach(b => $list.append(`<li>${b}</li>`));
             });
 
             newBullets.forEach(bullet => {
@@ -750,6 +732,58 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
         console.error('Error calling OpenAI API for resume parsing:', error.response?.data || error.message);
         return null;
     }
+}
+
+// Helper to try various selector transformations (e.g., nth-of-type → nth-child)
+function resolveSelector($, selector) {
+    if (!selector) return null;
+    let $el = $(selector);
+    if ($el.length > 0) return $el;
+    // Transform :nth-of-type() → :nth-child()
+    const transformed = selector.replace(/:nth-of-type\((\d+)\)/g, ':nth-child($1)');
+    if (transformed !== selector) {
+        $el = $(transformed);
+        if ($el.length > 0) return $el;
+    }
+    return null;
+}
+
+// Attempt to locate the bullet container if LLM selector fails
+function findContainer($, entry, sectionType) {
+    // 1. Try selector (and transformed version)
+    let $container = resolveSelector($, entry.selector);
+    if ($container && $container.length > 0) return $container;
+
+    // 2. Text-based heuristic search
+    const candidateTexts = [];
+    if (sectionType === 'job') {
+        if (entry.title) candidateTexts.push(entry.title);
+        if (entry.company) candidateTexts.push(entry.company);
+    } else if (sectionType === 'project') {
+        if (entry.title) candidateTexts.push(entry.title);
+    }
+
+    const lowerTexts = candidateTexts.map(t => t.toLowerCase());
+
+    let found = null;
+    $('*').each((_, el) => {
+        if (found) return; // already found
+        const text = $(el).text().toLowerCase();
+        const matches = lowerTexts.every(t => text.includes(t));
+        if (matches) {
+            // ascend to nearest element that has <li> descendants
+            let current = $(el);
+            for (let depth = 0; depth < 5 && current.length > 0; depth++) {
+                if (current.find('li').length > 0) {
+                    found = current;
+                    break;
+                }
+                current = current.parent();
+            }
+        }
+    });
+
+    return found;
 }
 
 async function customizeResume(req, res) {
