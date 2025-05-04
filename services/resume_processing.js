@@ -268,117 +268,113 @@ function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
     return sortedBullets;
 }
 
-class BulletCache {
-    constructor() {
-        this.cache = new Map();
-        this.sectionPools = {
-            job: new Set(),
-            project: new Set()
-        };
-        this.targetBulletCounts = {
-            job: 5,
-            project: 4
-        };
-    }
-    async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
-        const sections = ['job', 'project'];
-        const cacheKey = `${keywords.join(',')}_${context}`;
-        if (this.cache.has(cacheKey)) {
-            return this.cache.get(cacheKey);
-        }
-        const allBullets = {};
-        const promises = sections.map(async (section) => {
-            const targetCount = this.targetBulletCounts[section];
-            const bullets = await generateBullets(
-                'generate',
-                null,
-                keywords,
-                `for ${section} experience`,
-                wordLimit,
-                verbTracker
-            );
-            allBullets[section] = bullets.slice(0, targetCount);
-            bullets.forEach(bullet => this.sectionPools[section].add(bullet));
-        });
-        await Promise.all(promises);
-        this.cache.set(cacheKey, allBullets);
-        return allBullets;
-    }
-    getBulletsForSection(section, count) {
-        const seen = new Set();
-        const uniqueBullets = [];
-        for (const bullet of this.sectionPools[section]) {
-            const norm = bullet.toLowerCase().replace(/\s+/g, ' ').trim();
-            if (!seen.has(norm)) {
-                seen.add(norm);
-                uniqueBullets.push(bullet);
-            }
-            if (uniqueBullets.length >= count) break;
-        }
-        return uniqueBullets;
-    }
-    addBulletToSection(bullet, section) {
-        if (bullet && bullet.trim().length > 0) {
-            this.sectionPools[section].add(bullet);
-        }
-    }
-    clear() {
-        this.cache.clear();
-        Object.values(this.sectionPools).forEach(pool => pool.clear());
-    }
-}
-
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
-
-    // 1. Identify all <ul> elements
+    const verbTracker = new ActionVerbTracker();
+    
+    // Find all bullet lists in the document
     const bulletLists = $('ul');
-    const keywordString = fullTailoring ? 
-        keywords.join(', ') : 
-        keywords.slice(0, Math.min(5, keywords.length)).join(', ');
-    const wordLimit = 12;
-    // 2. Process each bullet list independently
-    for (let i = 0; i < bulletLists.length; i++) {
-        const ul = bulletLists.eq(i);
-        // Extract original bullets
-        const originalBullets = ul.children('li').map((_, li) => $(li).text().trim()).get();
-        if (originalBullets.length === 0) continue;
-        // Generate new bullets
+    console.log(`Found ${bulletLists.length} bullet lists to process`);
+
+    // Process each bullet list independently
+    for (const list of bulletLists.toArray()) {
+        const $list = $(list);
+        
+        // Extract original bullets from this list
+        const originalBullets = $list.find('li')
+            .map((_, li) => $(li).text().trim())
+            .get()
+            .filter(text => text.length > 0);
+
+        if (originalBullets.length === 0) continue; // Skip empty lists
+
+        // Generate new bullets for this list
+        const keywordString = fullTailoring ? 
+            keywords.join(', ') : 
+            keywords.slice(0, Math.min(5, keywords.length)).join(', ');
+
         const newBullets = await generateBullets(
             fullTailoring ? 'tailor' : 'generate',
             originalBullets,
             keywordString,
-            'for this section',
-            wordLimit
+            'for this section', // Generic context since we don't know the section type
+            12 // Standard word limit
         );
-        // Replace bullets in place
-        ul.empty();
+
+        // Track verbs from new bullets
         newBullets.forEach(bullet => {
-            ul.append(`<li>${bullet}</li>`);
+            const verb = getFirstVerb(bullet);
+            if (verb) verbTracker.addVerb(verb, 'generic');
+        });
+
+        // Replace bullets in this list
+        $list.empty(); // Remove existing bullets
+        newBullets.forEach(bullet => {
+            $list.append(`<li>${bullet}</li>`);
         });
     }
 
-    // 3. Update skills section using heuristic
-    await updateSkillsContent($, keywords);
+    // Find and update skills section using heuristic approach
+    const skillsElements = $('*').filter((_, el) => {
+        const text = $(el).text().toLowerCase();
+        return text.includes('skills') || text.includes('technologies') || text.includes('tools');
+    });
 
-    // 4. Adapt PDF page fitting: trim bullets if needed
+    if (skillsElements.length > 0) {
+        // Find the most likely skills container (the one with the most technical terms)
+        let bestSkillsElement = null;
+        let maxTechTerms = 0;
+
+        skillsElements.each((_, el) => {
+            const text = $(el).text().toLowerCase();
+            const techTermCount = keywords.filter(kw => text.includes(kw.toLowerCase())).length;
+            if (techTermCount > maxTechTerms) {
+                maxTechTerms = techTermCount;
+                bestSkillsElement = $(el);
+            }
+        });
+
+        if (bestSkillsElement) {
+            const categorizedSkills = await categorizeKeywords(keywords);
+            if (categorizedSkills) {
+                bestSkillsElement.empty();
+                Object.entries(categorizedSkills).forEach(([category, skills]) => {
+                    if (skills && skills.length > 0) {
+                        const formattedCategory = category
+                            .split(/(?=[A-Z])/)
+                            .join(' ')
+                            .replace(/^\w/, c => c.toUpperCase());
+                        bestSkillsElement.append(
+                            `<p><strong>${formattedCategory}:</strong> ${skills.join(', ')}</p>`
+                        );
+                    }
+                });
+            }
+        }
+    }
+
+    // Handle page overflow
     let currentBulletCount = 4;
     let attempts = 0;
     const MIN_BULLETS = 2;
+
     while (attempts < 3 && currentBulletCount >= MIN_BULLETS) {
         const { exceedsOnePage } = await convertHtmlToPdf($.html());
         if (!exceedsOnePage) break;
-        currentBulletCount--;
-        // For each <ul>, trim to currentBulletCount bullets
-        bulletLists.each((_, ul) => {
-            const $ul = $(ul);
-            const bullets = $ul.children('li');
-            while (bullets.length > currentBulletCount) {
-                bullets.last().remove();
+
+        // Reduce bullets in all lists
+        bulletLists.each((_, list) => {
+            const $list = $(list);
+            const bullets = $list.find('li');
+            if (bullets.length > currentBulletCount) {
+                bullets.slice(currentBulletCount).remove();
             }
         });
+
+        currentBulletCount--;
         attempts++;
     }
+
     return $.html();
 }
 
@@ -653,23 +649,6 @@ async function customizeResume(req, res) {
     } catch (error) {
         res.status(500).send('Error processing resume: ' + error.message);
     }
-}
-
-async function updateBulletPoints($, originalBullets, newBullets) {
-    const bulletMap = new Map();
-    $('li').each((_, el) => {
-        const text = $(el).text().trim();
-        if (text && originalBullets.includes(text)) {
-            bulletMap.set(text, el);
-        }
-    });
-
-    originalBullets.forEach((originalText, index) => {
-        if (index < newBullets.length && bulletMap.has(originalText)) {
-            const element = bulletMap.get(originalText);
-            $(element).text(newBullets[index]);
-        }
-    });
 }
 
 module.exports = { customizeResume };
