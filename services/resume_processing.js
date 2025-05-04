@@ -330,14 +330,26 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
                 }
             }
 
-            // Update bullet lists inside each target container
+            // Rebuild or update bullet lists inside each target container
             targetContainers.forEach(($container) => {
-                const existingBullets = $container.find('li');
-                if (existingBullets.length === 0) return;
-                existingBullets.each((i, bullet) => {
-                    if (i < newBullets.length) {
-                        $(bullet).text(newBullets[i]);
-                    }
+                // Determine the list element (<ul>/<ol>) to update or create one
+                let $list;
+                if ($container.is('ul, ol')) {
+                    $list = $container;
+                } else {
+                    $list = $container.find('ul, ol').first();
+                }
+
+                // If no list exists, create a new <ul> inside the container
+                if (!$list || $list.length === 0) {
+                    $list = $('<ul></ul>');
+                    $container.append($list);
+                }
+
+                // Clear existing bullet elements and insert fresh ones
+                $list.empty();
+                newBullets.forEach(b => {
+                    $list.append(`<li>${b}</li>`);
                 });
             });
 
@@ -372,10 +384,21 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         attempts++;
     }
 
-    // Log final bullet counts for debugging
-    const jobBullets = $('.job-experience li').length;
-    const projectBullets = $('.projects li').length;
-    console.log(`Final bullet counts - Jobs: ${jobBullets}, Projects: ${projectBullets}`);
+    // Compute bullet counts dynamically based on LLM selectors for accurate logging
+    let jobBulletTotal = 0;
+    resumeContent.jobs.forEach(entry => {
+        if (entry.selector) {
+            jobBulletTotal += $(entry.selector).find('li').length;
+        }
+    });
+    let projectBulletTotal = 0;
+    resumeContent.projects.forEach(entry => {
+        if (entry.selector) {
+            projectBulletTotal += $(entry.selector).find('li').length;
+        }
+    });
+
+    console.log(`Final bullet counts - Jobs: ${jobBulletTotal}, Projects: ${projectBulletTotal}`);
 
     return $.html();
 }
