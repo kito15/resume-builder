@@ -81,7 +81,13 @@ function getFirstVerb(bulletText) {
 }
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    const basePrompt = `You are a specialized resume bullet point optimizer focused on creating technically accurate and ATS-friendly content. Your task is to generate or enhance resume bullets that demonstrate technical expertise while maintaining STRICTLY ACCURATE technology relationships. Your responses will be used to improve a resume programmatically.
+    // Ensure existingBullets is never null to avoid issues
+    existingBullets = existingBullets || [];
+    
+    // Remove any duplicates from existing bullets before processing
+    const uniqueExistingBullets = [...new Set(existingBullets)];
+    
+    const basePrompt = `You are a specialized resume bullet point optimizer focused on creating technically accurate and ATS-friendly content. Your task is to generate or enhance resume bullets that demonstrate technical expertise while maintaining STRICTLY ACCURATE technology relationships. Your responses will be used to improve a resume programmatically. CRITICAL: Each bullet point must be ENTIRELY UNIQUE from others - no duplicates or near-duplicates.
 
 CRITICAL TECHNOLOGY RELATIONSHIP RULES:
 1. NEVER combine technologies from different ecosystems that don't naturally work together
@@ -172,8 +178,8 @@ INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
     const prompt = mode === 'tailor' 
-        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally and thoroughly integrating ALL provided keywords. Every keyword must appear at least once across the set. Maintain original metrics and achievements. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`
-        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs, ensuring that ALL provided keywords are integrated at least once across the set. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`;
+        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally and thoroughly integrating ALL provided keywords. Every keyword must appear at least once across the set. Maintain original metrics and achievements. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above. Each bullet MUST be completely unique - no repetition of the same or similar bullet points.`
+        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs, ensuring that ALL provided keywords are integrated at least once across the set. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above AND every bullet is 100% unique - no duplicated content or concepts.`;
 
     try {
         const response = await axios.post(
@@ -205,6 +211,8 @@ ${(existingBullets || []).join('\n')}`;
         const content = response.data.choices[0].message.content;
         const lines = content.split('\n');
         const seenBullets = new Set();
+        const deduplicationMap = new Map(); // Track similar bullets by first 5 words
+        
         const bullets = lines
             .map(line => line.trim())
             .filter(line => line.startsWith('>>'))
@@ -214,9 +222,18 @@ ${(existingBullets || []).join('\n')}`;
                       .replace(/\s*\([^)]*\)$/, '')
             )
             .filter(bullet => {
+                // First check exact matches
                 const norm = bullet.toLowerCase().replace(/\s+/g, ' ').trim();
                 if (seenBullets.has(norm)) return false;
                 seenBullets.add(norm);
+                
+                // Then check for similar bullets (same starting words)
+                const firstWords = norm.split(' ').slice(0, 5).join(' ');
+                if (deduplicationMap.has(firstWords)) {
+                    // If we already have a bullet starting with these words, reject this one
+                    return false;
+                }
+                deduplicationMap.set(firstWords, bullet);
                 return true;
             });
         return bullets;
@@ -226,15 +243,32 @@ ${(existingBullets || []).join('\n')}`;
     }
 }
 
+function shuffleArray(array) {
+    // Create a copy to avoid modifying original array
+    const result = [...array];
+    let currentIndex = result.length, randomIndex;
+    while (currentIndex !== 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+        [result[currentIndex], result[randomIndex]] = [result[randomIndex], result[currentIndex]];
+    }
+    return result;
+}
+
 function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
     let attempts = 0;
     const maxAttempts = 15;
+    // Important: Create a copy of the bullets array to avoid modifying the original
+    let workingBullets = [...bullets];
+    
     while (attempts < maxAttempts) {
-        bullets = shuffleArray([...bullets]);
+        // Use shuffleArray but don't reassign the input parameter
+        const shuffled = shuffleArray(workingBullets);
         let isValid = true;
         let previousVerbs = new Set();
-        for (let i = 0; i < bullets.length; i++) {
-            const currentVerb = getFirstVerb(bullets[i]);
+        
+        for (let i = 0; i < shuffled.length; i++) {
+            const currentVerb = getFirstVerb(shuffled[i]);
             if (!currentVerb) continue;
             if (previousVerbs.has(currentVerb) || 
                 (verbTracker.isVerbUsedGlobally(currentVerb) && i === 0)) {
@@ -243,15 +277,17 @@ function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
             }
             previousVerbs.add(currentVerb);
         }
+        
         if (isValid) {
-            if (bullets.length > 0) {
-                verbTracker.addVerb(getFirstVerb(bullets[0]), sectionType);
+            if (shuffled.length > 0) {
+                verbTracker.addVerb(getFirstVerb(shuffled[0]), sectionType);
             }
-            return bullets;
+            return shuffled;
         }
         attempts++;
     }
-    const sortedBullets = [...bullets].sort((a, b) => {
+    
+    const sortedBullets = [...workingBullets].sort((a, b) => {
         const verbA = getFirstVerb(a);
         const verbB = getFirstVerb(b);
         if (!verbTracker.isVerbUsedGlobally(verbA) && verbTracker.isVerbUsedGlobally(verbB)) {
@@ -262,6 +298,7 @@ function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
         }
         return 0;
     });
+    
     if (sortedBullets.length > 0) {
         verbTracker.addVerb(getFirstVerb(sortedBullets[0]), sectionType);
     }
@@ -683,24 +720,34 @@ IMPORTANT GUIDELINES:
 5. Preserve exact text formatting, including case and punctuation.
 6. If a field is not found (e.g., no location for a job), omit that field rather than returning empty string.
 
-CRITICAL SELECTOR REQUIREMENTS:
-1. For each job, project, and education entry, you MUST provide a precise CSS selector that uniquely identifies that specific element in the DOM.
-2. Use element tags, classes, and attributes to construct reliable selectors.
-3. Analyze the HTML structure carefully to ensure each selector points to exactly ONE element.
-4. Test each selector mentally to confirm it uniquely identifies the intended element.
-5. Your selector MUST lead directly to the container element that holds all the information for that specific entry.
-6. Prefer simple selectors using classes and direct parent-child relationships rather than complex attribute selectors.
-7. DO NOT use generic selectors like "div.section:nth-of-type(2) > div.entry:nth-of-type(1)" - they are too brittle.
-8. Instead, use distinctive attributes already present in the HTML like IDs, unique classes, or text content.
-9. Example of a good selector: ".experience-section .job-entry[data-company='Google']" or "#job-123"
-10. If no obvious unique identifier exists, use a more specific approach like ".job-section .job-entry:contains('Software Engineer at Google')"
+ABSOLUTELY CRITICAL SELECTOR REQUIREMENTS:
+1. For each job, project, and education entry, you MUST provide a CSS selector that is GUARANTEED to uniquely identify that specific element in the DOM.
+2. Your selector MUST include text content from the entry to ensure uniqueness - this is the ONLY reliable way to target specific entries.
+3. NEVER use nth-of-type or positional selectors (like :first-child, :nth-child) as the PRIMARY selection mechanism.
+4. ALWAYS use :contains() with company names, job titles, project names, or other unique text content.
+5. Focus on using clear, text-based identifiers that will NEVER change even if the order of elements changes.
+
+SELECTOR EXAMPLES (REQUIRED APPROACH):
+- BAD: ".section .entry:nth-of-type(1)" - This will break if order changes
+- BAD: "div.job:nth-child(2)" - This is too brittle and position-dependent
+- GOOD: ".professional-experience h3:contains('Callagy Law')" - Uses text content as identifier
+- GOOD: "h3:contains('Secure Test Portal')" - Uses project name to find the section
+- GOOD: "div:contains('Full Stack Developer'):contains('Callagy Law')" - Combines role and company
+- GOOD: "div:has(h3:contains('Willounden'))" - Targets container with specific heading
+
+RESUME-SPECIFIC SELECTOR STRATEGIES:
+1. For jobs: Use company name in selector like "div:contains('Google')" or "h3:contains('Google')"
+2. For projects: Use project name like "div:contains('Secure Test Portal')" 
+3. For education: Use institution name like "div:contains('New Jersey Institute')"
+4. Always target the CONTAINER element that holds all information about that entry
+5. Use multiple :contains() if needed for unique identification
 
 HTML Content to Analyze:
 \`\`\`html
 ${htmlContent}
 \`\`\`
 
-Return ONLY the JSON object. Do not include any explanations or markdown formatting.`;
+Return ONLY the JSON object with these text-based reliable selectors. Your selectors MUST use text content to identify elements.`;
 
     try {
         const response = await axios.post(
@@ -788,63 +835,138 @@ async function customizeResume(req, res) {
 async function updateBulletPoints($, originalBullets, newBullets, selector) {
     // First, try using the selector if provided
     if (selector) {
-        console.log(`Trying to find elements using selector: ${selector}`);
-        const entryElement = $(selector);
-        
-        if (entryElement.length > 0) {
-            console.log(`Found matching element for selector: ${selector}`);
-            // Look for bullet points within this specific entry
-            const bulletElements = entryElement.find('li, .bullet, [class*="bullet"]');
+        try {
+            // If selector uses :contains, make sure it's properly quoted for Cheerio
+            let processedSelector = selector;
+            if (selector.includes(':contains(')) {
+                // Handle quoted contains in a basic way
+                processedSelector = selector.replace(/:contains\('([^']*)'\)/g, `:contains("$1")`);
+                processedSelector = processedSelector.replace(/:contains\(([^"'()]*)\)/g, `:contains("$1")`);
+            }
             
-            if (bulletElements.length > 0) {
-                console.log(`Found ${bulletElements.length} bullet elements within the entry`);
-                // Update the bullet points that exist
-                bulletElements.each((idx, el) => {
-                    if (idx < newBullets.length) {
-                        $(el).text(newBullets[idx]);
-                    }
-                });
-                return;
-            } else {
-                // If we found the entry but no bullet elements, look for other potential containers
+            console.log(`Trying to find elements using selector: ${processedSelector}`);
+            const entryElement = $(processedSelector);
+            
+            if (entryElement.length > 0) {
+                console.log(`Found matching element for selector: ${processedSelector}`);
+                
+                // Try multiple approaches to find bullet points
+                
+                // 1. Look for ul/ol elements with li children
                 const ulElements = entryElement.find('ul, ol');
                 if (ulElements.length > 0) {
-                    console.log(`Found ${ulElements.length} list elements within the entry`);
-                    const firstUl = ulElements.first();
-                    // Replace existing or add new bullet points
-                    firstUl.empty();
-                    newBullets.forEach(bullet => {
-                        firstUl.append(`<li>${bullet}</li>`);
-                    });
-                    return;
+                    console.log(`Found ${ulElements.length} list containers`);
+                    const bulletList = ulElements.first();
+                    const existingBullets = bulletList.find('li');
+                    
+                    // If we have existing bullets, update them
+                    if (existingBullets.length > 0) {
+                        existingBullets.each((idx, el) => {
+                            if (idx < newBullets.length) {
+                                $(el).text(newBullets[idx]);
+                            }
+                        });
+                        return true;
+                    } else {
+                        // Otherwise create new bullets
+                        bulletList.empty();
+                        newBullets.forEach(bullet => {
+                            bulletList.append(`<li>${bullet}</li>`);
+                        });
+                        return true;
+                    }
                 }
+                
+                // 2. Look for bullet points with specific classes or formatting
+                const bulletElements = entryElement.find('li, .bullet, [class*="bullet"]');
+                if (bulletElements.length > 0) {
+                    console.log(`Found ${bulletElements.length} bullet elements directly`);
+                    bulletElements.each((idx, el) => {
+                        if (idx < newBullets.length) {
+                            $(el).text(newBullets[idx]);
+                        }
+                    });
+                    return true;
+                }
+                
+                // 3. Look specifically for list items that contain the original bullet text
+                for (const originalBullet of originalBullets) {
+                    const matchedBullets = entryElement.find(`li:contains("${originalBullet.replace(/"/g, '\\"')}")`);
+                    if (matchedBullets.length > 0) {
+                        console.log(`Found bullet elements by text content match`);
+                        matchedBullets.each((idx, el) => {
+                            const bulletIndex = originalBullets.indexOf($(el).text().trim());
+                            if (bulletIndex >= 0 && bulletIndex < newBullets.length) {
+                                $(el).text(newBullets[bulletIndex]);
+                            }
+                        });
+                        return true;
+                    }
+                }
+                
+                // 4. Last resort: create a new ul if we found the container but no bullets
+                if (!entryElement.find('ul').length) {
+                    console.log(`Creating new bullet list for entry`);
+                    const newList = $('<ul></ul>');
+                    newBullets.forEach(bullet => {
+                        newList.append(`<li>${bullet}</li>`);
+                    });
+                    
+                    // Look for a good spot to insert the list - after headings/title elements
+                    const insertAfter = entryElement.find('h1, h2, h3, h4, h5, h6, p:first').last();
+                    if (insertAfter.length) {
+                        insertAfter.after(newList);
+                        return true;
+                    } else {
+                        entryElement.append(newList);
+                        return true;
+                    }
+                }
+            } else {
+                console.log(`LLM selector did not match any elements: ${processedSelector}`);
             }
-        } else {
-            console.log(`LLM selector did not match any elements for ${selector}`);
+        } catch (error) {
+            console.error(`Error using selector: ${error.message}`);
         }
     }
     
-    // Fallback to original approach if selector fails
-    const bulletMap = new Map();
+    // Fallback to content-based approach
+    console.log(`Falling back to content-based bullet matching`);
+    let foundSomeMatches = false;
+    
+    // Try finding unique parent containers for the original bullet points
+    const bulletContainers = new Map();
     $('li').each((_, el) => {
         const text = $(el).text().trim();
         if (text && originalBullets.includes(text)) {
-            bulletMap.set(text, el);
-        }
-    });
-
-    let replaced = 0;
-    originalBullets.forEach((originalText, index) => {
-        if (index < newBullets.length && bulletMap.has(originalText)) {
-            const element = bulletMap.get(originalText);
-            $(element).text(newBullets[index]);
-            replaced++;
+            const parent = $(el).parent();
+            if (!bulletContainers.has(parent)) {
+                bulletContainers.set(parent, []);
+            }
+            bulletContainers.get(parent).push(el);
+            foundSomeMatches = true;
         }
     });
     
-    if (replaced === 0 && originalBullets.length > 0) {
-        console.log(`Could not find matching section element for bullets`);
+    // Update bullets within each container we found
+    for (const [container, bullets] of bulletContainers.entries()) {
+        for (let i = 0; i < bullets.length; i++) {
+            const bulletEl = $(bullets[i]);
+            const originalText = bulletEl.text().trim();
+            const originalIndex = originalBullets.indexOf(originalText);
+            
+            if (originalIndex >= 0 && originalIndex < newBullets.length) {
+                bulletEl.text(newBullets[originalIndex]);
+            }
+        }
     }
+    
+    if (!foundSomeMatches && originalBullets.length > 0) {
+        console.log(`Could not find any matching bullet elements for this section`);
+        return false;
+    }
+    
+    return foundSomeMatches;
 }
 
 module.exports = { customizeResume };
