@@ -268,90 +268,9 @@ function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
     return sortedBullets;
 }
 
-class BulletCache {
-    constructor() {
-        this.cache = new Map();
-        this.sectionPools = {
-            job: new Set(),
-            project: new Set()
-        };
-        this.targetBulletCounts = {
-            job: 5,
-            project: 4
-        };
-    }
-    async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
-        const sections = ['job', 'project'];
-        const cacheKey = `${keywords.join(',')}_${context}`;
-        if (this.cache.has(cacheKey)) {
-            return this.cache.get(cacheKey);
-        }
-        const allBullets = {};
-        const promises = sections.map(async (section) => {
-            const targetCount = this.targetBulletCounts[section];
-            const bullets = await generateBullets(
-                'generate',
-                null,
-                keywords,
-                `for ${section} experience`,
-                wordLimit,
-                verbTracker
-            );
-            allBullets[section] = bullets.slice(0, targetCount);
-            bullets.forEach(bullet => this.sectionPools[section].add(bullet));
-        });
-        await Promise.all(promises);
-        this.cache.set(cacheKey, allBullets);
-        return allBullets;
-    }
-    getBulletsForSection(section, count) {
-        const seen = new Set();
-        const uniqueBullets = [];
-        for (const bullet of this.sectionPools[section]) {
-            const norm = bullet.toLowerCase().replace(/\s+/g, ' ').trim();
-            if (!seen.has(norm)) {
-                seen.add(norm);
-                uniqueBullets.push(bullet);
-            }
-            if (uniqueBullets.length >= count) break;
-        }
-        return uniqueBullets;
-    }
-    addBulletToSection(bullet, section) {
-        if (bullet && bullet.trim().length > 0) {
-            this.sectionPools[section].add(bullet);
-        }
-    }
-    clear() {
-        this.cache.clear();
-        Object.values(this.sectionPools).forEach(pool => pool.clear());
-    }
-}
-
-async function updateBulletPoints($, section, newBullets) {
-    // Find the section element first
-    const $section = findElementByPatterns($, section.sectionPatterns);
-    if (!$section) return false;
-
-    // Update each bullet point
-    let updatedCount = 0;
-    for (let i = 0; i < section.bulletPoints.length && i < newBullets.length; i++) {
-        const bulletData = section.bulletPoints[i];
-        const $bullet = findElementByPatterns($, bulletData.patterns, $section);
-        
-        if ($bullet) {
-            $bullet.text(newBullets[i]);
-            updatedCount++;
-        }
-    }
-
-    return updatedCount > 0;
-}
-
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     
-    // Parse resume content with element identification patterns
     const resumeContent = await parseResumeContent(htmlContent);
     if (!resumeContent) {
         console.error("Failed to parse resume content. Aborting resume update.");
@@ -359,7 +278,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     }
 
     const verbTracker = new ActionVerbTracker();
-    const bulletCache = new BulletCache();
 
     const sections = [
         { type: 'job', entries: resumeContent.jobs, targetBulletCount: 4 },
@@ -370,14 +288,30 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         keywords.join(', ') : 
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
 
-    let totalJobBullets = 0;
-    let totalProjectBullets = 0;
-
-    // Process each section
+    // Process each section type
     for (const section of sections) {
-        for (const entry of section.entries) {
-            const originalBullets = entry.bulletPoints.map(bp => bp.content);
+        // Find all section containers in the HTML
+        const sectionContainers = await identifyResumeSections($);
+        const relevantContainers = sectionContainers.filter(s => s.type === section.type);
+        
+        if (relevantContainers.length === 0) {
+            console.warn(`No containers found for section type: ${section.type}`);
+            continue;
+        }
+
+        // Process each entry in the section
+        for (let i = 0; i < section.entries.length; i++) {
+            const entry = section.entries[i];
+            const container = relevantContainers[i] ? relevantContainers[i].element : null;
             
+            if (!container) {
+                console.warn(`No matching container found for ${section.type} entry ${i + 1}`);
+                continue;
+            }
+
+            const originalBullets = entry.bulletPoints || [];
+            
+            // Generate new bullets
             const newBullets = await generateBullets(
                 fullTailoring ? 'tailor' : 'generate',
                 originalBullets,
@@ -386,29 +320,26 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
                 12
             );
 
-            // Update bullets and track success
-            const updated = await updateBulletPoints($, entry, newBullets);
-            if (updated) {
-                if (section.type === 'job') totalJobBullets += newBullets.length;
-                if (section.type === 'project') totalProjectBullets += newBullets.length;
-
-                newBullets.forEach(bullet => {
-                    bulletCache.addBulletToSection(bullet, section.type);
-                    const verb = getFirstVerb(bullet);
-                    if (verb) verbTracker.addVerb(verb, section.type);
-                });
+            if (!newBullets || newBullets.length === 0) {
+                console.warn(`No bullets generated for ${section.type} entry ${i + 1}`);
+                continue;
             }
+
+            // Update bullet points in the HTML
+            await updateBulletPoints($, originalBullets, newBullets);
+
+            // Track verbs for variety
+            newBullets.forEach(bullet => {
+                const verb = getFirstVerb(bullet);
+                if (verb) verbTracker.addVerb(verb, section.type);
+            });
         }
     }
 
-    // Update skills section if patterns are available
-    if (resumeContent.skills.sectionPatterns) {
-        await updateSkillsContent($, resumeContent.skills);
-    }
+    // Update skills section
+    await updateSkillsContent($, resumeContent.skills);
 
-    console.log(`Updated bullet counts - Jobs: ${totalJobBullets}, Projects: ${totalProjectBullets}`);
-
-    // Handle page overflow
+    // Validate and adjust content length
     let currentBulletCount = 4;
     let attempts = 0;
     const MIN_BULLETS = 2;
@@ -418,49 +349,20 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         if (!exceedsOnePage) break;
 
         currentBulletCount--;
+        
+        // Reduce bullets in each section
+        const sections = await identifyResumeSections($);
         for (const section of sections) {
-            for (const entry of section.entries) {
-                const originalBullets = entry.bulletPoints.map(bp => bp.content);
-                const cachedBullets = bulletCache.getBulletsForSection(section.type, currentBulletCount);
-                await updateBulletPoints($, entry, cachedBullets);
+            const bullets = section.element.find('li');
+            if (bullets.length > currentBulletCount) {
+                bullets.slice(currentBulletCount).remove();
             }
         }
+        
         attempts++;
     }
 
     return $.html();
-}
-
-// Helper function to find section element based on content
-function findSectionElement($, entry) {
-    // Create unique identifiers from the entry content
-    const identifiers = [
-        entry.title,
-        entry.company,
-        entry.dates,
-        entry.location,
-        ...(entry.bulletPoints || [])
-    ].filter(Boolean).map(text => normalizeText(text));
-
-    // Find elements that contain these identifiers
-    let bestMatch = null;
-    let maxMatches = 0;
-
-    $('div, section').each(function() {
-        const $element = $(this);
-        const elementText = normalizeText($element.text());
-        
-        // Count how many identifiers are found in this element
-        const matches = identifiers.filter(id => elementText.includes(id)).length;
-        
-        if (matches > maxMatches) {
-            maxMatches = matches;
-            bestMatch = $element;
-        }
-    });
-
-    // Require at least 2 matches to consider it a valid section
-    return maxMatches >= 2 ? bestMatch : null;
 }
 
 async function checkPageHeight(page) {
@@ -709,69 +611,51 @@ async function updateSkillsContent($, skillsData) {
 
 async function parseResumeContent(htmlContent) {
     console.log('Parsing resume content structure using LLM...');
-    const prompt = `Analyze the following HTML resume content and extract its semantic structure AND element identification patterns.
+    const prompt = `Analyze the following HTML resume content and extract its semantic structure. Focus on identifying and extracting the actual content of each section, regardless of HTML structure or CSS classes used.
 
-For each section and bullet point, provide:
-1. The actual content
-2. A list of unique identifying patterns that can locate this element in ANY HTML structure
-3. The element's context (parent elements, siblings, etc.)
-
-Return a JSON object with the following structure:
+Return ONLY a valid JSON object with the following structure:
 {
     "jobs": [{
         "title": "Job Title",
         "company": "Company Name",
         "dates": "Date Range",
         "location": "Location",
-        "bulletPoints": [{
-            "content": "Original bullet text",
-            "patterns": [
-                {
-                    "type": "content",
-                    "value": "Exact bullet text for matching"
-                },
-                {
-                    "type": "structure",
-                    "value": "li containing exact text within closest ul/ol"
-                },
-                {
-                    "type": "context",
-                    "value": "Within section containing job title and company"
-                }
-            ]
-        }],
-        "sectionPatterns": [
-            {
-                "type": "content",
-                "value": "Text containing job title and company"
-            },
-            {
-                "type": "structure",
-                "value": "Section/div containing both metadata and bullets"
-            }
-        ]
+        "bulletPoints": ["Original bullet point 1", "Original bullet point 2", ...]
     }],
-    "projects": [Similar structure to jobs],
-    "education": [Similar structure to jobs],
+    "projects": [{
+        "title": "Project Name",
+        "technologies": "Technologies Used (if specified)",
+        "dates": "Date Range (if specified)",
+        "bulletPoints": ["Original bullet point 1", "Original bullet point 2", ...]
+    }],
+    "education": [{
+        "degree": "Degree Name",
+        "institution": "Institution Name",
+        "dates": "Date Range",
+        "location": "Location",
+        "bulletPoints": ["Original bullet point or achievement 1", ...]
+    }],
     "skills": {
-        "technical": ["Skill 1", "Skill 2"],
-        "tools": ["Tool 1", "Tool 2"],
-        "other": ["Other skill 1"],
-        "sectionPatterns": [Array of patterns to locate skills section]
+        "technical": ["Skill 1", "Skill 2", ...],
+        "tools": ["Tool 1", "Tool 2", ...],
+        "other": ["Other skill 1", ...]
     }
 }
 
 IMPORTANT GUIDELINES:
-1. Extract ONLY text that actually exists in the HTML
-2. Provide multiple pattern types for robust element identification
-3. Include context information for disambiguation
-4. Patterns should be specific enough to uniquely identify elements
-5. Consider HTML structure, content, and context in patterns
+1. Extract ONLY text that actually exists in the HTML. Do not generate or infer content.
+2. Include ALL bullet points found in each section, preserving their exact text.
+3. For each section (jobs, projects, education), ensure bullet points are correctly associated with their parent entry.
+4. For skills, categorize them if categories are present in the original, otherwise put all in "technical".
+5. Preserve exact text formatting, including case and punctuation.
+6. If a field is not found (e.g., no location for a job), omit that field rather than returning empty string.
 
 HTML Content to Analyze:
 \`\`\`html
 ${htmlContent}
-\`\`\``;
+\`\`\`
+
+Return ONLY the JSON object. Do not include any explanations or markdown formatting.`;
 
     try {
         const response = await axios.post(
@@ -781,7 +665,7 @@ ${htmlContent}
                 messages: [
                     {
                         role: "system",
-                        content: "You are an AI specialized in analyzing HTML structure and content patterns. Your task is to identify unique patterns that can locate specific elements in any HTML structure."
+                        content: "You are an AI assistant specialized in parsing resume content. You extract the semantic structure and content from HTML resumes, preserving the exact text while organizing it into a clear JSON structure. You return only valid JSON matching the requested format."
                     },
                     {
                         role: "user",
@@ -800,84 +684,31 @@ ${htmlContent}
             }
         );
 
-        return JSON.parse(response.data.choices[0].message.content);
+        const content = response.data.choices[0].message.content;
+        try {
+            const parsedContent = JSON.parse(content);
+            
+            const requiredSections = ['jobs', 'projects', 'education', 'skills'];
+            const hasAllSections = requiredSections.every(section => 
+                Array.isArray(parsedContent[section]) || 
+                (section === 'skills' && typeof parsedContent[section] === 'object')
+            );
+
+            if (typeof parsedContent === 'object' && parsedContent !== null && hasAllSections) {
+                console.log('Successfully parsed resume content structure');
+                return parsedContent;
+            } else {
+                console.error('LLM returned invalid JSON structure:', content);
+                return null;
+            }
+        } catch (jsonError) {
+            console.error('Error parsing JSON from LLM response:', jsonError);
+            return null;
+        }
     } catch (error) {
-        console.error('Error parsing resume:', error);
+        console.error('Error calling OpenAI API for resume parsing:', error.response?.data || error.message);
         return null;
     }
-}
-
-function findElementByPatterns($, patterns, context = null) {
-    let bestMatch = null;
-    let highestConfidence = 0;
-
-    for (const pattern of patterns) {
-        let candidates = new Set();
-        
-        switch (pattern.type) {
-            case 'content':
-                // Find elements containing exact content
-                $('*').each(function() {
-                    const $el = $(this);
-                    if ($el.text().includes(pattern.value)) {
-                        candidates.add($el);
-                    }
-                });
-                break;
-
-            case 'structure':
-                // Find elements matching structural pattern
-                if (pattern.value.includes('li')) {
-                    $('li').each(function() {
-                        candidates.add($(this));
-                    });
-                } else if (pattern.value.includes('section')) {
-                    $('section, div').each(function() {
-                        candidates.add($(this));
-                    });
-                }
-                break;
-
-            case 'context':
-                // Use context to find elements
-                if (context) {
-                    $(context).find('*').each(function() {
-                        candidates.add($(this));
-                    });
-                }
-                break;
-        }
-
-        // Score each candidate
-        candidates.forEach(candidate => {
-            let confidence = 0;
-            const $candidate = $(candidate);
-            const candidateText = $candidate.text();
-
-            // Content matching score
-            if (candidateText.includes(pattern.value)) {
-                confidence += 2;
-            }
-
-            // Structure matching score
-            if (pattern.type === 'structure' && 
-                pattern.value.split(' ').some(p => candidate.prop('tagName').toLowerCase() === p)) {
-                confidence += 1;
-            }
-
-            // Context matching score
-            if (context && $(context).find(candidate).length > 0) {
-                confidence += 1;
-            }
-
-            if (confidence > highestConfidence) {
-                highestConfidence = confidence;
-                bestMatch = $candidate;
-            }
-        });
-    }
-
-    return bestMatch;
 }
 
 async function customizeResume(req, res) {
@@ -906,6 +737,146 @@ async function customizeResume(req, res) {
         res.send(Buffer.from(pdfBuffer));
     } catch (error) {
         res.status(500).send('Error processing resume: ' + error.message);
+    }
+}
+
+async function updateSectionHTML(sectionHTML, newBullets) {
+    const prompt = `You are a specialized HTML manipulation expert. Your task is to update a resume section's HTML with new bullet points while preserving the exact structure and styling.
+
+INPUT HTML SECTION:
+\`\`\`html
+${sectionHTML}
+\`\`\`
+
+NEW BULLET POINTS TO INSERT:
+${JSON.stringify(newBullets, null, 2)}
+
+REQUIREMENTS:
+1. Replace ONLY the bullet point content while preserving:
+   - HTML structure and nesting
+   - CSS classes and styling
+   - Indentation and formatting
+2. Do NOT modify any other parts of the HTML
+3. If no clear bullet point structure exists, create one using the section's existing style
+4. Return ONLY the modified HTML with no explanation or markdown
+
+CRITICAL: Your response must be valid HTML that matches the input structure exactly, with only bullet point content updated.`;
+
+    try {
+        const response = await axios.post(
+            'https://api.openai.com/v1/chat/completions',
+            {
+                model: "gpt-4.1-nano",
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are an HTML manipulation expert that precisely updates resume bullet points while preserving structure and styling."
+                    },
+                    {
+                        role: "user",
+                        content: prompt
+                    }
+                ],
+                temperature: 0.2,
+                max_tokens: 2000
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${openaiApiKey}`
+                }
+            }
+        );
+
+        const updatedHTML = response.data.choices[0].message.content.trim();
+        return updatedHTML;
+    } catch (error) {
+        console.error('Error updating section HTML:', error.response?.data || error.message);
+        return sectionHTML; // Return original HTML on error
+    }
+}
+
+async function identifyResumeSections($) {
+    const sections = [];
+    
+    // Find potential section containers
+    $('div, section').each((_, element) => {
+        const $el = $(element);
+        const text = $el.text().toLowerCase();
+        
+        // Check if element contains job/work experience
+        if (text.includes('experience') || text.includes('work') || text.includes('employment')) {
+            sections.push({
+                type: 'job',
+                element: $el
+            });
+        }
+        
+        // Check if element contains projects
+        if (text.includes('project')) {
+            sections.push({
+                type: 'project',
+                element: $el
+            });
+        }
+        
+        // Check if element contains education
+        if (text.includes('education') || text.includes('academic')) {
+            sections.push({
+                type: 'education',
+                element: $el
+            });
+        }
+    });
+    
+    return sections;
+}
+
+async function updateBulletPoints($, originalBullets, newBullets) {
+    try {
+        // Identify resume sections
+        const sections = await identifyResumeSections($);
+        
+        // Process each section
+        for (const section of sections) {
+            const sectionHTML = section.element.html();
+            if (!sectionHTML) continue;
+            
+            // Update section HTML with new bullets
+            const updatedHTML = await updateSectionHTML(sectionHTML, newBullets);
+            if (updatedHTML && updatedHTML !== sectionHTML) {
+                section.element.html(updatedHTML);
+            }
+        }
+        
+        // Validate bullet point integration
+        const totalBullets = $('li').length;
+        console.log(`Total bullets after update: ${totalBullets}`);
+        
+        if (totalBullets === 0) {
+            console.warn('Warning: No bullet points found after update. Attempting fallback method...');
+            // Fallback: Try to find any container with text matching bullet content
+            for (const bullet of newBullets) {
+                $('div, p').each((_, el) => {
+                    const $el = $(el);
+                    if ($el.text().includes(bullet)) {
+                        const $ul = $('<ul></ul>');
+                        const $li = $('<li></li>').text(bullet);
+                        $ul.append($li);
+                        $el.after($ul);
+                    }
+                });
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error in updateBulletPoints:', error);
+        // On error, try simple bullet replacement as last resort
+        originalBullets.forEach((originalText, index) => {
+            if (index < newBullets.length) {
+                $(`li:contains("${originalText}")`).text(newBullets[index]);
+            }
+        });
     }
 }
 
