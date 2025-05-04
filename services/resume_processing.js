@@ -125,7 +125,7 @@ INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
     const prompt = mode === 'tailor' 
-        ? `${basePrompt}\n\nTASK: Enhance the above bullets by naturally and thoroughly integrating ALL provided keywords. Every keyword must appear at least once across the set. Maintain original metrics and achievements. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`
+        ? `${basePrompt}\n\nTASK: Substantially rewrite and enhance the above bullets by thoroughly integrating ALL provided keywords. Every keyword must appear at least once across the set. Maintain original metrics and achievements but completely rephrase and restructure each bullet for maximum impact. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`
         : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs, ensuring that ALL provided keywords are integrated at least once across the set. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`;
 
     try {
@@ -147,7 +147,7 @@ ${(existingBullets || []).join('\n')}`;
                         content: prompt
                     }
                 ],
-                temperature: 0.4,
+                temperature: 0.7,
                 max_tokens: 4096,
                 top_p: 1
             },
@@ -240,12 +240,18 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     // Task 1: Load HTML content using Cheerio
     const $ = cheerio.load(htmlContent);
     
+    // Initialize array to store all bullets
+    const allBulletsToProcess = [];
+    
     // Task 2: Find all <ul> elements
     const ulElements = $('ul');
     console.log(`Found ${ulElements.length} <ul> elements`);
     
     // Task 3: Create map for storing ul elements and their bullets
     const bulletListMap = new Map();
+    
+    // Create map for storing ul elements and their original bullet counts
+    const ulElementMap = new Map();
     
     // Task 4: Iterate through each ul element
     ulElements.each((index, ul) => {
@@ -263,24 +269,39 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         // Task 7: Store bullets with their ul element reference
         bulletListMap.set(currentUl, bulletTexts);
         console.log(`Stored bullets for ul #${index + 1} in map`);
+        
+        // Add bullets to the complete list for processing
+        allBulletsToProcess.push(...bulletTexts);
+        
+        // Store original bullet count
+        ulElementMap.set(currentUl, bulletTexts.length);
     });
     
     // Task 8: Iterate through stored ul references and their bullets
     let processedCount = 0;
     let firstUlElement = null;
+    
+    // Generate all bullets at once
+    const processedBullets = await generateBullets(
+        fullTailoring ? 'tailor' : 'generate',
+        allBulletsToProcess,
+        keywords,
+        'for experience section',
+        12
+    );
+    console.log('Generated bullets:', processedBullets.length);
+    
+    let currentIndex = 0;
+    
     for (const [ulElement, originalBullets] of bulletListMap) {
         if (!firstUlElement) firstUlElement = ulElement;
-        console.log(`Processing stored ul #${++processedCount} with ${originalBullets.length} bullets`);
+        console.log(`Processing stored ul #${++processedCount}`);
         
-        // Task 9: Generate new bullets
-        const newBullets = await generateBullets(
-            fullTailoring ? 'tailor' : 'generate',
-            originalBullets,
-            keywords,
-            'for experience section',
-            12
-        );
-        console.log('New bullets content:', JSON.stringify(newBullets, null, 2));
+        // Calculate the slice of bullets for this ul element
+        const originalCount = ulElementMap.get(ulElement);
+        const endIndex = currentIndex + originalCount;
+        const bulletsForCurrentUl = processedBullets.slice(currentIndex, endIndex);
+        console.log(`Sliced ${bulletsForCurrentUl.length} bullets for current ul`);
         
         // Task 10: Find current li elements again
         const currentLiElements = ulElement.children('li');
@@ -288,29 +309,31 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         
         // Task 11: Update text content of each li element
         currentLiElements.each((index, li) => {
-            const originalText = $(li).text();
-            console.log(`Original bullet #${index + 1}:`, originalText);
-            if (index < newBullets.length) {
-                // Temporary test update
-                $(li).text('---TEST UPDATE---');
-                console.log(`Updated bullet #${index + 1}:`, $(li).text());
+            if (index < bulletsForCurrentUl.length) {
+                const originalText = $(li).text();
+                console.log(`Original bullet #${index + 1}:`, originalText);
+                $(li).text(bulletsForCurrentUl[index]);
+                console.log(`Updated bullet #${index + 1} to:`, bulletsForCurrentUl[index]);
             }
         });
-        console.log(`Updated ${Math.min(currentLiElements.length, newBullets.length)} bullet points`);
+        console.log(`Updated ${Math.min(currentLiElements.length, bulletsForCurrentUl.length)} bullet points`);
         
         // Task 12: Remove excess li elements
-        if (currentLiElements.length > newBullets.length) {
-            currentLiElements.slice(newBullets.length).remove();
-            console.log(`Removed ${currentLiElements.length - newBullets.length} excess bullet points`);
+        if (currentLiElements.length > bulletsForCurrentUl.length) {
+            currentLiElements.slice(bulletsForCurrentUl.length).remove();
+            console.log(`Removed ${currentLiElements.length - bulletsForCurrentUl.length} excess bullet points`);
         }
         
         // Task 13: Add new li elements if needed
-        if (newBullets.length > currentLiElements.length) {
-            for (let i = currentLiElements.length; i < newBullets.length; i++) {
-                ulElement.append($('<li>').text(newBullets[i]));
+        if (bulletsForCurrentUl.length > currentLiElements.length) {
+            for (let i = currentLiElements.length; i < bulletsForCurrentUl.length; i++) {
+                ulElement.append($('<li>').text(bulletsForCurrentUl[i]));
             }
-            console.log(`Added ${newBullets.length - currentLiElements.length} new bullet points`);
+            console.log(`Added ${bulletsForCurrentUl.length - currentLiElements.length} new bullet points`);
         }
+        
+        // Update currentIndex for next iteration
+        currentIndex = endIndex;
     }
     
     if (firstUlElement) {
