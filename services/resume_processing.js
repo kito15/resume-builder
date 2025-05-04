@@ -328,83 +328,6 @@ class BulletCache {
     }
 }
 
-async function updateBulletPoints($, originalBullets, newBullets) {
-    if (!originalBullets || !newBullets || originalBullets.length === 0 || newBullets.length === 0) {
-        return;
-    }
-
-    try {
-        const htmlContent = $.html();
-        const prompt = `You are a specialized HTML processor. Your task is to precisely replace specific bullet points in an HTML document while preserving ALL styling, structure, and other content exactly as is.
-
-INSTRUCTIONS:
-1. I will provide you with an HTML document and two lists: original bullet points and their replacements.
-2. Replace EACH original bullet point text with its corresponding replacement from the list.
-3. ONLY change the text content inside the list item elements that EXACTLY match the original bullet text.
-4. Preserve ALL HTML structure, attributes, CSS classes, and styling exactly as they appear in the original.
-5. Return ONLY the complete modified HTML document with no explanation.
-
-Original bullet points:
-${JSON.stringify(originalBullets)}
-
-Replacement bullet points:
-${JSON.stringify(newBullets)}
-
-HTML Content:
-${htmlContent}`;
-
-        const response = await axios.post(
-            'https://api.openai.com/v1/chat/completions',
-            {
-                model: "gpt-4.1-nano",
-                messages: [
-                    {
-                        role: "system",
-                        content: "You are a specialized HTML processor. You perform targeted text replacements in HTML without modifying structure, styling, or any other content."
-                    },
-                    {
-                        role: "user",
-                        content: prompt
-                    }
-                ],
-                temperature: 0.1,
-                max_tokens: 4096,
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${openaiApiKey}`
-                }
-            }
-        );
-
-        const modifiedHtml = response.data.choices[0].message.content;
-        
-        // Load the modified HTML back into cheerio
-        return cheerio.load(modifiedHtml);
-    } catch (error) {
-        console.error('Error updating bullet points via LLM:', error.response?.data || error.message);
-        
-        // Fallback to the original method if the LLM approach fails
-        const bulletMap = new Map();
-        $('li').each((_, el) => {
-            const text = $(el).text().trim();
-            if (text && originalBullets.includes(text)) {
-                bulletMap.set(text, el);
-            }
-        });
-
-        originalBullets.forEach((originalText, index) => {
-            if (index < newBullets.length && bulletMap.has(originalText)) {
-                const element = bulletMap.get(originalText);
-                $(element).text(newBullets[index]);
-            }
-        });
-        
-        return $;
-    }
-}
-
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     
@@ -426,8 +349,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         keywords.join(', ') : 
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
 
-    let updatedCheerio = $;
-    
     for (const section of sections) {
         for (const entry of section.entries) {
             const originalBullets = entry.bulletPoints || [];
@@ -440,10 +361,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
                 12
             );
 
-            const result = await updateBulletPoints(updatedCheerio, originalBullets, newBullets);
-            if (result) {
-                updatedCheerio = result;
-            }
+            await updateBulletPoints($, originalBullets, newBullets, resumeContent.bulletIdMap);
 
             newBullets.forEach(bullet => {
                 bulletCache.addBulletToSection(bullet, section.type);
@@ -453,14 +371,14 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         }
     }
 
-    await updateSkillsContent(updatedCheerio, resumeContent.skills);
+    await updateSkillsContent($, resumeContent.skills);
 
     let currentBulletCount = 4;
     let attempts = 0;
     const MIN_BULLETS = 2;
 
     while (attempts < 3 && currentBulletCount >= MIN_BULLETS) {
-        const { exceedsOnePage } = await convertHtmlToPdf(updatedCheerio.html());
+        const { exceedsOnePage } = await convertHtmlToPdf($.html());
         if (!exceedsOnePage) break;
 
         currentBulletCount--;
@@ -468,16 +386,13 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
             for (const entry of section.entries) {
                 const originalBullets = entry.bulletPoints || [];
                 const cachedBullets = bulletCache.getBulletsForSection(section.type, currentBulletCount);
-                const result = await updateBulletPoints(updatedCheerio, originalBullets, cachedBullets);
-                if (result) {
-                    updatedCheerio = result;
-                }
+                await updateBulletPoints($, originalBullets, cachedBullets, resumeContent.bulletIdMap);
             }
         }
         attempts++;
     }
 
-    return updatedCheerio.html();
+    return $.html();
 }
 
 async function checkPageHeight(page) {
@@ -726,6 +641,24 @@ async function updateSkillsContent($, skillsData) {
 
 async function parseResumeContent(htmlContent) {
     console.log('Parsing resume content structure using LLM...');
+    
+    // Create a temporary DOM to manipulate and add identifiers to li elements
+    const tempDom = cheerio.load(htmlContent);
+    const bulletIdMap = new Map();
+    
+    // Add unique data-bullet-id attributes to all li elements
+    tempDom('li').each((index, element) => {
+        const bulletText = tempDom(element).text().trim();
+        if (bulletText) {
+            const bulletId = `bullet-${generateHash(bulletText)}-${index}`;
+            tempDom(element).attr('data-bullet-id', bulletId);
+            bulletIdMap.set(bulletText, bulletId);
+        }
+    });
+    
+    // Use the modified HTML for the LLM to parse
+    const modifiedHtml = tempDom.html();
+    
     const prompt = `Analyze the following HTML resume content and extract its semantic structure. Focus on identifying and extracting the actual content of each section, regardless of HTML structure or CSS classes used.
 
 Return ONLY a valid JSON object with the following structure:
@@ -767,7 +700,7 @@ IMPORTANT GUIDELINES:
 
 HTML Content to Analyze:
 \`\`\`html
-${htmlContent}
+${modifiedHtml}
 \`\`\`
 
 Return ONLY the JSON object. Do not include any explanations or markdown formatting.`;
@@ -811,6 +744,10 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
 
             if (typeof parsedContent === 'object' && parsedContent !== null && hasAllSections) {
                 console.log('Successfully parsed resume content structure');
+                
+                // Add the bulletIdMap to the parsed content
+                parsedContent.bulletIdMap = Object.fromEntries(bulletIdMap);
+                
                 return parsedContent;
             } else {
                 console.error('LLM returned invalid JSON structure:', content);
@@ -853,6 +790,40 @@ async function customizeResume(req, res) {
     } catch (error) {
         res.status(500).send('Error processing resume: ' + error.message);
     }
+}
+
+async function updateBulletPoints($, originalBullets, newBullets, bulletIdMap) {
+    const bulletMap = new Map();
+    
+    // First try to find li elements by their data-bullet-id attribute
+    if (bulletIdMap) {
+        originalBullets.forEach(originalText => {
+            const bulletId = bulletIdMap[originalText];
+            if (bulletId) {
+                const element = $(`li[data-bullet-id="${bulletId}"]`);
+                if (element.length > 0) {
+                    bulletMap.set(originalText, element);
+                }
+            }
+        });
+    }
+    
+    // Fall back to finding by text content for any bullets not found by ID
+    if (bulletMap.size < originalBullets.length) {
+        $('li').each((_, el) => {
+            const text = $(el).text().trim();
+            if (text && originalBullets.includes(text) && !bulletMap.has(text)) {
+                bulletMap.set(text, $(el));
+            }
+        });
+    }
+
+    originalBullets.forEach((originalText, index) => {
+        if (index < newBullets.length && bulletMap.has(originalText)) {
+            const element = bulletMap.get(originalText);
+            $(element).text(newBullets[index]);
+        }
+    });
 }
 
 module.exports = { customizeResume };
