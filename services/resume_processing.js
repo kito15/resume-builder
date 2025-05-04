@@ -1,7 +1,6 @@
 const puppeteer = require('puppeteer');
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { normalizeText, generateHash, calculateSimilarity, calculateKeywordSimilarity } = require('../config/util');
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
 
@@ -268,113 +267,137 @@ function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
     return sortedBullets;
 }
 
+class BulletCache {
+    constructor() {
+        this.cache = new Map();
+        this.sectionPools = {
+            job: new Set(),
+            project: new Set()
+        };
+        this.targetBulletCounts = {
+            job: 5,
+            project: 4
+        };
+    }
+    async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
+        const sections = ['job', 'project'];
+        const cacheKey = `${keywords.join(',')}_${context}`;
+        if (this.cache.has(cacheKey)) {
+            return this.cache.get(cacheKey);
+        }
+        const allBullets = {};
+        const promises = sections.map(async (section) => {
+            const targetCount = this.targetBulletCounts[section];
+            const bullets = await generateBullets(
+                'generate',
+                null,
+                keywords,
+                `for ${section} experience`,
+                wordLimit,
+                verbTracker
+            );
+            allBullets[section] = bullets.slice(0, targetCount);
+            bullets.forEach(bullet => this.sectionPools[section].add(bullet));
+        });
+        await Promise.all(promises);
+        this.cache.set(cacheKey, allBullets);
+        return allBullets;
+    }
+    getBulletsForSection(section, count) {
+        const seen = new Set();
+        const uniqueBullets = [];
+        for (const bullet of this.sectionPools[section]) {
+            const norm = bullet.toLowerCase().replace(/\s+/g, ' ').trim();
+            if (!seen.has(norm)) {
+                seen.add(norm);
+                uniqueBullets.push(bullet);
+            }
+            if (uniqueBullets.length >= count) break;
+        }
+        return uniqueBullets;
+    }
+    addBulletToSection(bullet, section) {
+        if (bullet && bullet.trim().length > 0) {
+            this.sectionPools[section].add(bullet);
+        }
+    }
+    clear() {
+        this.cache.clear();
+        Object.values(this.sectionPools).forEach(pool => pool.clear());
+    }
+}
+
 async function updateResume(htmlContent, keywords, fullTailoring) {
+    // Task 1: Load HTML content using Cheerio
     const $ = cheerio.load(htmlContent);
-    const verbTracker = new ActionVerbTracker();
     
-    // Find all bullet lists in the document
-    const bulletLists = $('ul');
-    console.log(`Found ${bulletLists.length} bullet lists to process`);
-
-    // Process each bullet list independently
-    for (const list of bulletLists.toArray()) {
-        const $list = $(list);
+    // Task 2: Find all <ul> elements
+    const ulElements = $('ul');
+    console.log(`Found ${ulElements.length} <ul> elements`);
+    
+    // Task 3: Create map for storing ul elements and their bullets
+    const bulletListMap = new Map();
+    
+    // Task 4: Iterate through each ul element
+    ulElements.each((index, ul) => {
+        const currentUl = $(ul);
+        console.log(`Processing ul element #${index + 1}`);
         
-        // Extract original bullets from this list
-        const originalBullets = $list.find('li')
-            .map((_, li) => $(li).text().trim())
-            .get()
-            .filter(text => text.length > 0);
-
-        if (originalBullets.length === 0) continue; // Skip empty lists
-
-        // Generate new bullets for this list
-        const keywordString = fullTailoring ? 
-            keywords.join(', ') : 
-            keywords.slice(0, Math.min(5, keywords.length)).join(', ');
-
+        // Task 5: Find all direct li children
+        const liElements = currentUl.children('li');
+        console.log(`Found ${liElements.length} bullet points in ul #${index + 1}`);
+        
+        // Task 6: Extract text from each li element
+        const bulletTexts = liElements.map((_, li) => $(li).text().trim()).get();
+        console.log(`Extracted ${bulletTexts.length} bullet texts`);
+        
+        // Task 7: Store bullets with their ul element reference
+        bulletListMap.set(currentUl, bulletTexts);
+        console.log(`Stored bullets for ul #${index + 1} in map`);
+    });
+    
+    // Task 8: Iterate through stored ul references and their bullets
+    let processedCount = 0;
+    for (const [ulElement, originalBullets] of bulletListMap) {
+        console.log(`Processing stored ul #${++processedCount} with ${originalBullets.length} bullets`);
+        
+        // Task 9: Generate new bullets
         const newBullets = await generateBullets(
             fullTailoring ? 'tailor' : 'generate',
             originalBullets,
-            keywordString,
-            'for this section', // Generic context since we don't know the section type
-            12 // Standard word limit
+            keywords,
+            'for experience section',
+            12
         );
-
-        // Track verbs from new bullets
-        newBullets.forEach(bullet => {
-            const verb = getFirstVerb(bullet);
-            if (verb) verbTracker.addVerb(verb, 'generic');
-        });
-
-        // Replace bullets in this list
-        $list.empty(); // Remove existing bullets
-        newBullets.forEach(bullet => {
-            $list.append(`<li>${bullet}</li>`);
-        });
-    }
-
-    // Find and update skills section using heuristic approach
-    const skillsElements = $('*').filter((_, el) => {
-        const text = $(el).text().toLowerCase();
-        return text.includes('skills') || text.includes('technologies') || text.includes('tools');
-    });
-
-    if (skillsElements.length > 0) {
-        // Find the most likely skills container (the one with the most technical terms)
-        let bestSkillsElement = null;
-        let maxTechTerms = 0;
-
-        skillsElements.each((_, el) => {
-            const text = $(el).text().toLowerCase();
-            const techTermCount = keywords.filter(kw => text.includes(kw.toLowerCase())).length;
-            if (techTermCount > maxTechTerms) {
-                maxTechTerms = techTermCount;
-                bestSkillsElement = $(el);
+        console.log(`Generated ${newBullets.length} new bullets`);
+        
+        // Task 10: Find current li elements again
+        const currentLiElements = ulElement.children('li');
+        console.log(`Found ${currentLiElements.length} current li elements to update`);
+        
+        // Task 11: Update text content of each li element
+        currentLiElements.each((index, li) => {
+            if (index < newBullets.length) {
+                $(li).text(newBullets[index]);
             }
         });
-
-        if (bestSkillsElement) {
-            const categorizedSkills = await categorizeKeywords(keywords);
-            if (categorizedSkills) {
-                bestSkillsElement.empty();
-                Object.entries(categorizedSkills).forEach(([category, skills]) => {
-                    if (skills && skills.length > 0) {
-                        const formattedCategory = category
-                            .split(/(?=[A-Z])/)
-                            .join(' ')
-                            .replace(/^\w/, c => c.toUpperCase());
-                        bestSkillsElement.append(
-                            `<p><strong>${formattedCategory}:</strong> ${skills.join(', ')}</p>`
-                        );
-                    }
-                });
+        console.log(`Updated ${Math.min(currentLiElements.length, newBullets.length)} bullet points`);
+        
+        // Task 12: Remove excess li elements
+        if (currentLiElements.length > newBullets.length) {
+            currentLiElements.slice(newBullets.length).remove();
+            console.log(`Removed ${currentLiElements.length - newBullets.length} excess bullet points`);
+        }
+        
+        // Task 13: Add new li elements if needed
+        if (newBullets.length > currentLiElements.length) {
+            for (let i = currentLiElements.length; i < newBullets.length; i++) {
+                ulElement.append($('<li>').text(newBullets[i]));
             }
+            console.log(`Added ${newBullets.length - currentLiElements.length} new bullet points`);
         }
     }
-
-    // Handle page overflow
-    let currentBulletCount = 4;
-    let attempts = 0;
-    const MIN_BULLETS = 2;
-
-    while (attempts < 3 && currentBulletCount >= MIN_BULLETS) {
-        const { exceedsOnePage } = await convertHtmlToPdf($.html());
-        if (!exceedsOnePage) break;
-
-        // Reduce bullets in all lists
-        bulletLists.each((_, list) => {
-            const $list = $(list);
-            const bullets = $list.find('li');
-            if (bullets.length > currentBulletCount) {
-                bullets.slice(currentBulletCount).remove();
-            }
-        });
-
-        currentBulletCount--;
-        attempts++;
-    }
-
+    
     return $.html();
 }
 
@@ -430,198 +453,6 @@ async function convertHtmlToPdf(htmlContent) {
     return { pdfBuffer, exceedsOnePage: height > MAX_HEIGHT };
 }
 
-async function adjustBulletPoints($, sections, currentBulletCount) {
-    sections.forEach(section => {
-        const bulletList = $(section).find('ul');
-        const bullets = bulletList.find('li');
-        if (bullets.length > currentBulletCount) {
-            bullets.last().remove();
-        }
-    });
-    return currentBulletCount - 1;
-}
-
-async function categorizeKeywords(keywords) {
-    if (!keywords || keywords.length === 0) return null;
-    
-    try {
-        const prompt = `Analyze the provided keywords for relevance to Applicant Tracking Systems (ATS) focused on technical roles. Your goal is to select ONLY the most impactful technical skills, tools, platforms, and specific methodologies.
-
-HIGHEST PRIORITY: Under NO circumstances should you generate more than THREE (3) categories/sections for technical skills. If there would be more, you MUST combine or merge categories/types so that the total is 3 or fewer. This is the most important rule. Do NOT return 4 or more categories, even if it means grouping types together.
-
-CRITERIA FOR INCLUSION (Prioritize these):
-- Programming Languages (e.g., Python, Java, JavaScript, C++, SQL, HTML, CSS)
-- Frameworks & Libraries (e.g., React, Node.js, Angular, TensorFlow, Scikit-learn, jQuery, Spring, Next.js, Pytorch)
-- Databases & Caching (e.g., MySQL, Postgres, Redis)
-- Cloud Platforms & Services (e.g., AWS, Kubeflow)
-- Tools & Technologies (e.g., Git, Jira, Selenium)
-- Specific Methodologies (e.g., Agile)
-- Key Technical Concepts (e.g., REST APIs, Microservices, Computer Vision, Data Analytics, Machine Learning, OAuth, Encryption, Containerization)
-
-CRITERIA FOR EXCLUSION (STRICTLY Exclude these types):
-- Soft Skills (e.g., Problem-Solving, Leadership, Collaboration)
-- General Business Concepts (e.g., Development Lifecycle, Performance Engineering, User Experience, Reusability, Consistency, Simplicity, Testing Practices, Project Management)
-- Vague or Abstract Terms (e.g., Services, Modern Foundation, Data Sets, POCs, Coding Standards, Full Stack Engineering)
-- Redundant terms if a more specific one exists (e.g., prefer 'REST APIs' over 'API' or 'APIs' if both contextually fit; prefer 'Agile Methodologies' over 'Agile' if present). Only include the most specific applicable term.
-
-Based on these criteria, categorize the SELECTED keywords into NO MORE THAN THREE (3) categories. If you would have more, merge or combine them. Example groupings: (1) Languages, (2) Frameworks/Libraries/Tools, (3) Other Technical Skills. You may combine as needed, but never return more than 3 categories.
-
-Return ONLY a JSON object containing the SELECTED and CATEGORIZED keywords. The keys should be the category names (maximum 3). The values should be arrays of the selected keywords. Every selected keyword MUST be placed in exactly one category. Do not include any keywords from the original list that fail the inclusion criteria or meet the exclusion criteria. Ensure the output is clean, valid JSON. Example format: {"Languages": ["Python", "SQL"], "Frameworks/Libraries/Tools": ["React"], "Other Technical Skills": ["AWS", "Git", "REST APIs"]}`;
-
-        const response = await axios.post(
-            'https://api.openai.com/v1/chat/completions',
-            {
-                model: "gpt-4.1-nano",
-                messages: [
-                    {
-                        role: "system",
-                        content: "You are an AI trained to categorize technical keywords for resumes."
-                    },
-                    {
-                        role: "user",
-                        content: prompt
-                    }
-                ],
-                temperature: 0.4,
-                max_tokens: 2000,
-                top_p: 1
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${openaiApiKey}`
-                }
-            }
-        );
-        
-        const content = response.data.choices[0].message.content;
-        const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/{[\s\S]*?}/);
-        const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
-        
-        try {
-            return JSON.parse(jsonString);
-        } catch (jsonError) {
-            console.error('Error parsing JSON from LLM response:', jsonError);
-            const fallbackCategories = {
-                "Languages": [],
-                "Frameworks/Libraries": [],
-                "Others": []
-            };
-            fallbackCategories["Others"] = keywords;
-            return fallbackCategories;
-        }
-    } catch (error) {
-        console.error('Error categorizing keywords:', error.response?.data || error.message);
-        return null;
-    }
-}
-
-function updateSkillsSection($, keywords, selectors) {
-    return new Promise(async (resolve, reject) => {
-        try {
-            const categorizedKeywords = await categorizeKeywords(keywords);
-            if (!categorizedKeywords) {
-                console.warn('Could not categorize keywords, skills section unchanged');
-                resolve($);
-                return;
-            }
-            const skillsSection = $(selectors.skillsSectionSelector);
-            if (skillsSection.length === 0) {
-                console.warn(`Skills section not found using selector: ${selectors.skillsSectionSelector}`);
-                resolve($);
-                return;
-            }
-            const categoryMapping = {
-                "Languages": "Languages:",
-                "Frameworks/Libraries": "Frameworks/Libraries:",
-                "Others": "Others (APIs, Services, Protocols):",
-                "Machine Learning Libraries": "Machine Learning Libraries:"
-            };
-            Object.entries(categoryMapping).forEach(([dataKey, htmlLabel]) => {
-                if (categorizedKeywords[dataKey] && categorizedKeywords[dataKey].length > 0) {
-                    const keywordsList = categorizedKeywords[dataKey].join(', ');
-                    const paragraph = skillsSection.find(`p > strong:contains("${htmlLabel}")`).parent('p');
-                    if (paragraph.length > 0) {
-                        paragraph.html(`<strong>${htmlLabel}</strong> ${keywordsList}`);
-                    } else {
-                        skillsSection.append(`<p><strong>${htmlLabel}</strong> ${keywordsList}</p>`);
-                    }
-                } else {
-                     skillsSection.find(`p > strong:contains("${htmlLabel}")`).parent('p').remove();
-                }
-            });
-            resolve($);
-        } catch (error) {
-            console.error('Error updating skills section:', error);
-            resolve($);
-        }
-    });
-}
-
-async function updateSkillsContent($, skillsData) {
-    const skillElements = $('p, div, section').filter((_, el) => {
-        const text = $(el).text().toLowerCase();
-        return text.includes('skills') || text.includes('technologies') || text.includes('tools');
-    });
-
-    if (skillElements.length === 0) {
-        console.warn('No skills section found in the HTML');
-        return;
-    }
-
-    let skillsContainer = null;
-    let maxSkillCount = 0;
-
-    skillElements.each((_, el) => {
-        const text = $(el).text().toLowerCase();
-        const skillCount = Object.values(skillsData)
-            .flat()
-            .filter(skill => text.includes(skill.toLowerCase()))
-            .length;
-        
-        if (skillCount > maxSkillCount) {
-            maxSkillCount = skillCount;
-            skillsContainer = $(el);
-        }
-    });
-
-    if (!skillsContainer) {
-        console.warn('Could not identify main skills container');
-        return;
-    }
-
-    skillsContainer.empty();
-
-    const styleElement = $('<style></style>');
-    styleElement.text('.skills-section p { margin: 0; padding: 2px 0; }');
-    $('head').append(styleElement);
-
-    const categorizedSkills = await categorizeKeywords(
-        Object.values(skillsData).flat()
-    );
-
-    if (!categorizedSkills) {
-        console.warn('Failed to categorize skills');
-        return;
-    }
-
-    const categories = Object.entries(categorizedSkills);
-    categories.forEach(([category, skills], index) => {
-        if (skills && skills.length > 0) {
-            const formattedCategory = category
-                .split(/(?=[A-Z])/)
-                .join(' ')
-                .replace(/^\w/, c => c.toUpperCase());
-
-            const categoryElement = $('<p></p>');
-            categoryElement.html(`<strong>${formattedCategory}:</strong> ${skills.join(', ')}`);
-            skillsContainer.append(categoryElement);
-        }
-    });
-
-    skillsContainer.addClass('skills-section');
-}
-
 async function customizeResume(req, res) {
     try {
         const { htmlContent, keywords, fullTailoring } = req.body;
@@ -634,11 +465,6 @@ async function customizeResume(req, res) {
             return res.status(400).send('Invalid HTML content: Content too short');
         }
         const updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
-        const $ = cheerio.load(updatedHtmlContent);
-        const jobBullets = $('.job-details li').length;
-        const projectBullets = $('.project-details li').length;
-        const educationBullets = $('.education-details li').length;
-        console.log(`Generated bullet counts: Jobs=${jobBullets}, Projects=${projectBullets}, Education=${educationBullets}`);
         const { pdfBuffer, exceedsOnePage } = await convertHtmlToPdf(updatedHtmlContent);
         if (exceedsOnePage) {
             console.warn('Warning: Resume still exceeds one page after adjustments');
