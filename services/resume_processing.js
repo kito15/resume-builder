@@ -328,46 +328,30 @@ class BulletCache {
     }
 }
 
-async function updateBulletPoints($, originalBullets, newBullets) {
-    // Create a normalized version of bullets for fuzzy matching
-    const normalizedOriginal = originalBullets.map(bullet => normalizeText(bullet));
-    
-    // Find all potential bullet point containers
-    const bulletContainers = $('ul, ol').filter(function() {
-        const containerText = $(this).text().trim();
-        // Check if this container has any of the original bullets
-        return normalizedOriginal.some(bullet => 
-            normalizeText(containerText).includes(bullet)
-        );
-    });
+async function updateBulletPoints($, section, newBullets) {
+    // Find the section element first
+    const $section = findElementByPatterns($, section.sectionPatterns);
+    if (!$section) return false;
 
-    // For each container, try to match and update bullets
-    bulletContainers.each(function() {
-        const $container = $(this);
-        const $bullets = $container.find('li');
+    // Update each bullet point
+    let updatedCount = 0;
+    for (let i = 0; i < section.bulletPoints.length && i < newBullets.length; i++) {
+        const bulletData = section.bulletPoints[i];
+        const $bullet = findElementByPatterns($, bulletData.patterns, $section);
         
-        $bullets.each(function(idx) {
-            const $bullet = $(this);
-            const bulletText = $bullet.text().trim();
-            const normalizedBulletText = normalizeText(bulletText);
-            
-            // Find matching original bullet
-            const originalIndex = normalizedOriginal.findIndex(
-                original => original === normalizedBulletText
-            );
-            
-            // If we found a match and have a corresponding new bullet, update it
-            if (originalIndex !== -1 && newBullets[originalIndex]) {
-                $bullet.text(newBullets[originalIndex]);
-            }
-        });
-    });
+        if ($bullet) {
+            $bullet.text(newBullets[i]);
+            updatedCount++;
+        }
+    }
+
+    return updatedCount > 0;
 }
 
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     
-    // Parse resume content
+    // Parse resume content with element identification patterns
     const resumeContent = await parseResumeContent(htmlContent);
     if (!resumeContent) {
         console.error("Failed to parse resume content. Aborting resume update.");
@@ -377,7 +361,6 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     const verbTracker = new ActionVerbTracker();
     const bulletCache = new BulletCache();
 
-    // Process each section type
     const sections = [
         { type: 'job', entries: resumeContent.jobs, targetBulletCount: 4 },
         { type: 'project', entries: resumeContent.projects, targetBulletCount: 3 }
@@ -387,14 +370,13 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         keywords.join(', ') : 
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
 
+    let totalJobBullets = 0;
+    let totalProjectBullets = 0;
+
     // Process each section
     for (const section of sections) {
         for (const entry of section.entries) {
-            // Find the corresponding section in HTML using content matching
-            const sectionElement = findSectionElement($, entry);
-            if (!sectionElement) continue;
-
-            const originalBullets = entry.bulletPoints || [];
+            const originalBullets = entry.bulletPoints.map(bp => bp.content);
             
             const newBullets = await generateBullets(
                 fullTailoring ? 'tailor' : 'generate',
@@ -404,20 +386,27 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
                 12
             );
 
-            // Update bullets in the found section
-            await updateBulletPoints($, originalBullets, newBullets);
+            // Update bullets and track success
+            const updated = await updateBulletPoints($, entry, newBullets);
+            if (updated) {
+                if (section.type === 'job') totalJobBullets += newBullets.length;
+                if (section.type === 'project') totalProjectBullets += newBullets.length;
 
-            // Update trackers
-            newBullets.forEach(bullet => {
-                bulletCache.addBulletToSection(bullet, section.type);
-                const verb = getFirstVerb(bullet);
-                if (verb) verbTracker.addVerb(verb, section.type);
-            });
+                newBullets.forEach(bullet => {
+                    bulletCache.addBulletToSection(bullet, section.type);
+                    const verb = getFirstVerb(bullet);
+                    if (verb) verbTracker.addVerb(verb, section.type);
+                });
+            }
         }
     }
 
-    // Update skills section
-    await updateSkillsContent($, resumeContent.skills);
+    // Update skills section if patterns are available
+    if (resumeContent.skills.sectionPatterns) {
+        await updateSkillsContent($, resumeContent.skills);
+    }
+
+    console.log(`Updated bullet counts - Jobs: ${totalJobBullets}, Projects: ${totalProjectBullets}`);
 
     // Handle page overflow
     let currentBulletCount = 4;
@@ -431,9 +420,9 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         currentBulletCount--;
         for (const section of sections) {
             for (const entry of section.entries) {
-                const originalBullets = entry.bulletPoints || [];
+                const originalBullets = entry.bulletPoints.map(bp => bp.content);
                 const cachedBullets = bulletCache.getBulletsForSection(section.type, currentBulletCount);
-                await updateBulletPoints($, originalBullets, cachedBullets);
+                await updateBulletPoints($, entry, cachedBullets);
             }
         }
         attempts++;
@@ -720,51 +709,69 @@ async function updateSkillsContent($, skillsData) {
 
 async function parseResumeContent(htmlContent) {
     console.log('Parsing resume content structure using LLM...');
-    const prompt = `Analyze the following HTML resume content and extract its semantic structure. Focus on identifying and extracting the actual content of each section, regardless of HTML structure or CSS classes used.
+    const prompt = `Analyze the following HTML resume content and extract its semantic structure AND element identification patterns.
 
-Return ONLY a valid JSON object with the following structure:
+For each section and bullet point, provide:
+1. The actual content
+2. A list of unique identifying patterns that can locate this element in ANY HTML structure
+3. The element's context (parent elements, siblings, etc.)
+
+Return a JSON object with the following structure:
 {
     "jobs": [{
         "title": "Job Title",
         "company": "Company Name",
         "dates": "Date Range",
         "location": "Location",
-        "bulletPoints": ["Original bullet point 1", "Original bullet point 2", ...]
+        "bulletPoints": [{
+            "content": "Original bullet text",
+            "patterns": [
+                {
+                    "type": "content",
+                    "value": "Exact bullet text for matching"
+                },
+                {
+                    "type": "structure",
+                    "value": "li containing exact text within closest ul/ol"
+                },
+                {
+                    "type": "context",
+                    "value": "Within section containing job title and company"
+                }
+            ]
+        }],
+        "sectionPatterns": [
+            {
+                "type": "content",
+                "value": "Text containing job title and company"
+            },
+            {
+                "type": "structure",
+                "value": "Section/div containing both metadata and bullets"
+            }
+        ]
     }],
-    "projects": [{
-        "title": "Project Name",
-        "technologies": "Technologies Used (if specified)",
-        "dates": "Date Range (if specified)",
-        "bulletPoints": ["Original bullet point 1", "Original bullet point 2", ...]
-    }],
-    "education": [{
-        "degree": "Degree Name",
-        "institution": "Institution Name",
-        "dates": "Date Range",
-        "location": "Location",
-        "bulletPoints": ["Original bullet point or achievement 1", ...]
-    }],
+    "projects": [Similar structure to jobs],
+    "education": [Similar structure to jobs],
     "skills": {
-        "technical": ["Skill 1", "Skill 2", ...],
-        "tools": ["Tool 1", "Tool 2", ...],
-        "other": ["Other skill 1", ...]
+        "technical": ["Skill 1", "Skill 2"],
+        "tools": ["Tool 1", "Tool 2"],
+        "other": ["Other skill 1"],
+        "sectionPatterns": [Array of patterns to locate skills section]
     }
 }
 
 IMPORTANT GUIDELINES:
-1. Extract ONLY text that actually exists in the HTML. Do not generate or infer content.
-2. Include ALL bullet points found in each section, preserving their exact text.
-3. For each section (jobs, projects, education), ensure bullet points are correctly associated with their parent entry.
-4. For skills, categorize them if categories are present in the original, otherwise put all in "technical".
-5. Preserve exact text formatting, including case and punctuation.
-6. If a field is not found (e.g., no location for a job), omit that field rather than returning empty string.
+1. Extract ONLY text that actually exists in the HTML
+2. Provide multiple pattern types for robust element identification
+3. Include context information for disambiguation
+4. Patterns should be specific enough to uniquely identify elements
+5. Consider HTML structure, content, and context in patterns
 
 HTML Content to Analyze:
 \`\`\`html
 ${htmlContent}
-\`\`\`
-
-Return ONLY the JSON object. Do not include any explanations or markdown formatting.`;
+\`\`\``;
 
     try {
         const response = await axios.post(
@@ -774,7 +781,7 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
                 messages: [
                     {
                         role: "system",
-                        content: "You are an AI assistant specialized in parsing resume content. You extract the semantic structure and content from HTML resumes, preserving the exact text while organizing it into a clear JSON structure. You return only valid JSON matching the requested format."
+                        content: "You are an AI specialized in analyzing HTML structure and content patterns. Your task is to identify unique patterns that can locate specific elements in any HTML structure."
                     },
                     {
                         role: "user",
@@ -793,31 +800,84 @@ Return ONLY the JSON object. Do not include any explanations or markdown formatt
             }
         );
 
-        const content = response.data.choices[0].message.content;
-        try {
-            const parsedContent = JSON.parse(content);
-            
-            const requiredSections = ['jobs', 'projects', 'education', 'skills'];
-            const hasAllSections = requiredSections.every(section => 
-                Array.isArray(parsedContent[section]) || 
-                (section === 'skills' && typeof parsedContent[section] === 'object')
-            );
-
-            if (typeof parsedContent === 'object' && parsedContent !== null && hasAllSections) {
-                console.log('Successfully parsed resume content structure');
-                return parsedContent;
-            } else {
-                console.error('LLM returned invalid JSON structure:', content);
-                return null;
-            }
-        } catch (jsonError) {
-            console.error('Error parsing JSON from LLM response:', jsonError);
-            return null;
-        }
+        return JSON.parse(response.data.choices[0].message.content);
     } catch (error) {
-        console.error('Error calling OpenAI API for resume parsing:', error.response?.data || error.message);
+        console.error('Error parsing resume:', error);
         return null;
     }
+}
+
+function findElementByPatterns($, patterns, context = null) {
+    let bestMatch = null;
+    let highestConfidence = 0;
+
+    for (const pattern of patterns) {
+        let candidates = new Set();
+        
+        switch (pattern.type) {
+            case 'content':
+                // Find elements containing exact content
+                $('*').each(function() {
+                    const $el = $(this);
+                    if ($el.text().includes(pattern.value)) {
+                        candidates.add($el);
+                    }
+                });
+                break;
+
+            case 'structure':
+                // Find elements matching structural pattern
+                if (pattern.value.includes('li')) {
+                    $('li').each(function() {
+                        candidates.add($(this));
+                    });
+                } else if (pattern.value.includes('section')) {
+                    $('section, div').each(function() {
+                        candidates.add($(this));
+                    });
+                }
+                break;
+
+            case 'context':
+                // Use context to find elements
+                if (context) {
+                    $(context).find('*').each(function() {
+                        candidates.add($(this));
+                    });
+                }
+                break;
+        }
+
+        // Score each candidate
+        candidates.forEach(candidate => {
+            let confidence = 0;
+            const $candidate = $(candidate);
+            const candidateText = $candidate.text();
+
+            // Content matching score
+            if (candidateText.includes(pattern.value)) {
+                confidence += 2;
+            }
+
+            // Structure matching score
+            if (pattern.type === 'structure' && 
+                pattern.value.split(' ').some(p => candidate.prop('tagName').toLowerCase() === p)) {
+                confidence += 1;
+            }
+
+            // Context matching score
+            if (context && $(context).find(candidate).length > 0) {
+                confidence += 1;
+            }
+
+            if (confidence > highestConfidence) {
+                highestConfidence = confidence;
+                bestMatch = $candidate;
+            }
+        });
+    }
+
+    return bestMatch;
 }
 
 async function customizeResume(req, res) {
