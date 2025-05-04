@@ -87,6 +87,9 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
     // Remove any duplicates from existing bullets before processing
     const uniqueExistingBullets = [...new Set(existingBullets)];
     
+    console.log(`Generating ${mode === 'tailor' ? 'tailored' : 'new'} bullets with keywords: ${keywords}`);
+    console.log(`Original bullets count: ${uniqueExistingBullets.length}`);
+    
     const basePrompt = `You are a specialized resume bullet point optimizer focused on creating technically accurate and ATS-friendly content. Your task is to generate or enhance resume bullets that demonstrate technical expertise while maintaining STRICTLY ACCURATE technology relationships. Your responses will be used to improve a resume programmatically. CRITICAL: Each bullet point must be ENTIRELY UNIQUE from others - no duplicates or near-duplicates.
 
 CRITICAL TECHNOLOGY RELATIONSHIP RULES:
@@ -182,6 +185,8 @@ ${(existingBullets || []).join('\n')}`;
         : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs, ensuring that ALL provided keywords are integrated at least once across the set. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above AND every bullet is 100% unique - no duplicated content or concepts.`;
 
     try {
+        console.log(`Calling OpenAI API to ${mode === 'tailor' ? 'enhance' : 'generate'} bullet points...`);
+        
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
@@ -236,6 +241,19 @@ ${(existingBullets || []).join('\n')}`;
                 deduplicationMap.set(firstWords, bullet);
                 return true;
             });
+        
+        console.log(`Generated ${bullets.length} unique bullet points`);
+        
+        // If we're in tailor mode, print out a before/after comparison for debugging
+        if (mode === 'tailor' && existingBullets.length > 0) {
+            console.log('Sample bullet replacements:');
+            for (let i = 0; i < Math.min(2, existingBullets.length, bullets.length); i++) {
+                console.log(`Original: ${existingBullets[i]}`);
+                console.log(`New     : ${bullets[i]}`);
+                console.log('---');
+            }
+        }
+        
         return bullets;
     } catch (error) {
         console.error('Error generating bullets:', error.response?.data || error.message);
@@ -904,20 +922,50 @@ async function updateBulletPoints($, originalBullets, newBullets, selector) {
                             
                             // Check if any bullet text matches original bullets to confirm we have the right list
                             let foundMatch = false;
+                            let matchCount = 0;
                             existingBullets.each((_, el) => {
                                 const elText = $(el).text().trim();
                                 if (originalBullets.includes(elText)) {
                                     foundMatch = true;
+                                    matchCount++;
                                 }
                             });
                             
-                            if (foundMatch || existingBullets.length >= originalBullets.length) {
-                                // Update bullets one by one
+                            // Only proceed if this is clearly the right list container
+                            // We either need a concrete match or a significant amount of bullets
+                            if (foundMatch || 
+                                (existingBullets.length >= originalBullets.length && 
+                                 existingBullets.length <= originalBullets.length + 1)) {
+                                // Update bullets one by one with the NEW bullet points
                                 let updatedCount = 0;
-                                existingBullets.each((idx, el) => {
+                                
+                                // Create a map for old-to-new bullet mapping
+                                const bulletMap = new Map();
+                                originalBullets.forEach((text, idx) => {
                                     if (idx < newBullets.length) {
-                                        // Try to preserve any inner HTML structures
-                                        const $el = $(el);
+                                        bulletMap.set(text, newBullets[idx]);
+                                    }
+                                });
+                                
+                                // First try to update bullets that match the original ones
+                                existingBullets.each((idx, el) => {
+                                    const $el = $(el);
+                                    const currentText = $el.text().trim();
+                                    
+                                    // If we have a direct match, use the corresponding new bullet
+                                    if (bulletMap.has(currentText)) {
+                                        const replacementText = bulletMap.get(currentText);
+                                        if ($el.children().length > 0) {
+                                            $el.contents().filter((_, node) => node.nodeType === 3).remove();
+                                            $el.prepend(replacementText);
+                                        } else {
+                                            $el.html(replacementText);
+                                        }
+                                        updatedCount++;
+                                        bulletMap.delete(currentText); // Mark as used
+                                    } 
+                                    // Otherwise just use index-based replacement
+                                    else if (idx < newBullets.length) {
                                         if ($el.children().length > 0) {
                                             $el.contents().filter((_, node) => node.nodeType === 3).remove();
                                             $el.prepend(newBullets[idx]);
@@ -952,19 +1000,44 @@ async function updateBulletPoints($, originalBullets, newBullets, selector) {
                     
                     // Check if any bullet text matches original bullets to confirm we have the right elements
                     let foundMatch = false;
+                    let matchCount = 0;
                     bulletElements.each((_, el) => {
                         const elText = $(el).text().trim();
                         if (originalBullets.includes(elText)) {
                             foundMatch = true;
+                            matchCount++;
                         }
                     });
                     
                     if (foundMatch || bulletElements.length >= originalBullets.length) {
                         let updatedCount = 0;
-                        bulletElements.each((idx, el) => {
+                        
+                        // Create a map for old-to-new bullet mapping
+                        const bulletMap = new Map();
+                        originalBullets.forEach((text, idx) => {
                             if (idx < newBullets.length) {
-                                // Try to preserve any inner HTML structures
-                                const $el = $(el);
+                                bulletMap.set(text, newBullets[idx]);
+                            }
+                        });
+                        
+                        bulletElements.each((idx, el) => {
+                            const $el = $(el);
+                            const currentText = $el.text().trim();
+                            
+                            // If we have a direct match, use the corresponding new bullet
+                            if (bulletMap.has(currentText)) {
+                                const replacementText = bulletMap.get(currentText);
+                                if ($el.children().length > 0) {
+                                    $el.contents().filter((_, node) => node.nodeType === 3).remove();
+                                    $el.prepend(replacementText);
+                                } else {
+                                    $el.html(replacementText);
+                                }
+                                updatedCount++;
+                                bulletMap.delete(currentText); // Mark as used
+                            } 
+                            // Otherwise just use index-based replacement
+                            else if (idx < newBullets.length) {
                                 if ($el.children().length > 0) {
                                     $el.contents().filter((_, node) => node.nodeType === 3).remove();
                                     $el.prepend(newBullets[idx]);
@@ -986,6 +1059,65 @@ async function updateBulletPoints($, originalBullets, newBullets, selector) {
                 // Create a map to track which bullets we've updated to avoid duplication
                 const updatedBullets = new Map();
                 
+                console.log(`Trying to match and update ${originalBullets.length} bullets with ${newBullets.length} new bullets`);
+                
+                // First, identify all bullet elements in the entry
+                const allListElements = entryElement.find('li');
+                console.log(`Found ${allListElements.length} list item elements in the entry`);
+                
+                // Map bullets to their elements first
+                const bulletElementsMap = new Map();
+                allListElements.each((_, el) => {
+                    const text = $(el).text().trim();
+                    if (!bulletElementsMap.has(text)) {
+                        bulletElementsMap.set(text, []);
+                    }
+                    bulletElementsMap.get(text).push(el);
+                });
+                
+                // Check how many original bullets we can match
+                let originalMatchCount = 0;
+                for (const bullet of originalBullets) {
+                    if (bulletElementsMap.has(bullet)) {
+                        originalMatchCount++;
+                    }
+                }
+                console.log(`Found direct matches for ${originalMatchCount} out of ${originalBullets.length} original bullets`);
+                
+                // If we have enough matches, do direct replacements
+                if (originalMatchCount > 0) {
+                    let updateCount = 0;
+                    
+                    // Direct bullet replacements - map old bullets to new ones
+                    for (let i = 0; i < Math.min(originalBullets.length, newBullets.length); i++) {
+                        const oldBullet = originalBullets[i];
+                        const newBullet = newBullets[i];
+                        
+                        if (bulletElementsMap.has(oldBullet)) {
+                            const elements = bulletElementsMap.get(oldBullet);
+                            elements.forEach(el => {
+                                const $el = $(el);
+                                if ($el.children().length > 0) {
+                                    $el.contents().filter((_, node) => node.nodeType === 3).remove();
+                                    $el.prepend(newBullet);
+                                } else {
+                                    $el.html(newBullet);
+                                }
+                                updateCount++;
+                            });
+                        }
+                    }
+                    
+                    console.log(`Updated ${updateCount} bullets via direct text matching`);
+                    if (updateCount > 0) {
+                        matchFound = true;
+                        matchedCount = updateCount;
+                        return true;
+                    }
+                }
+                
+                // If direct matching failed, fall back to approximate matching
+                console.log(`Falling back to approximate text matching`);
                 for (const originalBullet of originalBullets) {
                     try {
                         // Make sure we properly escape special characters for use in selectors
@@ -1017,8 +1149,8 @@ async function updateBulletPoints($, originalBullets, newBullets, selector) {
                                 updatedBullets.set(bulletIndex, true);
                             }
                         } else {
-                            // If exact match fails, try contains
-                            const matchedBullets = entryElement.find(`li:contains("${escapedBullet}")`);
+                            // If exact match fails, try contains (partial text match)
+                            const matchedBullets = entryElement.find(`li:contains("${escapedBullet.substring(0, Math.min(30, escapedBullet.length))}")`);
                             if (matchedBullets.length > 0) {
                                 matchFound = true;
                                 matchedBullets.each((_, el) => {
@@ -1029,7 +1161,9 @@ async function updateBulletPoints($, originalBullets, newBullets, selector) {
                                     let bestMatchScore = 0;
                                     
                                     for (let i = 0; i < originalBullets.length; i++) {
-                                        if (bulletText.includes(originalBullets[i]) && 
+                                        // Look for partial matches - the first 15 chars are a good indicator
+                                        if ((bulletText.includes(originalBullets[i].substring(0, Math.min(15, originalBullets[i].length))) || 
+                                             originalBullets[i].includes(bulletText.substring(0, Math.min(15, bulletText.length)))) && 
                                             originalBullets[i].length > bestMatchScore && 
                                             !updatedBullets.has(i)) {
                                             bestMatch = i;
