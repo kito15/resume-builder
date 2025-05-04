@@ -81,7 +81,7 @@ function getFirstVerb(bulletText) {
 }
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    const basePrompt = `You are a specialized resume bullet point optimizer focused on creating technically accurate and ATS-friendly content. Your task is to generate or enhance resume bullets that demonstrate technical expertise while maintaining STRICTLY ACCURATE technology relationships.
+    const basePrompt = `You are a specialized resume bullet point optimizer focused on creating technically accurate and ATS-friendly content. Your task is to generate or enhance resume bullets that demonstrate technical expertise while maintaining STRICTLY ACCURATE technology relationships. Your responses will be used to improve a resume programmatically.
 
 CRITICAL TECHNOLOGY RELATIONSHIP RULES:
 1. NEVER combine technologies from different ecosystems that don't naturally work together
@@ -268,6 +268,66 @@ function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
     return sortedBullets;
 }
 
+class BulletCache {
+    constructor() {
+        this.cache = new Map();
+        this.sectionPools = {
+            job: new Set(),
+            project: new Set()
+        };
+        this.targetBulletCounts = {
+            job: 5,
+            project: 4
+        };
+    }
+    async generateAllBullets($, keywords, context, wordLimit, verbTracker) {
+        const sections = ['job', 'project'];
+        const cacheKey = `${keywords.join(',')}_${context}`;
+        if (this.cache.has(cacheKey)) {
+            return this.cache.get(cacheKey);
+        }
+        const allBullets = {};
+        const promises = sections.map(async (section) => {
+            const targetCount = this.targetBulletCounts[section];
+            const bullets = await generateBullets(
+                'generate',
+                null,
+                keywords,
+                `for ${section} experience`,
+                wordLimit,
+                verbTracker
+            );
+            allBullets[section] = bullets.slice(0, targetCount);
+            bullets.forEach(bullet => this.sectionPools[section].add(bullet));
+        });
+        await Promise.all(promises);
+        this.cache.set(cacheKey, allBullets);
+        return allBullets;
+    }
+    getBulletsForSection(section, count) {
+        const seen = new Set();
+        const uniqueBullets = [];
+        for (const bullet of this.sectionPools[section]) {
+            const norm = bullet.toLowerCase().replace(/\s+/g, ' ').trim();
+            if (!seen.has(norm)) {
+                seen.add(norm);
+                uniqueBullets.push(bullet);
+            }
+            if (uniqueBullets.length >= count) break;
+        }
+        return uniqueBullets;
+    }
+    addBulletToSection(bullet, section) {
+        if (bullet && bullet.trim().length > 0) {
+            this.sectionPools[section].add(bullet);
+        }
+    }
+    clear() {
+        this.cache.clear();
+        Object.values(this.sectionPools).forEach(pool => pool.clear());
+    }
+}
+
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     
@@ -278,6 +338,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     }
 
     const verbTracker = new ActionVerbTracker();
+    const bulletCache = new BulletCache();
 
     const sections = [
         { type: 'job', entries: resumeContent.jobs, targetBulletCount: 4 },
@@ -288,13 +349,9 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         keywords.join(', ') : 
         keywords.slice(0, Math.min(5, keywords.length)).join(', ');
 
-    console.log('Processing sections with keywords:', keywordString);
-
     for (const section of sections) {
-        console.log(`Processing ${section.type} section`);
         for (const entry of section.entries) {
             const originalBullets = entry.bulletPoints || [];
-            console.log(`Generating bullets for ${section.type} entry with ${originalBullets.length} original bullets`);
             
             const newBullets = await generateBullets(
                 fullTailoring ? 'tailor' : 'generate',
@@ -304,12 +361,10 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
                 12
             );
 
-            console.log(`Generated ${newBullets.length} new bullets for ${section.type} entry`);
-
-            // Replace bullets by matching original text to ensure robustness regardless of HTML structure
-            updateBulletPoints($, originalBullets, newBullets);
+            await updateBulletPoints($, originalBullets, newBullets, entry.selector);
 
             newBullets.forEach(bullet => {
+                bulletCache.addBulletToSection(bullet, section.type);
                 const verb = getFirstVerb(bullet);
                 if (verb) verbTracker.addVerb(verb, section.type);
             });
@@ -327,23 +382,15 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         if (!exceedsOnePage) break;
 
         currentBulletCount--;
-        console.log(`Reducing bullets to ${currentBulletCount} due to page overflow`);
-        
         for (const section of sections) {
-            const sectionSelector = section.type === 'job' ? '.job-experience' : '.projects';
-            $(sectionSelector).find('ul li').each((i, bullet) => {
-                if (i >= currentBulletCount) {
-                    $(bullet).remove();
-                }
-            });
+            for (const entry of section.entries) {
+                const originalBullets = entry.bulletPoints || [];
+                const cachedBullets = bulletCache.getBulletsForSection(section.type, currentBulletCount);
+                await updateBulletPoints($, originalBullets, cachedBullets, entry.selector);
+            }
         }
         attempts++;
     }
-
-    // Log final bullet counts for debugging
-    const jobBullets = $('.job-experience li').length;
-    const projectBullets = $('.projects li').length;
-    console.log(`Final bullet counts - Jobs: ${jobBullets}, Projects: ${projectBullets}`);
 
     return $.html();
 }
@@ -603,20 +650,23 @@ Return ONLY a valid JSON object with the following structure:
         "company": "Company Name",
         "dates": "Date Range",
         "location": "Location",
-        "bulletPoints": ["Original bullet point 1", "Original bullet point 2", ...]
+        "bulletPoints": ["Original bullet point 1", "Original bullet point 2", ...],
+        "selector": "EXACT CSS SELECTOR TO LOCATE THIS SPECIFIC JOB ENTRY IN THE HTML"
     }],
     "projects": [{
         "title": "Project Name",
         "technologies": "Technologies Used (if specified)",
         "dates": "Date Range (if specified)",
-        "bulletPoints": ["Original bullet point 1", "Original bullet point 2", ...]
+        "bulletPoints": ["Original bullet point 1", "Original bullet point 2", ...],
+        "selector": "EXACT CSS SELECTOR TO LOCATE THIS SPECIFIC PROJECT ENTRY IN THE HTML"
     }],
     "education": [{
         "degree": "Degree Name",
         "institution": "Institution Name",
         "dates": "Date Range",
         "location": "Location",
-        "bulletPoints": ["Original bullet point or achievement 1", ...]
+        "bulletPoints": ["Original bullet point or achievement 1", ...],
+        "selector": "EXACT CSS SELECTOR TO LOCATE THIS SPECIFIC EDUCATION ENTRY IN THE HTML"
     }],
     "skills": {
         "technical": ["Skill 1", "Skill 2", ...],
@@ -632,6 +682,18 @@ IMPORTANT GUIDELINES:
 4. For skills, categorize them if categories are present in the original, otherwise put all in "technical".
 5. Preserve exact text formatting, including case and punctuation.
 6. If a field is not found (e.g., no location for a job), omit that field rather than returning empty string.
+
+CRITICAL SELECTOR REQUIREMENTS:
+1. For each job, project, and education entry, you MUST provide a precise CSS selector that uniquely identifies that specific element in the DOM.
+2. Use element tags, classes, and attributes to construct reliable selectors.
+3. Analyze the HTML structure carefully to ensure each selector points to exactly ONE element.
+4. Test each selector mentally to confirm it uniquely identifies the intended element.
+5. Your selector MUST lead directly to the container element that holds all the information for that specific entry.
+6. Prefer simple selectors using classes and direct parent-child relationships rather than complex attribute selectors.
+7. DO NOT use generic selectors like "div.section:nth-of-type(2) > div.entry:nth-of-type(1)" - they are too brittle.
+8. Instead, use distinctive attributes already present in the HTML like IDs, unique classes, or text content.
+9. Example of a good selector: ".experience-section .job-entry[data-company='Google']" or "#job-123"
+10. If no obvious unique identifier exists, use a more specific approach like ".job-section .job-entry:contains('Software Engineer at Google')"
 
 HTML Content to Analyze:
 \`\`\`html
@@ -723,21 +785,66 @@ async function customizeResume(req, res) {
     }
 }
 
-// Replaces original bullets in the DOM with new bullets by text matching (robust to HTML structure)
-function updateBulletPoints($, originalBullets, newBullets) {
-    if (!Array.isArray(originalBullets) || originalBullets.length === 0) return;
+async function updateBulletPoints($, originalBullets, newBullets, selector) {
+    // First, try using the selector if provided
+    if (selector) {
+        console.log(`Trying to find elements using selector: ${selector}`);
+        const entryElement = $(selector);
+        
+        if (entryElement.length > 0) {
+            console.log(`Found matching element for selector: ${selector}`);
+            // Look for bullet points within this specific entry
+            const bulletElements = entryElement.find('li, .bullet, [class*="bullet"]');
+            
+            if (bulletElements.length > 0) {
+                console.log(`Found ${bulletElements.length} bullet elements within the entry`);
+                // Update the bullet points that exist
+                bulletElements.each((idx, el) => {
+                    if (idx < newBullets.length) {
+                        $(el).text(newBullets[idx]);
+                    }
+                });
+                return;
+            } else {
+                // If we found the entry but no bullet elements, look for other potential containers
+                const ulElements = entryElement.find('ul, ol');
+                if (ulElements.length > 0) {
+                    console.log(`Found ${ulElements.length} list elements within the entry`);
+                    const firstUl = ulElements.first();
+                    // Replace existing or add new bullet points
+                    firstUl.empty();
+                    newBullets.forEach(bullet => {
+                        firstUl.append(`<li>${bullet}</li>`);
+                    });
+                    return;
+                }
+            }
+        } else {
+            console.log(`LLM selector did not match any elements for ${selector}`);
+        }
+    }
+    
+    // Fallback to original approach if selector fails
     const bulletMap = new Map();
     $('li').each((_, el) => {
         const text = $(el).text().trim();
-        if (text) bulletMap.set(text, el);
-    });
-
-    originalBullets.forEach((origText, idx) => {
-        if (idx < newBullets.length && bulletMap.has(origText)) {
-            const element = bulletMap.get(origText);
-            $(element).text(newBullets[idx]);
+        if (text && originalBullets.includes(text)) {
+            bulletMap.set(text, el);
         }
     });
+
+    let replaced = 0;
+    originalBullets.forEach((originalText, index) => {
+        if (index < newBullets.length && bulletMap.has(originalText)) {
+            const element = bulletMap.get(originalText);
+            $(element).text(newBullets[index]);
+            replaced++;
+        }
+    });
+    
+    if (replaced === 0 && originalBullets.length > 0) {
+        console.log(`Could not find matching section element for bullets`);
+    }
 }
 
 module.exports = { customizeResume };
