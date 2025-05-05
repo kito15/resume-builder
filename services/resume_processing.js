@@ -125,8 +125,8 @@ INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
     const prompt = mode === 'tailor' 
-        ? `${basePrompt}\n\nTASK: Substantially rewrite and enhance the above bullets by thoroughly integrating ALL provided keywords. Every keyword must appear at least once across the set. Maintain original metrics and achievements but completely rephrase and restructure each bullet for maximum impact. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`
-        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs, ensuring that ALL provided keywords are integrated at least once across the set. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`;
+        ? `${basePrompt}\n\nTASK: Substantially rewrite and enhance the above bullets by thoroughly integrating ALL provided keywords. CRITICAL: Every single provided keyword MUST appear at least once across the final set of bullets. Maintain original metrics and achievements but completely rephrase and restructure each bullet for maximum impact. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`
+        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs. CRITICAL: Ensure that ALL provided keywords are integrated at least once somewhere across the entire set of generated bullets. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`;
 
     try {
         console.log('Generating bullets with mode:', mode);
