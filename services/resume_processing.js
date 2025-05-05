@@ -95,8 +95,8 @@ FORMATTING RULES:
 5. Each bullet MUST be ${wordLimit} words or less.
 
 KEYWORD INTEGRATION RULES:
-1. **EVERY SINGLE PROVIDED KEYWORD MUST APPEAR IN EVERY BULLET POINT.**
-2. Use keywords naturally; avoid obvious keyword stuffing.
+1. **EACH PROVIDED KEYWORD MUST APPEAR AT LEAST ONCE ACROSS THE FINAL SET OF BULLETS.**
+2. Distribute keywords naturally; avoid obvious keyword stuffing.
 3. Technologies MUST be from the same domain or have a clear, logical relationship.
 4. Use ONLY 1-2 related technologies per bullet; other keywords should be blended into context, not as additional tech stacks.
 5. If a technology doesn't fit naturally, preserve the achievement without that tech reference, but all non-tech keywords must still appear.
@@ -127,10 +127,10 @@ ${(existingBullets || []).join('\n')}`;
     const prompt = mode === 'tailor'
       ? `${basePrompt}
 
-TASK: Substantially rewrite and enhance the above bullets by thoroughly integrating **EVERY PROVIDED KEYWORD INTO EVERY BULLET**. CRITICAL: Maintain original metrics and achievements while completely rephrasing each bullet for maximum impact. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`
+TASK: Substantially rewrite and enhance the above bullets so that **ALL PROVIDED KEYWORDS ARE COVERED ACROSS THE BULLET SET**. CRITICAL: Maintain original metrics and achievements while completely rephrasing each bullet for maximum impact. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`
       : `${basePrompt}
 
-TASK: Generate **15 achievement-focused bullets** ${context} with concrete metrics, varied action verbs, and **EVERY PROVIDED KEYWORD IN EVERY BULLET**. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`;
+TASK: Generate **15 achievement-focused bullets** ${context} with concrete metrics, varied action verbs, and **ENSURE EVERY KEYWORD IS USED AT LEAST ONCE ACROSS THE BULLET SET**. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`;
 
     try {
         console.log('Generating bullets with mode:', mode);
