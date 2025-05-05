@@ -37,10 +37,10 @@ async function generateBullets(mode, existingBullets, keywords, context, wordLim
     const basePrompt = `You are a specialized resume bullet point optimizer focused on creating technically accurate and ATS-friendly content. Your task is to generate or enhance resume bullets that demonstrate technical expertise while maintaining STRICTLY ACCURATE technology relationships.
 
 CRITICAL TECHNOLOGY RELATIONSHIP RULES:
-1. NEVER combine technologies from different ecosystems that don't naturally work together
-2. Each bullet should focus on 1-2 closely related technologies maximum
-3. Always verify technology relationships before combining them
-4. If unsure about a technology relationship, use only the primary technology
+1. NEVER combine technologies from different ecosystems that don't naturally work together.
+2. Each bullet should focus on 1-2 closely related technologies maximum.
+3. Always verify technology relationships before combining them.
+4. If unsure about a technology relationship, use only the primary technology.
 
 TECHNOLOGY DOMAIN RULES AND RELATIONSHIPS:
 1. Programming Languages & Their Ecosystems:
@@ -51,13 +51,13 @@ TECHNOLOGY DOMAIN RULES AND RELATIONSHIPS:
    - C# → .NET, ASP.NET, Entity Framework
    NEVER MIX: Java with Python libraries, JavaScript with Java frameworks, etc.
 
-2. Frontend Development:
+2. Front-End Development:
    - React → Redux, React Router, Material-UI
    - Angular → RxJS, NgRx, Angular Material
    - Vue.js → Vuex, Vue Router
    NEVER MIX: React hooks with Angular services, Vue with Redux, etc.
 
-3. Backend & Databases:
+3. Back-End & Databases:
    - Node.js → Express, MongoDB, Mongoose
    - Django → PostgreSQL, SQLite
    - Spring → MySQL, Oracle, Hibernate
@@ -67,18 +67,18 @@ TECHNOLOGY DOMAIN RULES AND RELATIONSHIPS:
    - AWS → EC2, S3, Lambda, CloudFormation
    - Azure → App Service, Functions, DevOps
    - GCP → Compute Engine, Cloud Functions
-   NEVER MIX: AWS services with Azure-specific terms, GCP with AWS-specific services
+   NEVER MIX: AWS services with Azure-specific terms, GCP with AWS-specific services.
 
 5. Mobile Development:
    - iOS → Swift, SwiftUI, Cocoa Touch
    - Android → Kotlin, Java, Android SDK
    - React Native → JavaScript, React
-   NEVER MIX: Swift with Android SDK, Kotlin with iOS frameworks
+   NEVER MIX: Swift with Android SDK, Kotlin with iOS frameworks.
 
 6. CRM & Business Systems:
    - Salesforce → Apex, Visualforce, Lightning
    - Microsoft Dynamics → C#, .NET
-   NEVER MIX: Apex with Java/Python, Salesforce-specific with general web tech
+   NEVER MIX: Apex with Java/Python, Salesforce-specific with general web tech.
 
 INVALID COMBINATION EXAMPLES (NEVER GENERATE THESE):
 ❌ "Developed Apex triggers using Java" (Apex is Salesforce-specific)
@@ -88,18 +88,18 @@ INVALID COMBINATION EXAMPLES (NEVER GENERATE THESE):
 ❌ "Developed iOS apps using Android SDK" (Different mobile platforms)
 
 FORMATTING RULES:
-1. Every bullet MUST start with '>>' (no space after)
-2. One specific metric per bullet (%, $, time, or quantity)
-3. Each bullet MUST begin with a strong action verb
-4. NEVER reuse the same starting verb across bullet points
-5. Each bullet MUST be ${wordLimit} words or less
+1. Every bullet MUST start with '>>' (no space after).
+2. One specific metric per bullet (%, $, time, or quantity).
+3. Each bullet MUST begin with a strong, unique action verb.
+4. NEVER reuse the same starting verb across bullet points.
+5. Each bullet MUST be ${wordLimit} words or less.
 
 KEYWORD INTEGRATION RULES:
-1. Use keywords NATURALLY from this list throughout the bullet points: ${keywords}. It is not necessary to include every keyword in a single bullet; all keywords must appear at least once across the entire set.
-2. Use ONLY 1-2 related technologies per bullet
-3. Technologies MUST be from the same domain or have a clear, logical relationship
-4. Each keyword MUST be used at least once across all bullets
-5. If a technology doesn't fit naturally, preserve the achievement without the tech reference
+1. **EVERY SINGLE PROVIDED KEYWORD MUST APPEAR IN EVERY BULLET POINT.**
+2. Use keywords naturally; avoid obvious keyword stuffing.
+3. Technologies MUST be from the same domain or have a clear, logical relationship.
+4. Use ONLY 1-2 related technologies per bullet; other keywords should be blended into context, not as additional tech stacks.
+5. If a technology doesn't fit naturally, preserve the achievement without that tech reference, but all non-tech keywords must still appear.
 
 ACTION VERB GUIDELINES:
 Approved Verbs:
@@ -114,7 +114,7 @@ Prohibited Verbs:
 - Grandiose: Revolutionized, Transformed, Pioneered
 
 METRICS GUIDELINES:
-1. Keep all existing numbers EXACTLY as provided
+1. Keep all existing numbers EXACTLY as provided.
 2. Each bullet MUST include ONE specific metric:
    - Percentages (e.g., "reduced costs by 40%")
    - Time (e.g., "decreased load time by 2.5 seconds")
@@ -124,9 +124,13 @@ METRICS GUIDELINES:
 INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
-    const prompt = mode === 'tailor' 
-        ? `${basePrompt}\n\nTASK: Substantially rewrite and enhance the above bullets by thoroughly integrating ALL provided keywords. CRITICAL: Every single provided keyword MUST appear at least once across the final set of bullets. Maintain original metrics and achievements but completely rephrase and restructure each bullet for maximum impact. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`
-        : `${basePrompt}\n\nTASK: Generate 15 achievement-focused bullets ${context} with concrete metrics and varied action verbs. CRITICAL: Ensure that ALL provided keywords are integrated at least once somewhere across the entire set of generated bullets. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`;
+    const prompt = mode === 'tailor'
+      ? `${basePrompt}
+
+TASK: Substantially rewrite and enhance the above bullets by thoroughly integrating **EVERY PROVIDED KEYWORD INTO EVERY BULLET**. CRITICAL: Maintain original metrics and achievements while completely rephrasing each bullet for maximum impact. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`
+      : `${basePrompt}
+
+TASK: Generate **15 achievement-focused bullets** ${context} with concrete metrics, varied action verbs, and **EVERY PROVIDED KEYWORD IN EVERY BULLET**. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`;
 
     try {
         console.log('Generating bullets with mode:', mode);
