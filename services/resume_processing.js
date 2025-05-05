@@ -101,6 +101,11 @@ KEYWORD INTEGRATION RULES:
 4. Use ONLY 1-2 related technologies per bullet; other keywords should be blended into context, not as additional tech stacks.
 5. If a technology doesn't fit naturally, preserve the achievement without that tech reference, but all non-tech keywords must still appear.
 
+POST-GENERATION VERIFICATION & COMPLETION RULES:
+1. AFTER drafting the entire bullet list, internally perform a verification pass to confirm that **EVERY PROVIDED KEYWORD APPEARS AT LEAST ONCE**.
+2. If any keyword is missing, intelligently revise or append bullet(s) so that the missing keyword is seamlessly incorporated, still observing ALL prior rules (metrics, word limit, valid tech pairings, unique verbs, etc.).
+3. This verification and fixing MUST BE COMPLETED **BEFORE** you return your final answer—produce only the FINAL, fully-compliant bullet list prefixed with ">>" and NO additional commentary.
+
 ACTION VERB GUIDELINES:
 Approved Verbs:
 - Performance: Improved, Increased, Reduced, Decreased, Optimized
@@ -151,8 +156,8 @@ TASK: Generate **15 achievement-focused bullets** ${context} with concrete metri
                         content: prompt
                     }
                 ],
-                temperature: 0.7,
-                max_tokens: 4096,
+                temperature: 0.6,
+                max_tokens: 6000,
                 top_p: 1
             },
             {
