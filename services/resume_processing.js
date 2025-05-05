@@ -101,11 +101,6 @@ KEYWORD INTEGRATION RULES:
 4. Use ONLY 1-2 related technologies per bullet; other keywords should be blended into context, not as additional tech stacks.
 5. If a technology doesn't fit naturally, preserve the achievement without that tech reference, but all non-tech keywords must still appear.
 
-POST-GENERATION VERIFICATION & COMPLETION RULES:
-1. AFTER drafting the entire bullet list, internally perform a verification pass to confirm that **EVERY PROVIDED KEYWORD APPEARS AT LEAST ONCE**.
-2. If any keyword is missing, intelligently revise or append bullet(s) so that the missing keyword is seamlessly incorporated, still observing ALL prior rules (metrics, word limit, valid tech pairings, unique verbs, etc.).
-3. This verification and fixing MUST BE COMPLETED **BEFORE** you return your final answer—produce only the FINAL, fully-compliant bullet list prefixed with ">>" and NO additional commentary.
-
 ACTION VERB GUIDELINES:
 Approved Verbs:
 - Performance: Improved, Increased, Reduced, Decreased, Optimized
@@ -129,13 +124,18 @@ METRICS GUIDELINES:
 INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
-    const prompt = mode === 'tailor'
+    const taskPrompt = mode === 'tailor'
       ? `${basePrompt}
 
 TASK: Substantially rewrite and enhance the above bullets so that **ALL PROVIDED KEYWORDS ARE COVERED ACROSS THE BULLET SET**. CRITICAL: Maintain original metrics and achievements while completely rephrasing each bullet for maximum impact. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`
       : `${basePrompt}
 
 TASK: Generate **15 achievement-focused bullets** ${context} with concrete metrics, varied action verbs, and **ENSURE EVERY KEYWORD IS USED AT LEAST ONCE ACROSS THE BULLET SET**. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`;
+
+    // Additional verification instructions appended to ensure the model reasons out loud and covers all keywords.
+    const verificationInstructions = `\n\nVERIFICATION & COMPLETION INSTRUCTIONS:\n1. After drafting bullets, explicitly list all provided keywords and mark which are already used and which are missing.\n2. If any keywords are missing, thoughtfully revise or expand the bullet set (still respecting the 15-bullet limit when in generation mode) to incorporate EVERY keyword.\n3. Show your reasoning step-by-step out loud by prefixing each reasoning line with 'THOUGHT:'.\n4. Once all keywords are covered, output a line 'FINAL BULLETS:' followed immediately by the complete, verified bullet set, each on its own line and starting with '>>'.`;
+
+    const finalPrompt = `${taskPrompt}${verificationInstructions}`;
 
     try {
         console.log('Generating bullets with mode:', mode);
@@ -153,11 +153,11 @@ TASK: Generate **15 achievement-focused bullets** ${context} with concrete metri
                     },
                     {
                         role: "user",
-                        content: prompt
+                        content: finalPrompt
                     }
                 ],
-                temperature: 0.6,
-                max_tokens: 6000,
+                temperature: 0.7,
+                max_tokens: 8192,
                 top_p: 1
             },
             {
@@ -174,8 +174,15 @@ TASK: Generate **15 achievement-focused bullets** ${context} with concrete metri
         const lines = content.split('\n');
         console.log('Split lines:', lines);
         
+        let relevantLines = lines;
+        const finalIndex = lines.findIndex(line => line.trim().toUpperCase().startsWith('FINAL BULLETS'));
+        if (finalIndex !== -1) {
+            relevantLines = lines.slice(finalIndex + 1);
+            console.log('Detected FINAL BULLETS section starting at line', finalIndex);
+        }
+        
         const seenBullets = new Set();
-        const bullets = lines
+        const bullets = relevantLines
             .map(line => line.trim())
             .filter(line => line.startsWith('>>'))
             .map(bullet => {
