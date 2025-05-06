@@ -151,13 +151,11 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
         }
         
         const bullets = relevantLines
-            .filter(line => {
-                return line.startsWith('>>') || /^\d+\.\s+/.test(line);
-            })
+            .map(line => line.trim())
+            .filter(line => line.startsWith('>>'))
             .map(bullet => {
-                return bullet
-                          .replace(/^>>\s*/, '')
-                          .replace(/^\d+\.\s+/, '')
+                return bullet.replace(/^>>\s*/, '')
+                          .replace(/^\s*(\d+\.|[a-zA-Z]\.|[ivxIVX]+\.)?\s*/, '')
                           .replace(/\*\*/g, '')
                           .replace(/\s*\([^)]*\)$/, '');
             });
@@ -210,9 +208,7 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         
         currentLiElements.each((index, li) => {
             if (index < bulletsForCurrentUl.length) {
-                let bulletText = bulletsForCurrentUl[index];
-                bulletText = bulletText.replace(/^>>\s*/, '').replace(/^\d+\.\s+/, '');
-                $(li).text(bulletText);
+                $(li).text(bulletsForCurrentUl[index]);
             }
         });
         
