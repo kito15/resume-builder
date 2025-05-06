@@ -154,10 +154,11 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
             .map(line => line.trim())
             .filter(line => line.startsWith('>>'))
             .map(bullet => {
-                return bullet.replace(/^>>\s*/, '')
-                          .replace(/^\s*(\d+\.|[a-zA-Z]\.|[ivxIVX]+\.)?\s*/, '')
-                          .replace(/\*\*/g, '')
-                          .replace(/\s*\([^)]*\)$/, '');
+                let cleaned = bullet.replace(/^>>\s*/, '');
+                cleaned = cleaned.replace(/^(?:\(?\d+[\.)-]|\(?[A-Za-z][\.)-]|[\u2022\-\*])\s+/u, '');
+                cleaned = cleaned.replace(/\*\*/g, '')
+                               .replace(/\s*\([^)]*\)$/, '');
+                return cleaned.trim();
             });
             
         console.log('Final processed bullets:', bullets);
