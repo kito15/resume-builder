@@ -109,7 +109,7 @@ TASK: Substantially rewrite and enhance the above bullets so that **ALL PROVIDED
 TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with concrete metrics, varied action verbs, and **ENSURE EVERY KEYWORD IS USED AT LEAST ONCE ACROSS THE BULLET SET**. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`;
 
     // Additional verification instructions appended to ensure the model reasons out loud and covers all keywords.
-    const verificationInstructions = `\n\nVERIFICATION & COMPLETION INSTRUCTIONS:\n1. After drafting bullets, explicitly list all provided keywords and mark which are already used and which are missing.\n2. If any keywords are missing, thoughtfully revise or expand the bullet set (still respecting the 15-bullet limit when in generation mode) to incorporate EVERY keyword.\n3. Show your reasoning step-by-step out loud by prefixing each reasoning line with 'THOUGHT:'.\n4. Once all keywords are covered, output a line 'FINAL BULLETS:' followed immediately by the complete, verified bullet set, each on its own line and starting with '>>'.`;
+    const verificationInstructions = `\n\nVERIFICATION & COMPLETION INSTRUCTIONS:\n1. After drafting bullets, explicitly list all provided keywords and mark which are already used and which are missing.\n2. If any keywords are missing, thoughtfully revise or expand the bullet set to incorporate EVERY keyword.\n3. Show your reasoning step-by-step out loud by prefixing each reasoning line with 'THOUGHT:'.\n4. Once all keywords are covered, output a line 'FINAL BULLETS:' followed immediately by the complete, verified bullet set, each on its own line and starting with '>>'.`;
 
     const finalPrompt = `${taskPrompt}${keywordsSection}${verificationInstructions}`;
 
@@ -128,7 +128,7 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
                         content: finalPrompt
                     }
                 ],
-                temperature: 0.4,
+                temperature: 0.6,
                 max_tokens: 12000,
                 top_p: 1
             },
