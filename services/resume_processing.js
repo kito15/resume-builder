@@ -156,7 +156,8 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
             .map(bullet => {
                 return bullet.replace(/^>>\s*/, '')
                           .replace(/\*\*/g, '')
-                          .replace(/\s*\([^)]*\)$/, '');
+                          .replace(/\s*\([^)]*\)$/, '')
+                          .replace(/^\d+\.\s+/, '');
             });
             
         console.log('Final processed bullets:', bullets);
