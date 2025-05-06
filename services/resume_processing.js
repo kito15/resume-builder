@@ -138,8 +138,6 @@ TASK: Generate **15 achievement-focused bullets** ${context} with concrete metri
     const finalPrompt = `${taskPrompt}${verificationInstructions}`;
 
     try {
-        console.log('Generating bullets with mode:', mode);
-        console.log('Existing bullets:', existingBullets);
         console.log('Keywords:', keywords);
         
         const response = await axios.post(
@@ -169,16 +167,13 @@ TASK: Generate **15 achievement-focused bullets** ${context} with concrete metri
         );
 
         const content = response.data.choices[0].message.content;
-        console.log('Raw LLM response:', content);
         
         const lines = content.split('\n');
-        console.log('Split lines:', lines);
         
         let relevantLines = lines;
         const finalIndex = lines.findIndex(line => line.trim().toUpperCase().startsWith('FINAL BULLETS'));
         if (finalIndex !== -1) {
             relevantLines = lines.slice(finalIndex + 1);
-            console.log('Detected FINAL BULLETS section starting at line', finalIndex);
         }
         
         const seenBullets = new Set();
@@ -186,16 +181,13 @@ TASK: Generate **15 achievement-focused bullets** ${context} with concrete metri
             .map(line => line.trim())
             .filter(line => line.startsWith('>>'))
             .map(bullet => {
-                console.log('Processing bullet:', bullet);
                 return bullet.replace(/^>>\s*/, '')
                           .replace(/\*\*/g, '')
                           .replace(/\s*\([^)]*\)$/, '');
             })
             .filter(bullet => {
                 const norm = bullet.toLowerCase().replace(/\s+/g, ' ').trim();
-                console.log('Normalized bullet:', norm);
                 if (seenBullets.has(norm)) {
-                    console.log('Duplicate bullet found, skipping');
                     return false;
                 }
                 seenBullets.add(norm);
@@ -256,19 +248,14 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const allBulletsToProcess = [];
     const ulElements = $('ul');
-    console.log(`Found ${ulElements.length} <ul> elements`);
     const bulletListMap = new Map();
     const ulElementMap = new Map();
     
     ulElements.each((index, ul) => {
         const currentUl = $(ul);
-        console.log(`Processing ul element #${index + 1}`);
         const liElements = currentUl.children('li');
-        console.log(`Found ${liElements.length} bullet points in ul #${index + 1}`);
         const bulletTexts = liElements.map((_, li) => $(li).text().trim()).get();
-        console.log(`Extracted ${bulletTexts.length} bullet texts`);
         bulletListMap.set(currentUl, bulletTexts);
-        console.log(`Stored bullets for ul #${index + 1} in map`);
         allBulletsToProcess.push(...bulletTexts);
         ulElementMap.set(currentUl, bulletTexts.length);
     });
@@ -283,53 +270,38 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
         'for experience section',
         12
     );
-    console.log('Generated bullets:', processedBullets.length);
     
     let currentIndex = 0;
     
     for (const [ulElement, originalBullets] of bulletListMap) {
         if (!firstUlElement) firstUlElement = ulElement;
-        console.log(`Processing stored ul #${++processedCount}`);
         
         const originalCount = ulElementMap.get(ulElement);
         const endIndex = currentIndex + originalCount;
         const bulletsForCurrentUl = processedBullets.slice(currentIndex, endIndex);
-        console.log(`Sliced ${bulletsForCurrentUl.length} bullets for current ul`);
         
         const currentLiElements = ulElement.children('li');
-        console.log(`Found ${currentLiElements.length} current li elements to update`);
         
         currentLiElements.each((index, li) => {
             if (index < bulletsForCurrentUl.length) {
-                const originalText = $(li).text();
-                console.log(`Original bullet #${index + 1}:`, originalText);
                 $(li).text(bulletsForCurrentUl[index]);
-                console.log(`Updated bullet #${index + 1} to:`, bulletsForCurrentUl[index]);
             }
         });
-        console.log(`Updated ${Math.min(currentLiElements.length, bulletsForCurrentUl.length)} bullet points`);
         
         if (currentLiElements.length > bulletsForCurrentUl.length) {
             currentLiElements.slice(bulletsForCurrentUl.length).remove();
-            console.log(`Removed ${currentLiElements.length - bulletsForCurrentUl.length} excess bullet points`);
         }
         
         if (bulletsForCurrentUl.length > currentLiElements.length) {
             for (let i = currentLiElements.length; i < bulletsForCurrentUl.length; i++) {
                 ulElement.append($('<li>').text(bulletsForCurrentUl[i]));
             }
-            console.log(`Added ${bulletsForCurrentUl.length - currentLiElements.length} new bullet points`);
         }
         
         currentIndex = endIndex;
     }
     
-    if (firstUlElement) {
-        console.log('First UL element HTML after all updates:', firstUlElement.html());
-    }
-    
     const finalHtml = $.html();
-    console.log('Complete HTML output:', finalHtml);
     return finalHtml;
 }
 
