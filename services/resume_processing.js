@@ -4,35 +4,6 @@ const cheerio = require('cheerio');
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
 
-function countWordsInBullet(text) {
-    const cleaned = text.trim()
-        .replace(/["\"]/g, '')
-        .replace(/[.,!?()]/g, '')
-        .replace(/\s+/g, ' ');
-    const words = cleaned.split(' ')
-        .filter(word => word.length > 0)
-        .map(word => word.replace(/-/g, ''));
-    return words.length;
-}
-
-class SectionBulletTracker {
-    constructor() {
-        this.bulletMap = new Map();
-        this.usedBullets = new Set();
-    }
-    addBullet(bulletText, sectionType) {
-        this.bulletMap.set(bulletText, sectionType);
-        this.usedBullets.add(bulletText);
-    }
-    canUseBulletInSection(bulletText, sectionType) {
-        if (!this.bulletMap.has(bulletText)) return true;
-        return this.bulletMap.get(bulletText) === sectionType;
-    }
-    isUsed(bulletText) {
-        return this.usedBullets.has(bulletText);
-    }
-}
-
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
     const basePrompt = `You are a specialized resume bullet point optimizer focused on creating technically accurate and ATS-friendly content. Your task is to generate or enhance resume bullets that demonstrate technical expertise while maintaining STRICTLY ACCURATE technology relationships.
 
@@ -124,6 +95,9 @@ METRICS GUIDELINES:
 INPUT TO ENHANCE:
 ${(existingBullets || []).join('\n')}`;
 
+    // Embed the provided keywords explicitly in the prompt so the model is fully aware of what must be covered.
+    const keywordsSection = `\n\nPROVIDED KEYWORDS:\n${keywords.join(', ')}`;
+
     const taskPrompt = mode === 'tailor'
       ? `${basePrompt}
 
@@ -135,7 +109,7 @@ TASK: Generate **15 achievement-focused bullets** ${context} with concrete metri
     // Additional verification instructions appended to ensure the model reasons out loud and covers all keywords.
     const verificationInstructions = `\n\nVERIFICATION & COMPLETION INSTRUCTIONS:\n1. After drafting bullets, explicitly list all provided keywords and mark which are already used and which are missing.\n2. If any keywords are missing, thoughtfully revise or expand the bullet set (still respecting the 15-bullet limit when in generation mode) to incorporate EVERY keyword.\n3. Show your reasoning step-by-step out loud by prefixing each reasoning line with 'THOUGHT:'.\n4. Once all keywords are covered, output a line 'FINAL BULLETS:' followed immediately by the complete, verified bullet set, each on its own line and starting with '>>'.`;
 
-    const finalPrompt = `${taskPrompt}${verificationInstructions}`;
+    const finalPrompt = `${taskPrompt}${keywordsSection}${verificationInstructions}`;
 
     try {
         const response = await axios.post(
@@ -198,48 +172,6 @@ TASK: Generate **15 achievement-focused bullets** ${context} with concrete metri
         console.error('Error generating bullets:', error.response?.data || error.message);
         return [];
     }
-}
-
-function shuffleBulletsWithVerbCheck(bullets, sectionType, verbTracker) {
-    let attempts = 0;
-    const maxAttempts = 15;
-    while (attempts < maxAttempts) {
-        bullets = shuffleArray([...bullets]);
-        let isValid = true;
-        let previousVerbs = new Set();
-        for (let i = 0; i < bullets.length; i++) {
-            const currentVerb = getFirstVerb(bullets[i]);
-            if (!currentVerb) continue;
-            if (previousVerbs.has(currentVerb) || 
-                (verbTracker.isVerbUsedGlobally(currentVerb) && i === 0)) {
-                isValid = false;
-                break;
-            }
-            previousVerbs.add(currentVerb);
-        }
-        if (isValid) {
-            if (bullets.length > 0) {
-                verbTracker.addVerb(getFirstVerb(bullets[0]), sectionType);
-            }
-            return bullets;
-        }
-        attempts++;
-    }
-    const sortedBullets = [...bullets].sort((a, b) => {
-        const verbA = getFirstVerb(a);
-        const verbB = getFirstVerb(b);
-        if (!verbTracker.isVerbUsedGlobally(verbA) && verbTracker.isVerbUsedGlobally(verbB)) {
-            return -1;
-        }
-        if (verbTracker.isVerbUsedGlobally(verbA) && !verbTracker.isVerbUsedGlobally(verbB)) {
-            return 1;
-        }
-        return 0;
-    });
-    if (sortedBullets.length > 0) {
-        verbTracker.addVerb(getFirstVerb(sortedBullets[0]), sectionType);
-    }
-    return sortedBullets;
 }
 
 async function updateResume(htmlContent, keywords, fullTailoring) {
