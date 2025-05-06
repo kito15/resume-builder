@@ -155,7 +155,7 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
             .filter(line => line.startsWith('>>'))
             .map(bullet => {
                 let cleaned = bullet.replace(/^>>\s*/, '');
-                cleaned = cleaned.replace(/^(?:\(?\d+[\.)-]|\(?[A-Za-z][\.)-]|[\u2022\-\*])\s+/u, '');
+                cleaned = cleaned.replace(/^(?:\(?\d+|\(?[A-Za-z]|[\u2022\-\*])[\.\)\-]?\s*/u, '');
                 cleaned = cleaned.replace(/\*\*/g, '')
                                .replace(/\s*\([^)]*\)$/, '');
                 return cleaned.trim();
