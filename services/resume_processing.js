@@ -138,8 +138,6 @@ TASK: Generate **15 achievement-focused bullets** ${context} with concrete metri
     const finalPrompt = `${taskPrompt}${verificationInstructions}`;
 
     try {
-        console.log('Keywords:', keywords);
-        
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
