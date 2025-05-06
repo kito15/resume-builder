@@ -127,7 +127,7 @@ TASK: Generate **15 achievement-focused bullets** ${context} with concrete metri
                     }
                 ],
                 temperature: 0.4,
-                max_tokens: 8192,
+                max_tokens: 12000,
                 top_p: 1
             },
             {
