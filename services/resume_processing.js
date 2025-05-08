@@ -128,7 +128,7 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
                         content: finalPrompt
                     }
                 ],
-                temperature: 0.2,
+                temperature: 0.3,
                 max_tokens: 8000,
                 top_p: 1
             },
@@ -154,8 +154,10 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
             .map(line => line.trim())
             .filter(line => line.startsWith('>>'))
             .map(bullet => {
-                let cleaned = bullet.replace(/^>>\s*/, '');
-                cleaned = cleaned.replace(/^(?:\(?\d+|\(?[A-Za-z]|[\u2022\-\*])[\.\)\-]?\s*/u, '');
+                // Remove any leading angle-bracket prefixes like ">>", ">>>", etc.
+                let cleaned = bullet.replace(/^>+\s*/, '');
+                // Remove common list indicators such as numbers, letters, bullets, hyphens, asterisks, including en/em dashes.
+                cleaned = cleaned.replace(/^(?:\(?\d+|\(?[A-Za-z]|[\u2022\-\*\u2013\u2014])[\.\)\-]?\s*/u, '');
                 cleaned = cleaned.replace(/\*\*/g, '')
                                .replace(/\s*\([^)]*\)$/, '');
                 return cleaned.trim();
