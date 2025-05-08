@@ -128,7 +128,7 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
                         content: finalPrompt
                     }
                 ],
-                temperature: 0.4,
+                temperature: 0.2,
                 max_tokens: 8000,
                 top_p: 1
             },
