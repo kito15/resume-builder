@@ -128,7 +128,7 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
                         content: finalPrompt
                     }
                 ],
-                temperature: 0.3,
+                temperature: 0.4,
                 max_tokens: 8000,
                 top_p: 1
             },
@@ -154,12 +154,23 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
             .map(line => line.trim())
             .filter(line => line.startsWith('>>'))
             .map(bullet => {
-                // Remove any leading angle-bracket prefixes like ">>", ">>>", etc.
-                let cleaned = bullet.replace(/^>+\s*/, '');
-                // Remove common list indicators such as numbers, letters, bullets, hyphens, asterisks, including en/em dashes.
-                cleaned = cleaned.replace(/^(?:\(?\d+|\(?[A-Za-z]|[\u2022\-\*\u2013\u2014])[\.\)\-]?\s*/u, '');
-                cleaned = cleaned.replace(/\*\*/g, '')
-                               .replace(/\s*\([^)]*\)$/, '');
+                // Step-wise cleaning to ensure we do NOT remove the first character of the actual sentence.
+                let cleaned = bullet.replace(/^>>\s*/, ''); // Remove leading >> marker
+
+                // Remove common list/bullet prefixes ONLY when they are clearly prefixes.
+                cleaned = cleaned
+                    // Bulleted characters like •, -, * followed by whitespace
+                    .replace(/^\s*[\u2022\-*]\s+/u, '')
+                    // Numeric lists: (1) 1) 1. etc.
+                    .replace(/^\s*\(?\d+\)?[\.)]\s+/u, '')
+                    .replace(/^\s*\(?\d+\.\s+/u, '')
+                    // Alphabetic lists: (a) a) a. etc.
+                    .replace(/^\s*\(?[A-Za-z]\)?[\.)]\s+/u, '')
+                    .replace(/^\s*\(?[A-Za-z]\.\s+/u, '');
+
+                // Remove markdown bold markers and trailing parenthetical notes
+                cleaned = cleaned.replace(/\*\*/g, '').replace(/\s*\([^)]*\)$/, '');
+
                 return cleaned.trim();
             });
             
