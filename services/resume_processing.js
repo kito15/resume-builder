@@ -1,6 +1,7 @@
 const puppeteer = require('puppeteer');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const { PDFDocument } = require('pdf-lib');
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
 
@@ -289,7 +290,10 @@ async function convertHtmlToPdf(htmlContent) {
         }
     });
     await browser.close();
-    return { pdfBuffer, height, exceedsOnePage: height > MAX_HEIGHT };
+    // Determine actual PDF page count
+    const pdfDoc = await PDFDocument.load(pdfBuffer);
+    const pageCount = pdfDoc.getPageCount();
+    return { pdfBuffer, height, exceedsOnePage: height > MAX_HEIGHT, pageCount };
 }
 
 // Helper to remove one bullet point from the resume HTML
@@ -321,19 +325,18 @@ async function customizeResume(req, res) {
         if (htmlContent.length < 100) {
             return res.status(400).send('Invalid HTML content: Content too short');
         }
-        // Generate tailored HTML and iteratively trim bullets until one page
+        // Generate tailored HTML and iteratively trim bullets until the PDF is one page
         let updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
-        const MAX_HEIGHT = 1056;
-        let { pdfBuffer, height } = await convertHtmlToPdf(updatedHtmlContent);
-        let pageCount = Math.ceil(height / MAX_HEIGHT);
+        let { pdfBuffer, pageCount } = await convertHtmlToPdf(updatedHtmlContent);
         if (pageCount === 2) {
             console.log('Detected exactly 2-page resume; initiating bullet removal.');
         }
         while (pageCount > 1) {
             console.log(`Resume is ${pageCount} pages; removing a bullet point.`);
             updatedHtmlContent = removeOneBullet(updatedHtmlContent);
-            ({ pdfBuffer, height } = await convertHtmlToPdf(updatedHtmlContent));
-            pageCount = Math.ceil(height / MAX_HEIGHT);
+            const result = await convertHtmlToPdf(updatedHtmlContent);
+            pdfBuffer = result.pdfBuffer;
+            pageCount = result.pageCount;
         }
         res.contentType('application/pdf');
         res.set('Content-Disposition', 'attachment; filename=resume.pdf');
