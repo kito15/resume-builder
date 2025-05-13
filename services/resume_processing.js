@@ -130,7 +130,7 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
                     }
                 ],
                 temperature: 0.4,
-                max_tokens: 8000,
+                max_tokens: 4096,
                 top_p: 1
             },
             {
@@ -155,19 +155,12 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
             .map(line => line.trim())
             .filter(line => line.startsWith('>>'))
             .map(bullet => {
-                // Clean any leading bullet/formatting prefixes
                 let cleaned = bullet;
-                // Remove initial '>>' marker
                 cleaned = cleaned.replace(/^>>\s*/, '');
-                // Remove any combination of bullet markers: >, -, –, —, •, * and spaces
                 cleaned = cleaned.replace(/^(?:[>\-–—•*]\s*)+/, '');
-                // Remove numeric list markers like (1), 1), 1.
                 cleaned = cleaned.replace(/^\s*\(?\d+\)?[.\)]\s+/, '');
-                // Remove alphabetic list markers like (a), a), a.
                 cleaned = cleaned.replace(/^\s*\(?[A-Za-z]\)?[.\)]\s+/, '');
-                // Remove markdown bold markers
                 cleaned = cleaned.replace(/\*\*/g, '');
-                // Remove trailing parenthetical notes
                 cleaned = cleaned.replace(/\s*\([^)]*\)$/, '');
                 return cleaned.trim();
             });
