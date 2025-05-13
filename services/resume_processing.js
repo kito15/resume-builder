@@ -154,23 +154,20 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
             .map(line => line.trim())
             .filter(line => line.startsWith('>>'))
             .map(bullet => {
-                // Step-wise cleaning to ensure we do NOT remove the first character of the actual sentence.
-                let cleaned = bullet.replace(/^>>\s*/, ''); // Remove leading >> marker
-
-                // Remove common list/bullet prefixes ONLY when they are clearly prefixes.
-                cleaned = cleaned
-                    // Bulleted characters like •, -, * followed by whitespace
-                    .replace(/^\s*[\u2022\-*]\s+/u, '')
-                    // Numeric lists: (1) 1) 1. etc.
-                    .replace(/^\s*\(?\d+\)?[\.)]\s+/u, '')
-                    .replace(/^\s*\(?\d+\.\s+/u, '')
-                    // Alphabetic lists: (a) a) a. etc.
-                    .replace(/^\s*\(?[A-Za-z]\)?[\.)]\s+/u, '')
-                    .replace(/^\s*\(?[A-Za-z]\.\s+/u, '');
-
-                // Remove markdown bold markers and trailing parenthetical notes
-                cleaned = cleaned.replace(/\*\*/g, '').replace(/\s*\([^)]*\)$/, '');
-
+                // Clean any leading bullet/formatting prefixes
+                let cleaned = bullet;
+                // Remove initial '>>' marker
+                cleaned = cleaned.replace(/^>>\s*/, '');
+                // Remove any combination of bullet markers: >, -, –, —, •, * and spaces
+                cleaned = cleaned.replace(/^(?:[>\-–—•*]\s*)+/, '');
+                // Remove numeric list markers like (1), 1), 1.
+                cleaned = cleaned.replace(/^\s*\(?\d+\)?[.\)]\s+/, '');
+                // Remove alphabetic list markers like (a), a), a.
+                cleaned = cleaned.replace(/^\s*\(?[A-Za-z]\)?[.\)]\s+/, '');
+                // Remove markdown bold markers
+                cleaned = cleaned.replace(/\*\*/g, '');
+                // Remove trailing parenthetical notes
+                cleaned = cleaned.replace(/\s*\([^)]*\)$/, '');
                 return cleaned.trim();
             });
             
