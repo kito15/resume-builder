@@ -182,6 +182,29 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
     }
 }
 
+// Helper function to remove the last bullet point from HTML content
+function removeLastBulletPointFromHtml(htmlContent) {
+    const $ = cheerio.load(htmlContent); // cheerio is already required
+    const allLiElements = $('li');
+
+    if (allLiElements.length === 0) {
+        // No list items found, nothing to remove
+        return { modifiedHtml: htmlContent, bulletRemoved: false };
+    }
+
+    // Remove the very last 'li' element in the document
+    allLiElements.last().remove();
+    
+    // Optional: Clean up empty <ul> or <ol> elements if they become empty after 'li' removal
+    $('ul, ol').each((i, list) => {
+        if ($(list).children('li').length === 0) {
+            $(list).remove();
+        }
+    });
+
+    return { modifiedHtml: $.html(), bulletRemoved: true };
+}
+
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
     const allBulletsToProcess = [];
@@ -272,27 +295,89 @@ async function convertHtmlToPdf(htmlContent) {
             padding: 0;
         }
     `;
-    await page.setContent(htmlContent);
-    await page.evaluate((css) => {
-        const style = document.createElement('style');
-        style.textContent = css;
-        document.head.appendChild(style);
-    }, customCSS);
-    const height = await checkPageHeight(page);
-    const MAX_HEIGHT = 1056;
+
+    let currentHtmlContent = htmlContent; // Use currentHtmlContent for modifications
+    let height;
+    let exceedsOnePage;
+    const MAX_HEIGHT = 1056; // Standard US Letter height in pixels at 96 DPI is 1056px (11 inches * 96 DPI)
+    let bulletsWereModifiedInLoop = false; // Tracks if any bullet removal attempt was made in the loop
+    const MAX_ITERATIONS = 50; // Safety break: max number of bullets to remove
+    let iterations = 0;
+
+    // Helper to set content and apply styles consistently
+    async function setContentAndApplyStyles(contentToSet) {
+        await page.setContent(contentToSet, { waitUntil: 'domcontentloaded' });
+        // Ensure custom CSS is applied for height check and PDF generation
+        await page.evaluate((css) => {
+            const oldStyle = document.getElementById('resume-custom-pdf-style');
+            if (oldStyle) {
+                oldStyle.remove(); // Remove old style to prevent duplication if any
+            }
+            const style = document.createElement('style');
+            style.id = 'resume-custom-pdf-style'; // Add an ID for potential removal
+            style.textContent = css;
+            document.head.appendChild(style);
+        }, customCSS);
+    }
+
+    // Initial load, style application, and height check
+    await setContentAndApplyStyles(currentHtmlContent);
+    height = await checkPageHeight(page); // checkPageHeight is an existing helper
+    exceedsOnePage = height > MAX_HEIGHT;
+
+    // Loop to reduce content if it exceeds one page
+    while (exceedsOnePage && iterations < MAX_ITERATIONS) {
+        iterations++;
+        bulletsWereModifiedInLoop = true;
+
+        const { modifiedHtml, bulletRemoved } = removeLastBulletPointFromHtml(currentHtmlContent);
+
+        if (!bulletRemoved) {
+            // No more bullets to remove, but still exceeds one page
+            console.warn('Warning: Resume exceeds one page, and no more bullet points could be removed.');
+            break; // Exit loop, PDF will be generated with current content
+        }
+
+        currentHtmlContent = modifiedHtml;
+        await setContentAndApplyStyles(currentHtmlContent); // Reload HTML and reapply styles
+        
+        height = await checkPageHeight(page); // Re-check height
+        exceedsOnePage = height > MAX_HEIGHT;
+
+        if (!exceedsOnePage) {
+            console.log(`Resume content adjusted to fit one page after removing ${iterations} bullet(s).`);
+            break; // Fits on one page
+        }
+        
+        if (iterations >= MAX_ITERATIONS) {
+            console.warn(`Warning: Reached max iterations (${MAX_ITERATIONS}) for reducing resume length. Current height: ${height}px.`);
+            // exceedsOnePage is already set based on the last check
+            break;
+        }
+    }
+    
+    // Log final status if issues persist
+    if (exceedsOnePage && bulletsWereModifiedInLoop) {
+        console.warn(`Warning: Resume still exceeds one page (Height: ${height}px) after attempting to remove up to ${iterations} bullet(s).`);
+    } else if (exceedsOnePage && !bulletsWereModifiedInLoop && iterations === 0) {
+        // This case means it was too long initially and no bullets could be (or were) removed.
+        console.warn(`Warning: Initial resume content exceeds one page (Height: ${height}px), and no bullet removal iterations were performed (e.g., no bullets found or loop not entered as expected).`);
+    }
+
     const pdfBuffer = await page.pdf({
         format: 'Letter',
         printBackground: true,
-        preferCSSPageSize: true,
-        margin: {
+        preferCSSPageSize: true, // Important for @page CSS to be respected
+        margin: { // These margins will be used for the PDF
             top: '0.25in',
             right: '0.25in',
             bottom: '0.25in',
             left: '0.25in'
         }
     });
+
     await browser.close();
-    return { pdfBuffer, exceedsOnePage: height > MAX_HEIGHT };
+    return { pdfBuffer, exceedsOnePage }; // Matches original return structure
 }
 
 async function customizeResume(req, res) {
