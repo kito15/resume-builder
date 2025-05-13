@@ -279,7 +279,7 @@ async function convertHtmlToPdf(htmlContent) {
         document.head.appendChild(style);
     }, customCSS);
     const height = await checkPageHeight(page);
-    const MAX_HEIGHT = 1056; // Height of a single letter page in pixels
+    const MAX_HEIGHT = 1056;
     const pdfBuffer = await page.pdf({
         format: 'Letter',
         printBackground: true,
@@ -292,63 +292,25 @@ async function convertHtmlToPdf(htmlContent) {
         }
     });
     await browser.close();
-    return { pdfBuffer, pageHeight: height, exceedsOnePage: height > MAX_HEIGHT };
+    return { pdfBuffer, height, exceedsOnePage: height > MAX_HEIGHT };
 }
 
-async function reduceToOnePage(htmlContent) {
-    let currentHtmlContent = htmlContent;
-    let attempts = 0;
-    const MAX_ATTEMPTS = 10; // Safety limit to prevent infinite loops
-    
-    while (attempts < MAX_ATTEMPTS) {
-        // Convert to PDF and check the page height
-        const { pdfBuffer, pageHeight, exceedsOnePage } = await convertHtmlToPdf(currentHtmlContent);
-        
-        // If it's within one page, return the current content and buffer
-        if (!exceedsOnePage) {
-            console.log(`Resume reduced to one page after removing ${attempts} bullet(s)`);
-            return { htmlContent: currentHtmlContent, pdfBuffer };
+// Helper to remove one bullet point from the resume HTML
+function removeOneBullet(htmlContent) {
+    const $ = cheerio.load(htmlContent);
+    let maxCount = 0;
+    let targetUl = null;
+    $('ul').each((i, ul) => {
+        const count = $(ul).children('li').length;
+        if (count > maxCount) {
+            maxCount = count;
+            targetUl = $(ul);
         }
-        
-        // Check if we're exactly at 2 pages (2 * MAX_HEIGHT with some tolerance)
-        const TOLERANCE = 50; // Pixel tolerance
-        const isTwoPages = pageHeight > MAX_HEIGHT && pageHeight < (2 * MAX_HEIGHT + TOLERANCE);
-        
-        if (isTwoPages || exceedsOnePage) {
-            // Remove one bullet point
-            const $ = cheerio.load(currentHtmlContent);
-            const ulElements = $('ul');
-            let bulletRemoved = false;
-            
-            // Try to find a non-empty list and remove its last bullet
-            for (let i = ulElements.length - 1; i >= 0; i--) {
-                const ul = $(ulElements[i]);
-                const liElements = ul.children('li');
-                
-                if (liElements.length > 1) { // Keep at least one bullet per section
-                    liElements.last().remove();
-                    bulletRemoved = true;
-                    break;
-                }
-            }
-            
-            if (!bulletRemoved) {
-                // If we couldn't remove any bullets, break out of the loop
-                console.warn('Could not remove any more bullets. Resume still exceeds one page.');
-                break;
-            }
-            
-            currentHtmlContent = $.html();
-            attempts++;
-        } else {
-            // If it's neither one page nor two pages (unusual case), just return what we have
-            break;
-        }
+    });
+    if (targetUl && maxCount > 0) {
+        targetUl.children('li').last().remove();
     }
-    
-    // If we've reached the maximum attempts, convert one last time and return what we have
-    const { pdfBuffer } = await convertHtmlToPdf(currentHtmlContent);
-    return { htmlContent: currentHtmlContent, pdfBuffer };
+    return $.html();
 }
 
 async function customizeResume(req, res) {
@@ -362,13 +324,20 @@ async function customizeResume(req, res) {
         if (htmlContent.length < 100) {
             return res.status(400).send('Invalid HTML content: Content too short');
         }
-        
-        // Update resume content with optimized bullets
-        const updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
-        
-        // Reduce to one page if needed
-        const { htmlContent: finalHtmlContent, pdfBuffer } = await reduceToOnePage(updatedHtmlContent);
-        
+        // Generate tailored HTML and iteratively trim bullets until one page
+        let updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
+        const MAX_HEIGHT = 1056;
+        let { pdfBuffer, height } = await convertHtmlToPdf(updatedHtmlContent);
+        let pageCount = Math.ceil(height / MAX_HEIGHT);
+        if (pageCount === 2) {
+            console.log('Detected exactly 2-page resume; initiating bullet removal.');
+        }
+        while (pageCount > 1) {
+            console.log(`Resume is ${pageCount} pages; removing a bullet point.`);
+            updatedHtmlContent = removeOneBullet(updatedHtmlContent);
+            ({ pdfBuffer, height } = await convertHtmlToPdf(updatedHtmlContent));
+            pageCount = Math.ceil(height / MAX_HEIGHT);
+        }
         res.contentType('application/pdf');
         res.set('Content-Disposition', 'attachment; filename=resume.pdf');
         res.send(Buffer.from(pdfBuffer));
