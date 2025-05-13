@@ -6,17 +6,18 @@
   "author": "alphasec",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.19.2",
-    "body-parser": "",
-    "puppeteer": "",
     "axios": "",
-    "cheerio": "",
-    "openai": "",
-    "cors": "",
-    "mysql2": "",
     "bcrypt": "",
+    "body-parser": "",
+    "cheerio": "^1.0.0",
+    "cors": "",
     "ejs": "",
-    "fast-levenshtein": ""
+    "express": "^4.19.2",
+    "fast-levenshtein": "",
+    "mysql2": "",
+    "openai": "",
+    "puppeteer": "",
+    "pdf-lib": ""
   },
   "scripts": {
     "start": "node app.js"
