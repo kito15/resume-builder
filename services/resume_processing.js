@@ -173,76 +173,86 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
     }
 }
 
-// Add skill categorization helper
+// Helper to locate the Skills section dynamically
+function findSkillsSection($) {
+    const cls = $('[class*="skill"], [id*="skill"]');
+    if (cls.length) return cls.first();
+    const label = $('*').filter((i, el) => /^skills[:]?$/i.test($(el).text().trim())).first();
+    if (label.length) return label.parent();
+    let best = null, max = 0;
+    $('div, section, article').each((i, el) => {
+        const count = $(el).children().filter((j, ch) => $(ch).text().includes(',')).length;
+        if (count > max) { max = count; best = $(el); }
+    });
+    return max >= 2 ? best : null;
+}
+
+// Helper to extract raw skills keywords from the section
+function extractRawSkills($, section) {
+    const texts = section.children().map((i, el) => $(el).text().trim()).get();
+    const skills = [];
+    texts.forEach(text => {
+        const parts = text.split(/:(.+)/);
+        const list = parts[1] || parts[0];
+        list.split(',').forEach(item => {
+            const skill = item.trim();
+            if (skill) skills.push(skill);
+        });
+    });
+    return Array.from(new Set(skills));
+}
+
+// Helper to call OpenAI API to categorize skills
 async function categorizeSkills(keywords) {
-    const prompt = `You are a helpful assistant that categorizes skills keywords into three sections: Languages, Frameworks/Libraries, and Others (APIs, Services, Protocols). Given this list of skills:\n\n${keywords.join(', ')}\n\nOutput a JSON object with keys 'languages', 'frameworks', and 'others', each an array of items belonging to that category.`;
+    const prompt = 'Categorize the following skills into the categories:\n- Languages\n- Frameworks/Libraries\n- Others (APIs, Services, Protocols)\n- Machine Learning Libraries\n\nProvide JSON with keys "Languages", "Frameworks/Libraries", "Others", "Machine Learning Libraries". Skills: ' + keywords.join(', ');
+    const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+        model: 'gpt-4.1-nano',
+        messages: [
+            { role: 'system', content: 'You categorize technical skill keywords into defined categories.' },
+            { role: 'user', content: prompt }
+        ],
+        temperature: 0
+    }, {
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + openaiApiKey }
+    });
+    const content = response.data.choices[0].message.content;
+    const json = content.slice(content.indexOf('{'), content.lastIndexOf('}') + 1);
     try {
-        const response = await axios.post(
-            'https://api.openai.com/v1/chat/completions',
-            {
-                model: "gpt-4.1-nano",
-                messages: [
-                    { role: "system", content: "You are a skilled assistant that categorizes skills keywords accurately." },
-                    { role: "user", content: prompt }
-                ],
-                temperature: 0.2,
-                max_tokens: 500,
-                top_p: 1
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${openaiApiKey}`
-                }
-            }
-        );
-        let content = response.data.choices[0].message.content.trim();
-        const jsonStart = content.indexOf('{');
-        content = content.substring(jsonStart);
-        return JSON.parse(content);
-    } catch (error) {
-        console.error('Error categorizing skills:', error.response?.data || error.message);
-        return { languages: [], frameworks: [], others: [] };
+        return JSON.parse(json);
+    } catch {
+        return { Languages: keywords, 'Frameworks/Libraries': [], Others: [], 'Machine Learning Libraries': [] };
     }
 }
 
-// Add helper to identify and process skills section
-async function processSkillsSection($) {
-    let skillsContainer = null;
-    let skillsText = '';
-    $('*').each((i, elem) => {
-        const el = $(elem);
-        const text = el.text().trim();
-        if (!text) return;
-        const commaCount = (text.match(/,/g) || []).length;
-        if (commaCount >= 3) {
-            skillsContainer = el;
-            skillsText = text;
-            return false;
+// Helper to build skills HTML section with consistent structure
+function buildSkillsHtml(categorized) {
+    const cats = [
+        { key: 'Languages', title: 'Languages' },
+        { key: 'Frameworks/Libraries', title: 'Frameworks/Libraries' },
+        { key: 'Others', title: 'Others (APIs, Services, Protocols)' },
+        { key: 'Machine Learning Libraries', title: 'Machine Learning Libraries' }
+    ];
+    let html = '<div class="section"><div class="section-header"><div class="section-title">Skills</div></div>';
+    cats.forEach(c => {
+        const list = categorized[c.key] || [];
+        if (list.length) {
+            html += '<div class="skills-item"><span class="skills-category">' + c.title + ':</span> ' + list.join(', ') + '</div>';
         }
     });
-    if (!skillsContainer) return;
-    const rawKeywords = skillsText.split(',').map(k => k.replace(/\(.*?\)/g, '').trim()).filter(k => k);
-    const categorized = await categorizeSkills(rawKeywords);
-    // Replace content of the identified container with semantic skills section
-    skillsContainer.empty();
-    skillsContainer.append('<header><h2>Skills</h2></header>');
-    const { languages, frameworks, others } = categorized;
-    if (languages.length) {
-        skillsContainer.append(`<p><strong>Languages:</strong> ${languages.join(', ')}</p>`);
-    }
-    if (frameworks.length) {
-        skillsContainer.append(`<p><strong>Frameworks/Libraries:</strong> ${frameworks.join(', ')}</p>`);
-    }
-    if (others.length) {
-        skillsContainer.append(`<p><strong>Others (APIs, Services, Protocols):</strong> ${others.join(', ')}</p>`);
-    }
+    html += '</div>';
+    return html;
 }
 
 async function updateResume(htmlContent, keywords, fullTailoring) {
     const $ = cheerio.load(htmlContent);
-    // Process and organize skills section
-    await processSkillsSection($);
+    // Handle Skills section dynamically
+    const skillsSection = findSkillsSection($);
+    if (skillsSection) {
+        const rawSkills = extractRawSkills($, skillsSection);
+        const categorizedSkills = await categorizeSkills(rawSkills);
+        const skillsHtml = buildSkillsHtml(categorizedSkills);
+        skillsSection.replaceWith(skillsHtml);
+    }
     const allBulletsToProcess = [];
     const ulElements = $('ul');
     const bulletListMap = new Map();
