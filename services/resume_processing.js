@@ -175,29 +175,39 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
 
 // Helper to locate the Skills section dynamically
 function findSkillsSection($) {
-    const cls = $('[class*="skill"], [id*="skill"]');
-    if (cls.length) return cls.first();
-    const label = $('*').filter((i, el) => /^skills[:]?$/i.test($(el).text().trim())).first();
-    if (label.length) return label.parent();
+    // Look for container elements with at least two children that are clearly skill lines (contain ":" and ",")
     let best = null, max = 0;
     $('div, section, article').each((i, el) => {
-        const count = $(el).children().filter((j, ch) => $(ch).text().includes(',')).length;
+        const count = $(el).children().filter((j, ch) => {
+            const txt = $(ch).text().trim();
+            return txt.includes(':') && txt.includes(',');
+        }).length;
         if (count > max) { max = count; best = $(el); }
     });
-    return max >= 2 ? best : null;
+    if (max >= 2) return best;
+    // Fallback by class or id containing 'skill'
+    const cls = $('[class*="skill"], [id*="skill"]');
+    if (cls.length) return cls.first();
+    // Fallback by text label 'Skills'
+    const label = $('*').filter((i, el) => /^skills[:]?$/i.test($(el).text().trim())).first();
+    if (label.length) return label.parent();
+    return null;
 }
 
 // Helper to extract raw skills keywords from the section
 function extractRawSkills($, section) {
-    const texts = section.children().map((i, el) => $(el).text().trim()).get();
     const skills = [];
-    texts.forEach(text => {
-        const parts = text.split(/:(.+)/);
-        const list = parts[1] || parts[0];
-        list.split(',').forEach(item => {
-            const skill = item.trim();
-            if (skill) skills.push(skill);
-        });
+    // Find any lines that look like 'Category: item1, item2'
+    section.find('*').each((i, el) => {
+        const txt = $(el).text().trim();
+        if (txt.includes(':') && txt.includes(',')) {
+            const parts = txt.split(/:(.+)/);
+            const list = parts[1] || parts[0];
+            list.split(',').forEach(item => {
+                const skill = item.trim();
+                if (skill) skills.push(skill);
+            });
+        }
     });
     return Array.from(new Set(skills));
 }
@@ -249,9 +259,12 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     const skillsSection = findSkillsSection($);
     if (skillsSection) {
         const rawSkills = extractRawSkills($, skillsSection);
-        const categorizedSkills = await categorizeSkills(rawSkills);
-        const skillsHtml = buildSkillsHtml(categorizedSkills);
-        skillsSection.replaceWith(skillsHtml);
+        if (rawSkills.length > 0) {
+            const categorizedSkills = await categorizeSkills(rawSkills);
+            const skillsHtml = buildSkillsHtml(categorizedSkills);
+            skillsSection.replaceWith(skillsHtml);
+        }
+        // If no skills found, leave original section intact
     }
     const allBulletsToProcess = [];
     const ulElements = $('ul');
