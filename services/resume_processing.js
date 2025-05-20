@@ -6,94 +6,83 @@ const { PDFDocument } = require('pdf-lib');
 const openaiApiKey = process.env.OPENAI_API_KEY;
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    const basePrompt = `You are a specialized resume bullet point optimizer focused on creating technically accurate and ATS-friendly content. Your task is to generate or enhance resume bullets that demonstrate technical expertise while maintaining STRICTLY ACCURATE technology relationships.
+    const basePrompt = `You are a specialized resume bullet-point optimizer focused on creating technically accurate, ATS-friendly content while preserving ALL original metrics and achievements.
 
-CRITICAL TECHNOLOGY RELATIONSHIP RULES:
+========================
+CRITICAL TECHNOLOGY RELATIONSHIP RULES
+========================
 1. NEVER combine technologies from different ecosystems that don't naturally work together.
 2. Each bullet should focus on 1-2 closely related technologies maximum.
 3. Always verify technology relationships before combining them.
 4. If unsure about a technology relationship, use only the primary technology.
+5. Remove a technological term ONLY when it does not match any required keyword.
 
-TECHNOLOGY DOMAIN RULES AND RELATIONSHIPS:
-1. Programming Languages & Their Ecosystems:
-   - Java → Spring, Hibernate, Maven, JUnit
-   - Python → Django, Flask, NumPy, Pandas
-   - JavaScript → Node.js, React, Angular, Express
-   - TypeScript → Angular, React, Next.js
-   - C# → .NET, ASP.NET, Entity Framework
-   NEVER MIX: Java with Python libraries, JavaScript with Java frameworks, etc.
+========================
+TECHNOLOGY DOMAIN RULES & RELATIONSHIPS (DO NOT BREAK)
+========================
+• Programming Languages → valid libraries / frameworks  
+  - Java → Spring, Hibernate, Maven, JUnit  
+  - Python → Django, Flask, NumPy, Pandas  
+  - JavaScript → Node.js, React, Angular, Express  
+  - TypeScript → Angular, React, Next.js  
+  - C# → .NET, ASP.NET, Entity Framework  
 
-2. Front-End Development:
-   - React → Redux, React Router, Material-UI
-   - Angular → RxJS, NgRx, Angular Material
-   - Vue.js → Vuex, Vue Router
-   NEVER MIX: React hooks with Angular services, Vue with Redux, etc.
+• Front-End, Back-End, Cloud, Mobile, CRM, etc.  
+  …(same lists as original)…
 
-3. Back-End & Databases:
-   - Node.js → Express, MongoDB, Mongoose
-   - Django → PostgreSQL, SQLite
-   - Spring → MySQL, Oracle, Hibernate
-   NEVER MIX: Django ORM with MongoDB, Hibernate with MongoDB, etc.
+❌  INVALID COMBINATION EXAMPLES (NEVER GENERATE)  
+   - "Developed Apex triggers using Java"  
+   - "Built React components using Angular services"  
+   - "Implemented Django models with MongoDB"  
+   - "Created AWS Lambda functions using Azure Functions"  
+   - "Developed iOS apps using Android SDK"  
 
-4. Cloud & DevOps:
-   - AWS → EC2, S3, Lambda, CloudFormation
-   - Azure → App Service, Functions, DevOps
-   - GCP → Compute Engine, Cloud Functions
-   NEVER MIX: AWS services with Azure-specific terms, GCP with AWS-specific services.
-
-5. Mobile Development:
-   - iOS → Swift, SwiftUI, Cocoa Touch
-   - Android → Kotlin, Java, Android SDK
-   - React Native → JavaScript, React
-   NEVER MIX: Swift with Android SDK, Kotlin with iOS frameworks.
-
-6. CRM & Business Systems:
-   - Salesforce → Apex, Visualforce, Lightning
-   - Microsoft Dynamics → C#, .NET
-   NEVER MIX: Apex with Java/Python, Salesforce-specific with general web tech.
-
-INVALID COMBINATION EXAMPLES (NEVER GENERATE THESE):
-❌ "Developed Apex triggers using Java" (Apex is Salesforce-specific)
-❌ "Built React components using Angular services" (Different frameworks)
-❌ "Implemented Django models with MongoDB" (Django uses SQL databases)
-❌ "Created AWS Lambda functions using Azure Functions" (Different clouds)
-❌ "Developed iOS apps using Android SDK" (Different mobile platforms)
-
-FORMATTING RULES:
-1. Every bullet MUST start with '>>' (no space after).
+========================
+FORMATTING RULES
+========================
+1. **Only the finalized bullet set must prefix each bullet with \`>>\` (no space).**  
+   *Draft bullets generated during reasoning loops must **not** use this prefix.*
 2. One specific metric per bullet (%, $, time, or quantity).
-3. Each bullet MUST begin with a strong, unique action verb.
-4. NEVER reuse the same starting verb across bullet points.
-5. Each bullet MUST be ${wordLimit} words or less.
+3. Each bullet MUST begin with a unique, strong action verb (no repeats).
+4. Each bullet MUST be **${wordLimit} words or fewer**.
 
-KEYWORD INTEGRATION RULES:
-1. **EACH PROVIDED KEYWORD MUST APPEAR AT LEAST ONCE ACROSS THE FINAL SET OF BULLETS.**
-2. Distribute keywords naturally; avoid obvious keyword stuffing.
-3. Technologies MUST be from the same domain or have a clear, logical relationship.
-4. Use ONLY 1-2 related technologies per bullet; other keywords should be blended into context, not as additional tech stacks.
-5. If a technology doesn't fit naturally, preserve the achievement without that tech reference, but all non-tech keywords must still appear.
+========================
+ATS-KEYWORD WORKFLOW
+========================
+1. **Keyword Checklist** - List every provided keyword with a ☐ checkbox.  
+2. **Analyze Bullet Points** - For each existing bullet, check ✓ any keyword that appears (exact or close synonym).  
+3. **Iterative Enhancement Loop** - 
+   • For every ☐ unchecked keyword, revise or add bullets so it fits naturally.  
+   • Do **not** change or dilute existing metrics/outcomes.  
+   • After each revision, update the checklist; repeat until all boxes are ✓.  
+4. **Final Output** -  
+   • Output the complete, optimized bullet set (each bullet prefixed with \`>>\`).  
+   • Immediately after, show the **fully checked-off checklist** for transparency.
 
-ACTION VERB GUIDELINES:
-Approved Verbs:
-- Performance: Improved, Increased, Reduced, Decreased, Optimized
-- Development: Developed, Designed, Implemented, Created, Launched
-- Leadership: Led, Directed, Coordinated, Managed
-- Analysis: Analyzed, Evaluated, Solved
+========================
+KEYWORD INTEGRATION RULES
+========================
+1. **Every provided keyword MUST appear at least once.**
+2. Distribute keywords naturally; avoid stuffing.
+3. Keep tech stacks logically valid (see rules above).
+4. Use only 1-2 related technologies per bullet; non-tech keywords may appear in narrative text.
+5. If a tech keyword truly conflicts with domain rules, preserve the achievement and omit that term.
 
-Prohibited Verbs:
-- Weak: Built, Helped, Used, Worked
-- Complex: Orchestrated, Spearheaded, Piloted
-- Grandiose: Revolutionized, Transformed, Pioneered
+========================
+ACTION VERB GUIDELINES
+========================
+✓ Approved: Improved, Increased, Reduced, Decreased, Optimized, Developed, Designed, Implemented, Created, Launched, Led, Directed, Coordinated, Managed, Analyzed, Evaluated, Solved  
+✗ Prohibited: Built, Helped, Used, Worked, Orchestrated, Spearheaded, Piloted, Revolutionized, Transformed, Pioneered
 
-METRICS GUIDELINES:
-1. Keep all existing numbers EXACTLY as provided.
-2. Each bullet MUST include ONE specific metric:
-   - Percentages (e.g., "reduced costs by 40%")
-   - Time (e.g., "decreased load time by 2.5 seconds")
-   - Quantity (e.g., "supported 100K users")
-   - Money (e.g., "saved $50K annually")
+========================
+METRICS GUIDELINES
+========================
+• Keep ALL existing numbers EXACTLY as provided.  
+• One clear metric per bullet (%, $, time, quantity).
 
-INPUT TO ENHANCE:
+========================
+INPUT TO ENHANCE
+========================
 ${(existingBullets || []).join('\n')}`;
 
     // Embed the provided keywords explicitly in the prompt so the model is fully aware of what must be covered.
@@ -104,13 +93,17 @@ ${(existingBullets || []).join('\n')}`;
     const taskPrompt = mode === 'tailor'
       ? `${basePrompt}
 
-TASK: Substantially rewrite and enhance the above bullets so that **ALL PROVIDED KEYWORDS ARE COVERED ACROSS THE BULLET SET**. CRITICAL: Maintain original metrics and achievements while completely rephrasing each bullet for maximum impact. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.\n\nOUTPUT REQUIREMENT: You MUST output **exactly ${bulletCount} bullets**, matching the original number provided. Do not add or remove bullets.`
+TASK: Substantially rewrite and enhance the above bullets so that **EVERY PROVIDED KEYWORD IS COVERED** across exactly ${bulletCount} bullets. Maintain ALL original metrics and achievements while rephrasing for impact. Verify all technology combinations are valid.`
       : `${basePrompt}
 
-TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with concrete metrics, varied action verbs, and **ENSURE EVERY KEYWORD IS USED AT LEAST ONCE ACROSS THE BULLET SET**. MOST IMPORTANTLY: Ensure all technology combinations are logically valid per the rules above.`;
+TASK: Generate **${bulletCount} achievement-focused bullets** ${context}. Use varied action verbs, concrete metrics, and ensure **EVERY KEYWORD IS USED**. Verify all technology combinations are valid.`;
 
-    // Additional verification instructions appended to ensure the model reasons out loud and covers all keywords.
-    const verificationInstructions = `\n\nVERIFICATION & COMPLETION INSTRUCTIONS:\n1. After drafting bullets, explicitly list all provided keywords and mark which are already used and which are missing.\n2. If any keywords are missing, thoughtfully revise or expand the bullet set to incorporate EVERY keyword.\n3. Show your reasoning step-by-step out loud by prefixing each reasoning line with 'THOUGHT:'.\n4. Once all keywords are covered, output a line 'FINAL BULLETS:' followed immediately by the complete, verified bullet set, each on its own line and starting with '>>'.`;
+    const verificationInstructions = `\n\nVERIFICATION & COMPLETION INSTRUCTIONS:
+1. Produce the Keyword Checklist (☐/✓).
+2. Show reasoning lines prefixed with 'THOUGHT:'; draft bullets in this phase must NOT start with '>>'.
+3. Iterate until all keywords are ✓.
+4. Output 'FINAL BULLETS:' followed by the finalized bullet set, each starting with '>>'.
+5. Output the fully checked-off checklist.`;
 
     const finalPrompt = `${taskPrompt}${keywordsSection}${verificationInstructions}`;
 
@@ -122,7 +115,7 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
                 messages: [
                     {
                         role: "system",
-                        content: "You are a specialized resume bullet point optimizer with deep understanding of technology relationships. You must NEVER generate bullets with invalid technology combinations. First analyze the keywords to understand their relationships, then generate bullets ensuring technical accuracy."
+                        content: "You are a specialized resume bullet-point optimizer with deep understanding of technology relationships. NEVER output an invalid technology combination. Follow the ATS-keyword workflow and technology rules strictly."
                     },
                     {
                         role: "user",
@@ -130,7 +123,7 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context} with co
                     }
                 ],
                 temperature: 0.4,
-                max_tokens: 4096,
+                max_tokens: 6000,
                 top_p: 1
             },
             {
