@@ -123,8 +123,8 @@ VERIFICATION & COMPLETION INSTRUCTIONS
                         content: finalPrompt
                     }
                 ],
-                temperature: 0.4,
-                max_tokens: 4096,
+                temperature: 0.1,
+                max_tokens: 6000,
                 top_p: 1
             },
             {
