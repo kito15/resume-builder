@@ -6,8 +6,7 @@ const { PDFDocument } = require('pdf-lib');
 const openaiApiKey = process.env.OPENAI_API_KEY;
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    const basePrompt = `
-You are a resume-bullet optimizer. Insert EVERY keyword somewhere in the bullet set, keep all original metrics, and obey technology logic.
+    const systemPrompt = `You are a resume-bullet optimizer. Your task is to insert EVERY keyword somewhere in the bullet set, keep all original metrics, and obey technology logic.
 
 ────────────────────────────
 SECTION ❶ — HARD RULES
@@ -32,27 +31,16 @@ SECTION ❷ — TECHNOLOGY DOMAIN MAP (abridged)
 • Clouds, mobile, CRM: AWS ≠ Azure ≠ GCP, iOS ≠ Android, etc.  
 
 ────────────────────────────
-SECTION ❸ — ITERATIVE WORKFLOW
+SECTION ❸ — OUTPUT FORMAT REQUIREMENTS
 ────────────────────────────
-Step-0  **Keyword Checklist**: ☐ keyword1, ☐ keyword2, … ☐ keywordN  
-
-LOOP until every box is ✓:  
-  Step-1  Scan current bullets; mark ✓ for any keyword found (exact or synonym).  
-  Step-2  For each ☐ unchecked keyword, create or revise bullets:  
-          • Preserve metrics (R-1) and obey R-2…R-8.  
-          • Draft bullets here MUST NOT start with '>>'.  
-  Step-3  Show updated bullets *and* the updated checklist.  
-  Step-4  Return to Step-1.  
-
-────────────────────────────
-SECTION ❹ — FINAL OUTPUT FORMAT (after loop finishes)
-────────────────────────────
-CRITICAL OUTPUT RULES:
-1. The FINAL BULLETS section MUST start with the exact line "FINAL BULLETS:"
-2. Each bullet MUST be on its own line
-3. Each bullet MUST start with ">>" (no space before, one space after)
-4. No empty lines between bullets
-5. No additional formatting or prefixes
+1. Start with "FINAL BULLETS:" on its own line
+2. Each bullet MUST:
+   - Be on its own line
+   - Start with ">>" (no space before, one space after)
+   - Begin with a unique action verb
+   - Include a specific metric
+3. No empty lines between bullets
+4. No additional formatting or prefixes
 
 Example format:
 FINAL BULLETS:
@@ -60,53 +48,36 @@ FINAL BULLETS:
 >>Second bullet with different achievement
 >>Third bullet showing another win
 
-CHECKLIST COMPLETE:  
-✓ keyword1, ✓ keyword2, … ✓ keywordN
-────────────────────────────────────────────────────────
+After bullets, show:
+CHECKLIST COMPLETE:
+✓ keyword1, ✓ keyword2, … ✓ keywordN`;
+
+    const userPrompt = mode === 'tailor'
+        ? `TASK: Rewrite these ${existingBullets.length} bullets, incorporating ALL keywords while preserving metrics:
+
 INPUT BULLETS:
 ${(existingBullets || []).join('\n')}
 
-PROVIDED KEYWORDS:
+KEYWORDS TO INCLUDE:
 ${keywords.join(', ')}
 
-TASK MODE:
-${mode === 'tailor'
-  ? `Rewrite the ${existingBullets.length} bullets above without changing their count.`
-  : `Generate ${existingBullets.length} bullets that fit the context: ${context || '(none)'}.`}`;
+Remember:
+1. Output MUST start with "FINAL BULLETS:" followed by bullets
+2. Each bullet MUST start with ">>" (no space before)
+3. Preserve all original metrics exactly
+4. Use each keyword at least once
+5. Follow all rules from system prompt`
+        : `TASK: Generate ${existingBullets.length} achievement-focused bullets ${context || ''}.
 
-    const keywordsSection = ''; 
-    const bulletCount = (existingBullets || []).length;
+KEYWORDS TO INCLUDE:
+${keywords.join(', ')}
 
-    const taskPrompt = mode === 'tailor'
-        ? `${basePrompt}
-
-TASK: Substantially rewrite and enhance the bullets so **ALL PROVIDED KEYWORDS ARE COVERED** across exactly ${bulletCount} bullets.  
-CRITICAL: Preserve every original metric and achievement.  
-Ensure all technology combinations are valid, respect R-1…R-8, and honor the Anti-Overstuffing + No-Grocery-Lists rules.
-
-REMEMBER: Your output MUST follow the exact format shown in SECTION ❹.`
-        : `${basePrompt}
-
-TASK: Generate **${bulletCount} achievement-focused bullets** ${context || ''}.  
-Use varied action verbs, concrete metrics, and **ENSURE EVERY KEYWORD APPEARS AT LEAST ONCE**.  
-All bullets must respect R-1…R-8, Anti-Overstuffing, and No-Grocery-Lists.
-
-REMEMBER: Your output MUST follow the exact format shown in SECTION ❹.`;
-
-    const verificationInstructions = `
-
-VERIFICATION & COMPLETION INSTRUCTIONS
-1. After drafting bullets, produce the Keyword Checklist and mark ✓ / ☐.  
-2. If any ☐ remain, thoughtfully revise until EVERY keyword is ✓.  
-3. Show reasoning lines prefixed with 'THOUGHT:' explaining changes.
-4. Once all keywords are ✓, output the FINAL BULLETS section:
-   - Start with the exact line "FINAL BULLETS:"
-   - Each bullet on its own line starting with ">>" (no space before, one space after)
-   - No empty lines between bullets
-   - No additional formatting or prefixes
-5. End with CHECKLIST COMPLETE showing all keywords are ✓`;
-
-    const finalPrompt = `${taskPrompt}${verificationInstructions}`;
+Remember:
+1. Output MUST start with "FINAL BULLETS:" followed by bullets
+2. Each bullet MUST start with ">>" (no space before)
+3. Include specific metrics in each bullet
+4. Use each keyword at least once
+5. Follow all rules from system prompt`;
 
     try {
         const response = await axios.post(
@@ -116,11 +87,11 @@ VERIFICATION & COMPLETION INSTRUCTIONS
                 messages: [
                     {
                         role: "system",
-                        content: "You are a specialized resume-bullet optimizer with deep knowledge of technology relationships. NEVER output an invalid tech combination. Follow all rules, especially Anti-Overstuffing and No-Grocery-Lists."
+                        content: systemPrompt
                     },
                     {
                         role: "user",
-                        content: finalPrompt
+                        content: userPrompt
                     }
                 ],
                 temperature: 0.1,
