@@ -5,8 +5,9 @@ const { PDFDocument } = require('pdf-lib');
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
 
-async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    const systemPrompt = `You are a resume-bullet optimizer. Your task is to insert EVERY keyword somewhere in the bullet set, keep all original metrics, and obey technology logic.
+async function optimizeResume({ existingBullets, keywords, wordLimit, mode = 'tailor', context = '' }) {
+  const systemPrompt = `
+You are a resume-bullet optimizer. Insert EVERY keyword somewhere in the bullet set, keep all original metrics, and obey technology logic.
 
 ────────────────────────────
 SECTION ❶ — HARD RULES
@@ -31,129 +32,98 @@ SECTION ❷ — TECHNOLOGY DOMAIN MAP (abridged)
 • Clouds, mobile, CRM: AWS ≠ Azure ≠ GCP, iOS ≠ Android, etc.  
 
 ────────────────────────────
-SECTION ❸ — OUTPUT FORMAT REQUIREMENTS
+SECTION ❸ — ITERATIVE WORKFLOW
 ────────────────────────────
-1. Start with "FINAL BULLETS:" on its own line
-2. Each bullet MUST:
-   - Be on its own line
-   - Start with ">>" (no space before, one space after)
-   - Begin with a unique action verb
-   - Include a specific metric
-3. No empty lines between bullets
-4. No additional formatting or prefixes
+Step-0  **Keyword Checklist**: ☐ keyword1, ☐ keyword2, … ☐ keywordN  
 
-Example format:
-FINAL BULLETS:
->>First bullet with achievement
->>Second bullet with different achievement
->>Third bullet showing another win
+LOOP until every box is ✓:  
+  Step-1  Scan current bullets; mark ✓ for any keyword found (exact or synonym).  
+  Step-2  For each ☐ unchecked keyword, create or revise bullets:  
+          • Preserve metrics (R-1) and obey R-2…R-8.  
+          • Draft bullets here MUST NOT start with '>>'.  
+  Step-3  Show updated bullets *and* the updated checklist.  
+  Step-4  Return to Step-1.  
 
-After bullets, show:
-CHECKLIST COMPLETE:
-✓ keyword1, ✓ keyword2, … ✓ keywordN`;
+────────────────────────────
+SECTION ❹ — FINAL OUTPUT FORMAT (after loop finishes)
+────────────────────────────
+FINAL BULLETS:  
+>> Bullet 1  
+>> Bullet 2  
+   … (all bullets, every keyword used, rules obeyed)  
 
-    const userPrompt = mode === 'tailor'
-        ? `TASK: Rewrite these ${existingBullets.length} bullets, incorporating ALL keywords while preserving metrics:
-
+CHECKLIST COMPLETE:  
+✓ keyword1, ✓ keyword2, … ✓ keywordN
+────────────────────────────────────────────────────────
 INPUT BULLETS:
-${(existingBullets || []).join('\n')}
+${existingBullets.join('\n')}
 
-KEYWORDS TO INCLUDE:
+PROVIDED KEYWORDS:
 ${keywords.join(', ')}
 
-Remember:
-1. Output MUST start with "FINAL BULLETS:" followed by bullets
-2. Each bullet MUST start with ">>" (no space before)
-3. Preserve all original metrics exactly
-4. Use each keyword at least once
-5. Follow all rules from system prompt`
-        : `TASK: Generate ${existingBullets.length} achievement-focused bullets ${context || ''}.
+TASK MODE:
+${mode === 'tailor'
+  ? `Rewrite the ${existingBullets.length} bullets above without changing their count.`
+  : `Generate ${existingBullets.length} bullets that fit the context: ${context || '(none)'}.`}
 
-KEYWORDS TO INCLUDE:
-${keywords.join(', ')}
+VERIFICATION & COMPLETION INSTRUCTIONS
+1. After drafting bullets, produce the Keyword Checklist and mark ✓ / ☐.  
+2. If any ☐ remain, thoughtfully revise until EVERY keyword is ✓.  
+3. Show reasoning lines prefixed with 'THOUGHT:' explaining changes; drafts here must NOT start with '>>'.  
+4. Once all keywords are ✓, output:  
+   FINAL BULLETS: (each line prefixed with '>>')  
+   CHECKLIST COMPLETE: (all ✓)
+`;
 
-Remember:
-1. Output MUST start with "FINAL BULLETS:" followed by bullets
-2. Each bullet MUST start with ">>" (no space before)
-3. Include specific metrics in each bullet
-4. Use each keyword at least once
-5. Follow all rules from system prompt`;
-
-    try {
-        const response = await axios.post(
-            'https://api.openai.com/v1/chat/completions',
-            {
-                model: "gpt-4.1-mini",
-                messages: [
-                    {
-                        role: "system",
-                        content: systemPrompt
-                    },
-                    {
-                        role: "user",
-                        content: userPrompt
-                    }
-                ],
-                temperature: 0.1,
-                max_tokens: 6000,
-                top_p: 1
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${openaiApiKey}`
-                }
-            }
-        );
-
-        const content = response.data.choices[0].message.content;
-        console.log('Raw API response content:', content);
-        
-        const lines = content.split('\n');
-        
-        // Find where the final bullets section starts
-        const finalBulletsIndex = lines.findIndex(line => 
-            line.trim().toUpperCase().includes('FINAL BULLETS'));
-        
-        if (finalBulletsIndex === -1) {
-            console.error('No FINAL BULLETS section found in response');
-            return [];
+  try {
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4.1-mini',
+        messages: [
+          { role: 'system', content: systemPrompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 4096,
+        top_p: 1
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiApiKey}`
         }
-        
-        // Extract bullets after the FINAL BULLETS marker
-        const bullets = lines
-            .slice(finalBulletsIndex + 1)  // Start after "FINAL BULLETS:"
-            .filter(line => line.trim().startsWith('>>'))  // Only get lines starting with '>>'
-            .map(bullet => {
-                // Clean up the bullet point
-                let cleaned = bullet.trim();
-                // Remove the '>>' prefix and any leading/trailing whitespace
-                cleaned = cleaned.replace(/^>>\s*/, '');
-                // Remove any other common bullet point markers
-                cleaned = cleaned.replace(/^(?:[>\-–—•*]\s*)+/, '');
-                // Remove any numbering
-                cleaned = cleaned.replace(/^\s*\(?\d+\)?[.\)]\s+/, '');
-                cleaned = cleaned.replace(/^\s*\(?[A-Za-z]\)?[.\)]\s+/, '');
-                // Remove any markdown formatting
-                cleaned = cleaned.replace(/\*\*/g, '');
-                // Remove any trailing parenthetical notes
-                cleaned = cleaned.replace(/\s*\([^)]*\)$/, '');
-                return cleaned.trim();
-            })
-            .filter(bullet => bullet.length > 0);  // Remove any empty bullets
-            
-        console.log('Processed bullets:', bullets);
-        
-        if (bullets.length === 0) {
-            console.error('No valid bullets found in the response');
-            console.log('Full response content for debugging:', content);
-        }
-        
-        return bullets;
-    } catch (error) {
-        console.error('Error generating bullets:', error.response?.data || error.message);
-        return [];
+      }
+    );
+
+    const content = response.data.choices[0].message.content;
+    const lines = content.split('\n');
+    
+    let relevantLines = lines;
+    const finalIndex = lines.findIndex(line => line.trim().toUpperCase().startsWith('FINAL BULLETS'));
+    if (finalIndex !== -1) {
+      relevantLines = lines.slice(finalIndex + 1);
     }
+    
+    const bullets = relevantLines
+      .map(line => line.trim())
+      .filter(line => line.startsWith('>>'))
+      .map(bullet => {
+        let cleaned = bullet;
+        cleaned = cleaned.replace(/^>>\s*/, '');
+        cleaned = cleaned.replace(/^(?:[>\-–—•*]\s*)+/, '');
+        cleaned = cleaned.replace(/^\s*\(?\d+\)?[.\)]\s+/, '');
+        cleaned = cleaned.replace(/^\s*\(?[A-Za-z]\)?[.\)]\s+/, '');
+        cleaned = cleaned.replace(/\*\*/g, '');
+        cleaned = cleaned.replace(/\s*\([^)]*\)$/, '');
+        return cleaned.trim();
+      });
+      
+    console.log('Final processed bullets:', bullets);
+    return bullets;
+  } catch (error) {
+    console.error('Error generating bullets:', error.response?.data || error.message);
+    return [];
+  }
 }
 
 async function updateResume(htmlContent, keywords, fullTailoring) {
@@ -175,13 +145,13 @@ async function updateResume(htmlContent, keywords, fullTailoring) {
     let processedCount = 0;
     let firstUlElement = null;
     
-    const processedBullets = await generateBullets(
-        fullTailoring ? 'tailor' : 'generate',
-        allBulletsToProcess,
+    const processedBullets = await optimizeResume({
+        existingBullets: allBulletsToProcess,
         keywords,
-        'for experience section',
-        12
-    );
+        wordLimit: 12,
+        mode: fullTailoring ? 'tailor' : 'generate',
+        context: 'for experience section'
+    });
     
     let currentIndex = 0;
     
