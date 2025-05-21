@@ -6,124 +6,109 @@ const { PDFDocument } = require('pdf-lib');
 const openaiApiKey = process.env.OPENAI_API_KEY;
 
 async function generateBullets(mode, existingBullets, keywords, context, wordLimit) {
-    const basePrompt = `You are a specialized resume bullet-point optimizer focused on creating technically accurate, ATS-friendly content while preserving ALL original metrics and achievements.
+    const basePrompt = `
+You are a resume-bullet optimizer. Insert EVERY keyword somewhere in the bullet set, keep all original metrics, and obey technology logic.
 
-========================
-CRITICAL TECHNOLOGY RELATIONSHIP RULES
-========================
-1. NEVER combine technologies from different ecosystems that don't naturally work together.
-2. Each bullet should focus on 1-2 closely related technologies maximum.
-3. Always verify technology relationships before combining them.
-4. If unsure about a technology relationship, use only the primary technology.
-5. Remove a technological term ONLY when it does not match any required keyword.
+────────────────────────────
+SECTION ❶ — HARD RULES
+────────────────────────────
+R-1  Metrics stay exactly as written (no edits, no new numbers).  
+R-2  Every bullet starts with a UNIQUE, strong action verb.  
+R-3  ≤ ${wordLimit} words per bullet.  
+R-4  Prefix: ONLY the *final* bullets start with '>>'; drafts do NOT.  
+R-5  Anti-Overstuffing: ≤ 3 keywords per bullet.  
+R-6  **No Grocery Lists:** never chain >2 keywords with commas; weave them naturally.  
+R-7  Tech validity: never mix incompatible ecosystems (see map).  
+R-8  Remove a tech term ONLY if it is irrelevant *and* not a keyword.  
 
-========================
-TECHNOLOGY DOMAIN RULES & RELATIONSHIPS (DO NOT BREAK)
-========================
-• Programming Languages → valid libraries / frameworks  
-  - Java → Spring, Hibernate, Maven, JUnit  
-  - Python → Django, Flask, NumPy, Pandas  
-  - JavaScript → Node.js, React, Angular, Express  
-  - TypeScript → Angular, React, Next.js  
-  - C# → .NET, ASP.NET, Entity Framework  
+────────────────────────────
+SECTION ❷ — TECHNOLOGY DOMAIN MAP (abridged)
+────────────────────────────
+• Java → Spring / Hibernate / Maven / JUnit  
+• Python → Django / Flask / NumPy / Pandas  
+• JavaScript → Node.js / React / Angular / Express  
+• TypeScript → Angular / React / Next.js  
+• C# → .NET / ASP.NET / Entity Framework  
+• Clouds, mobile, CRM: AWS ≠ Azure ≠ GCP, iOS ≠ Android, etc.  
 
-• Front-End, Back-End, Cloud, Mobile, CRM, etc.  
-  …(same lists as original)…
+────────────────────────────
+SECTION ❸ — ITERATIVE WORKFLOW
+────────────────────────────
+Step-0  **Keyword Checklist**: ☐ keyword1, ☐ keyword2, … ☐ keywordN  
 
-❌ INVALID COMBINATION EXAMPLES (NEVER GENERATE)  
-   - "Developed Apex triggers using Java"  
-   - "Built React components using Angular services"  
-   - "Implemented Django models with MongoDB"  
-   - "Created AWS Lambda functions using Azure Functions"  
-   - "Developed iOS apps using Android SDK"  
+LOOP until every box is ✓:  
+  Step-1  Scan current bullets; mark ✓ for any keyword found (exact or synonym).  
+  Step-2  For each ☐ unchecked keyword, create or revise bullets:  
+          • Preserve metrics (R-1) and obey R-2…R-8.  
+          • Draft bullets here MUST NOT start with '>>'.  
+  Step-3  Show updated bullets *and* the updated checklist.  
+  Step-4  Return to Step-1.  
 
-========================
-FORMATTING RULES
-========================
-1. **Only the *final* bullet set is prefixed with \`>>\` (no space).** Draft bullets during reasoning loops must **not** use this prefix.
-2. One specific metric per bullet (%, $, time, or quantity).
-3. Each bullet MUST begin with a unique, strong action verb (no repeats).
-4. Each bullet MUST be **${wordLimit} words or fewer**.
-5. **Anti-Overstuffing:** *No single bullet may contain more than 3 keywords.* Distribute keywords across the bullet set.
+────────────────────────────
+SECTION ❹ — FINAL OUTPUT FORMAT (after loop finishes)
+────────────────────────────
+FINAL BULLETS:  
+>> Bullet 1  
+>> Bullet 2  
+   … (all bullets, every keyword used, rules obeyed)  
 
-========================
-ATS-KEYWORD WORKFLOW
-========================
-1. **Keyword Checklist** – List every provided keyword with a ☐ checkbox.  
-2. **Analyze Bullet Points** – For each existing bullet, check ✓ any keyword that appears (exact or close synonym).  
-3. **Iterative Enhancement Loop** –  
-   • For every ☐ unchecked keyword, revise or add bullets so it fits naturally.  
-   • Do **not** change or dilute existing metrics/outcomes.  
-   • After each revision, update the checklist; repeat until all boxes are ✓.  
-4. **Final Output** –  
-   • Output the complete, optimized bullet set (each bullet prefixed with \`>>\`).  
-   • Immediately after, show the **fully checked-off checklist** for transparency.
+CHECKLIST COMPLETE:  
+✓ keyword1, ✓ keyword2, … ✓ keywordN
+────────────────────────────────────────────────────────
+INPUT BULLETS:
+${(existingBullets || []).join('\n')}
 
-========================
-KEYWORD INTEGRATION RULES
-========================
-1. **Every provided keyword MUST appear at least once across the bullet set.**
-2. Distribute keywords naturally; avoid stuffing (see Anti-Overstuffing rule).
-3. Keep tech stacks logically valid (see technology rules).
-4. Use only 1-2 related technologies per bullet; non-tech keywords may appear in narrative text.
-5. If a tech keyword truly conflicts with domain rules, preserve the achievement and omit that term.
+PROVIDED KEYWORDS:
+${keywords.join(', ')}
 
-========================
-ACTION VERB GUIDELINES
-========================
-✓ Approved: Improved, Increased, Reduced, Decreased, Optimized, Developed, Designed, Implemented, Created, Launched, Led, Directed, Coordinated, Managed, Analyzed, Evaluated, Solved  
-✗ Prohibited: Built, Helped, Used, Worked, Orchestrated, Spearheaded, Piloted, Revolutionized, Transformed, Pioneered
+TASK MODE:
+${mode === 'tailor'
+  ? `Rewrite the ${existingBullets.length} bullets above without changing their count.`
+  : `Generate ${existingBullets.length} bullets that fit the context: ${context || '(none)'}.`}`;
 
-========================
-METRICS GUIDELINES
-========================
-• Keep ALL existing numbers EXACTLY as provided.  
-• One clear metric per bullet (%, $, time, quantity).
-
-========================
-INPUT TO ENHANCE
-========================
-${(existingBullets || []).join('\n')}`;
-
-    // Embed the provided keywords explicitly in the prompt so the model is fully aware of what must be covered.
-    const keywordsSection = `\n\nPROVIDED KEYWORDS:\n${keywords.join(', ')}`;
-
+    const keywordsSection = ''; 
     const bulletCount = (existingBullets || []).length;
 
     const taskPrompt = mode === 'tailor'
-      ? `${basePrompt}
+        ? `${basePrompt}
 
-TASK: Substantially rewrite and enhance the above bullets so that **EVERY PROVIDED KEYWORD IS COVERED** across exactly ${bulletCount} bullets. Maintain ALL original metrics and achievements while rephrasing for impact. Verify technology combinations are valid and obey the Anti-Overstuffing rule.`
-      : `${basePrompt}
+TASK: Substantially rewrite and enhance the bullets so **ALL PROVIDED KEYWORDS ARE COVERED** across exactly ${bulletCount} bullets.  
+CRITICAL: Preserve every original metric and achievement.  
+Ensure all technology combinations are valid, respect R-1…R-8, and honor the Anti-Overstuffing + No-Grocery-Lists rules.`
+        : `${basePrompt}
 
-TASK: Generate **${bulletCount} achievement-focused bullets** ${context}. Use varied action verbs, concrete metrics, and ensure **EVERY KEYWORD IS USED** while obeying the Anti-Overstuffing rule. Verify technology combinations are valid.`;
+TASK: Generate **${bulletCount} achievement-focused bullets** ${context || ''}.  
+Use varied action verbs, concrete metrics, and **ENSURE EVERY KEYWORD APPEARS AT LEAST ONCE**.  
+All bullets must respect R-1…R-8, Anti-Overstuffing, and No-Grocery-Lists.`;
 
-    const verificationInstructions = `\n\nVERIFICATION & COMPLETION INSTRUCTIONS:
-1. Produce the Keyword Checklist (☐/✓).
-2. Show reasoning lines prefixed with 'THOUGHT:'; draft bullets in this phase must NOT start with '>>'.
-3. Ensure no single draft or final bullet exceeds the 3-keyword cap.
-4. Iterate until all keywords are ✓.
-5. Output 'FINAL BULLETS:' followed by the finalized bullet set, each starting with '>>'.
-6. Output the fully checked-off checklist.`;
+    const verificationInstructions = `
 
-    const finalPrompt = `${taskPrompt}${keywordsSection}${verificationInstructions}`;
+VERIFICATION & COMPLETION INSTRUCTIONS
+1. After drafting bullets, produce the Keyword Checklist and mark ✓ / ☐.  
+2. If any ☐ remain, thoughtfully revise until EVERY keyword is ✓.  
+3. Show reasoning lines prefixed with 'THOUGHT:' explaining changes; drafts here must NOT start with '>>'.  
+4. Once all keywords are ✓, output:  
+   FINAL BULLETS: (each line prefixed with '>>')  
+   CHECKLIST COMPLETE: (all ✓)`;
+
+    const finalPrompt = `${taskPrompt}${verificationInstructions}`;
 
     try {
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
-                model: "gpt-4.1-nano",
+                model: "gpt-4.1-mini",
                 messages: [
                     {
                         role: "system",
-                        content: "You are a specialized resume bullet-point optimizer with deep understanding of technology relationships. NEVER output an invalid technology combination. Follow the ATS-keyword workflow, Anti-Overstuffing rule, and technology rules strictly."
+                        content: "You are a specialized resume-bullet optimizer with deep knowledge of technology relationships. NEVER output an invalid tech combination. Follow all rules, especially Anti-Overstuffing and No-Grocery-Lists."
                     },
                     {
                         role: "user",
                         content: finalPrompt
                     }
                 ],
-                temperature: 0.4,
+                temperature: 0.3,
                 max_tokens: 4096,
                 top_p: 1
             },
