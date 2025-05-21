@@ -47,10 +47,18 @@ LOOP until every box is ✓:
 ────────────────────────────
 SECTION ❹ — FINAL OUTPUT FORMAT (after loop finishes)
 ────────────────────────────
-FINAL BULLETS:  
->> Bullet 1  
->> Bullet 2  
-   … (all bullets, every keyword used, rules obeyed)  
+CRITICAL OUTPUT RULES:
+1. The FINAL BULLETS section MUST start with the exact line "FINAL BULLETS:"
+2. Each bullet MUST be on its own line
+3. Each bullet MUST start with ">>" (no space before, one space after)
+4. No empty lines between bullets
+5. No additional formatting or prefixes
+
+Example format:
+FINAL BULLETS:
+>>First bullet with achievement
+>>Second bullet with different achievement
+>>Third bullet showing another win
 
 CHECKLIST COMPLETE:  
 ✓ keyword1, ✓ keyword2, … ✓ keywordN
@@ -74,22 +82,29 @@ ${mode === 'tailor'
 
 TASK: Substantially rewrite and enhance the bullets so **ALL PROVIDED KEYWORDS ARE COVERED** across exactly ${bulletCount} bullets.  
 CRITICAL: Preserve every original metric and achievement.  
-Ensure all technology combinations are valid, respect R-1…R-8, and honor the Anti-Overstuffing + No-Grocery-Lists rules.`
+Ensure all technology combinations are valid, respect R-1…R-8, and honor the Anti-Overstuffing + No-Grocery-Lists rules.
+
+REMEMBER: Your output MUST follow the exact format shown in SECTION ❹.`
         : `${basePrompt}
 
 TASK: Generate **${bulletCount} achievement-focused bullets** ${context || ''}.  
 Use varied action verbs, concrete metrics, and **ENSURE EVERY KEYWORD APPEARS AT LEAST ONCE**.  
-All bullets must respect R-1…R-8, Anti-Overstuffing, and No-Grocery-Lists.`;
+All bullets must respect R-1…R-8, Anti-Overstuffing, and No-Grocery-Lists.
+
+REMEMBER: Your output MUST follow the exact format shown in SECTION ❹.`;
 
     const verificationInstructions = `
 
 VERIFICATION & COMPLETION INSTRUCTIONS
 1. After drafting bullets, produce the Keyword Checklist and mark ✓ / ☐.  
 2. If any ☐ remain, thoughtfully revise until EVERY keyword is ✓.  
-3. Show reasoning lines prefixed with 'THOUGHT:' explaining changes; drafts here must NOT start with '>>'.  
-4. Once all keywords are ✓, output:  
-   FINAL BULLETS: (each line prefixed with '>>')  
-   CHECKLIST COMPLETE: (all ✓)`;
+3. Show reasoning lines prefixed with 'THOUGHT:' explaining changes.
+4. Once all keywords are ✓, output the FINAL BULLETS section:
+   - Start with the exact line "FINAL BULLETS:"
+   - Each bullet on its own line starting with ">>" (no space before, one space after)
+   - No empty lines between bullets
+   - No additional formatting or prefixes
+5. End with CHECKLIST COMPLETE showing all keywords are ✓`;
 
     const finalPrompt = `${taskPrompt}${verificationInstructions}`;
 
@@ -108,7 +123,7 @@ VERIFICATION & COMPLETION INSTRUCTIONS
                         content: finalPrompt
                     }
                 ],
-                temperature: 0.3,
+                temperature: 0.4,
                 max_tokens: 4096,
                 top_p: 1
             },
@@ -121,30 +136,48 @@ VERIFICATION & COMPLETION INSTRUCTIONS
         );
 
         const content = response.data.choices[0].message.content;
+        console.log('Raw API response content:', content);
         
         const lines = content.split('\n');
         
-        let relevantLines = lines;
-        const finalIndex = lines.findIndex(line => line.trim().toUpperCase().startsWith('FINAL BULLETS'));
-        if (finalIndex !== -1) {
-            relevantLines = lines.slice(finalIndex + 1);
+        // Find where the final bullets section starts
+        const finalBulletsIndex = lines.findIndex(line => 
+            line.trim().toUpperCase().includes('FINAL BULLETS'));
+        
+        if (finalBulletsIndex === -1) {
+            console.error('No FINAL BULLETS section found in response');
+            return [];
         }
         
-        const bullets = relevantLines
-            .map(line => line.trim())
-            .filter(line => line.startsWith('>>'))
+        // Extract bullets after the FINAL BULLETS marker
+        const bullets = lines
+            .slice(finalBulletsIndex + 1)  // Start after "FINAL BULLETS:"
+            .filter(line => line.trim().startsWith('>>'))  // Only get lines starting with '>>'
             .map(bullet => {
-                let cleaned = bullet;
+                // Clean up the bullet point
+                let cleaned = bullet.trim();
+                // Remove the '>>' prefix and any leading/trailing whitespace
                 cleaned = cleaned.replace(/^>>\s*/, '');
+                // Remove any other common bullet point markers
                 cleaned = cleaned.replace(/^(?:[>\-–—•*]\s*)+/, '');
+                // Remove any numbering
                 cleaned = cleaned.replace(/^\s*\(?\d+\)?[.\)]\s+/, '');
                 cleaned = cleaned.replace(/^\s*\(?[A-Za-z]\)?[.\)]\s+/, '');
+                // Remove any markdown formatting
                 cleaned = cleaned.replace(/\*\*/g, '');
+                // Remove any trailing parenthetical notes
                 cleaned = cleaned.replace(/\s*\([^)]*\)$/, '');
                 return cleaned.trim();
-            });
+            })
+            .filter(bullet => bullet.length > 0);  // Remove any empty bullets
             
-        console.log('Final processed bullets:', bullets);
+        console.log('Processed bullets:', bullets);
+        
+        if (bullets.length === 0) {
+            console.error('No valid bullets found in the response');
+            console.log('Full response content for debugging:', content);
+        }
+        
         return bullets;
     } catch (error) {
         console.error('Error generating bullets:', error.response?.data || error.message);
