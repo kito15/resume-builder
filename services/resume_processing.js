@@ -17,7 +17,7 @@ R-2  Every bullet starts with a UNIQUE, strong action verb.
 R-3  ≤ ${wordLimit} words per bullet.  
 R-4  Prefix: ONLY the *final* bullets start with '>>'; drafts do NOT.  
 R-5  Anti-Overstuffing: ≤ 3 keywords per bullet.  
-R-6  **No Grocery Lists:** never chain >2 keywords with commas; weave them naturally.  
+R-6  **No Grocery Lists:** never chain > 2 keywords with commas; weave them naturally.  
 R-7  Tech validity: never mix incompatible ecosystems (see map).  
 R-8  Remove a tech term ONLY if it is irrelevant *and* not a keyword.  
 
@@ -54,7 +54,19 @@ FINAL BULLETS:
 
 CHECKLIST COMPLETE:  
 ✓ keyword1, ✓ keyword2, … ✓ keywordN
-────────────────────────────────────────────────────────
+
+────────────────────────────
+VERIFICATION & COMPLETION INSTRUCTIONS
+────────────────────────────
+1. After drafting bullets, produce the Keyword Checklist and mark ✓ / ☐.  
+2. If any ☐ remain, thoughtfully revise until EVERY keyword is ✓.  
+3. Show reasoning lines prefixed with 'THOUGHT:'; drafts here must NOT start with '>>'.  
+4. Once all keywords are ✓, output:  
+   FINAL BULLETS: (each line prefixed with '>>')  
+   CHECKLIST COMPLETE: (all ✓)
+`;
+
+  const userPrompt = `
 INPUT BULLETS:
 ${existingBullets.join('\n')}
 
@@ -65,14 +77,6 @@ TASK MODE:
 ${mode === 'tailor'
   ? `Rewrite the ${existingBullets.length} bullets above without changing their count.`
   : `Generate ${existingBullets.length} bullets that fit the context: ${context || '(none)'}.`}
-
-VERIFICATION & COMPLETION INSTRUCTIONS
-1. After drafting bullets, produce the Keyword Checklist and mark ✓ / ☐.  
-2. If any ☐ remain, thoughtfully revise until EVERY keyword is ✓.  
-3. Show reasoning lines prefixed with 'THOUGHT:' explaining changes; drafts here must NOT start with '>>'.  
-4. Once all keywords are ✓, output:  
-   FINAL BULLETS: (each line prefixed with '>>')  
-   CHECKLIST COMPLETE: (all ✓)
 `;
 
   try {
@@ -81,7 +85,8 @@ VERIFICATION & COMPLETION INSTRUCTIONS
       {
         model: 'gpt-4.1-mini',
         messages: [
-          { role: 'system', content: systemPrompt }
+          { role: 'system', content: systemPrompt },
+          { role: 'user',   content: userPrompt }
         ],
         temperature: 0.3,
         max_tokens: 4096,
@@ -98,11 +103,8 @@ VERIFICATION & COMPLETION INSTRUCTIONS
     const content = response.data.choices[0].message.content;
     const lines = content.split('\n');
     
-    let relevantLines = lines;
     const finalIndex = lines.findIndex(line => line.trim().toUpperCase().startsWith('FINAL BULLETS'));
-    if (finalIndex !== -1) {
-      relevantLines = lines.slice(finalIndex + 1);
-    }
+    const relevantLines = finalIndex !== -1 ? lines.slice(finalIndex + 1) : lines;
     
     const bullets = relevantLines
       .map(line => line.trim())
@@ -236,13 +238,11 @@ async function convertHtmlToPdf(htmlContent) {
         }
     });
     await browser.close();
-    // Determine actual PDF page count
     const pdfDoc = await PDFDocument.load(pdfBuffer);
     const pageCount = pdfDoc.getPageCount();
     return { pdfBuffer, height, exceedsOnePage: height > MAX_HEIGHT, pageCount };
 }
 
-// Helper to remove one bullet point from the resume HTML
 function removeOneBullet(htmlContent) {
     const $ = cheerio.load(htmlContent);
     let maxCount = 0;
@@ -271,7 +271,6 @@ async function customizeResume(req, res) {
         if (htmlContent.length < 100) {
             return res.status(400).send('Invalid HTML content: Content too short');
         }
-        // Generate tailored HTML and iteratively trim bullets until the PDF is one page
         let updatedHtmlContent = await updateResume(htmlContent, keywords, fullTailoring);
         let { pdfBuffer, pageCount } = await convertHtmlToPdf(updatedHtmlContent);
         if (pageCount === 2) {
