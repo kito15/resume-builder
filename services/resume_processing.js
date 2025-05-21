@@ -30,7 +30,7 @@ TECHNOLOGY DOMAIN RULES & RELATIONSHIPS (DO NOT BREAK)
 • Front-End, Back-End, Cloud, Mobile, CRM, etc.  
   …(same lists as original)…
 
-❌  INVALID COMBINATION EXAMPLES (NEVER GENERATE)  
+❌ INVALID COMBINATION EXAMPLES (NEVER GENERATE)  
    - "Developed Apex triggers using Java"  
    - "Built React components using Angular services"  
    - "Implemented Django models with MongoDB"  
@@ -40,31 +40,31 @@ TECHNOLOGY DOMAIN RULES & RELATIONSHIPS (DO NOT BREAK)
 ========================
 FORMATTING RULES
 ========================
-1. **Only the finalized bullet set must prefix each bullet with \`>>\` (no space).**  
-   *Draft bullets generated during reasoning loops must **not** use this prefix.*
+1. **Only the *final* bullet set is prefixed with \`>>\` (no space).** Draft bullets during reasoning loops must **not** use this prefix.
 2. One specific metric per bullet (%, $, time, or quantity).
 3. Each bullet MUST begin with a unique, strong action verb (no repeats).
 4. Each bullet MUST be **${wordLimit} words or fewer**.
+5. **Anti-Overstuffing:** *No single bullet may contain more than 3 keywords.* Distribute keywords across the bullet set.
 
 ========================
 ATS-KEYWORD WORKFLOW
 ========================
-1. **Keyword Checklist** - List every provided keyword with a ☐ checkbox.  
-2. **Analyze Bullet Points** - For each existing bullet, check ✓ any keyword that appears (exact or close synonym).  
-3. **Iterative Enhancement Loop** - 
+1. **Keyword Checklist** – List every provided keyword with a ☐ checkbox.  
+2. **Analyze Bullet Points** – For each existing bullet, check ✓ any keyword that appears (exact or close synonym).  
+3. **Iterative Enhancement Loop** –  
    • For every ☐ unchecked keyword, revise or add bullets so it fits naturally.  
    • Do **not** change or dilute existing metrics/outcomes.  
    • After each revision, update the checklist; repeat until all boxes are ✓.  
-4. **Final Output** -  
+4. **Final Output** –  
    • Output the complete, optimized bullet set (each bullet prefixed with \`>>\`).  
    • Immediately after, show the **fully checked-off checklist** for transparency.
 
 ========================
 KEYWORD INTEGRATION RULES
 ========================
-1. **Every provided keyword MUST appear at least once.**
-2. Distribute keywords naturally; avoid stuffing.
-3. Keep tech stacks logically valid (see rules above).
+1. **Every provided keyword MUST appear at least once across the bullet set.**
+2. Distribute keywords naturally; avoid stuffing (see Anti-Overstuffing rule).
+3. Keep tech stacks logically valid (see technology rules).
 4. Use only 1-2 related technologies per bullet; non-tech keywords may appear in narrative text.
 5. If a tech keyword truly conflicts with domain rules, preserve the achievement and omit that term.
 
@@ -93,17 +93,18 @@ ${(existingBullets || []).join('\n')}`;
     const taskPrompt = mode === 'tailor'
       ? `${basePrompt}
 
-TASK: Substantially rewrite and enhance the above bullets so that **EVERY PROVIDED KEYWORD IS COVERED** across exactly ${bulletCount} bullets. Maintain ALL original metrics and achievements while rephrasing for impact. Verify all technology combinations are valid.`
+TASK: Substantially rewrite and enhance the above bullets so that **EVERY PROVIDED KEYWORD IS COVERED** across exactly ${bulletCount} bullets. Maintain ALL original metrics and achievements while rephrasing for impact. Verify technology combinations are valid and obey the Anti-Overstuffing rule.`
       : `${basePrompt}
 
-TASK: Generate **${bulletCount} achievement-focused bullets** ${context}. Use varied action verbs, concrete metrics, and ensure **EVERY KEYWORD IS USED**. Verify all technology combinations are valid.`;
+TASK: Generate **${bulletCount} achievement-focused bullets** ${context}. Use varied action verbs, concrete metrics, and ensure **EVERY KEYWORD IS USED** while obeying the Anti-Overstuffing rule. Verify technology combinations are valid.`;
 
     const verificationInstructions = `\n\nVERIFICATION & COMPLETION INSTRUCTIONS:
 1. Produce the Keyword Checklist (☐/✓).
 2. Show reasoning lines prefixed with 'THOUGHT:'; draft bullets in this phase must NOT start with '>>'.
-3. Iterate until all keywords are ✓.
-4. Output 'FINAL BULLETS:' followed by the finalized bullet set, each starting with '>>'.
-5. Output the fully checked-off checklist.`;
+3. Ensure no single draft or final bullet exceeds the 3-keyword cap.
+4. Iterate until all keywords are ✓.
+5. Output 'FINAL BULLETS:' followed by the finalized bullet set, each starting with '>>'.
+6. Output the fully checked-off checklist.`;
 
     const finalPrompt = `${taskPrompt}${keywordsSection}${verificationInstructions}`;
 
@@ -115,7 +116,7 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context}. Use va
                 messages: [
                     {
                         role: "system",
-                        content: "You are a specialized resume bullet-point optimizer with deep understanding of technology relationships. NEVER output an invalid technology combination. Follow the ATS-keyword workflow and technology rules strictly."
+                        content: "You are a specialized resume bullet-point optimizer with deep understanding of technology relationships. NEVER output an invalid technology combination. Follow the ATS-keyword workflow, Anti-Overstuffing rule, and technology rules strictly."
                     },
                     {
                         role: "user",
@@ -123,7 +124,7 @@ TASK: Generate **${bulletCount} achievement-focused bullets** ${context}. Use va
                     }
                 ],
                 temperature: 0.4,
-                max_tokens: 6000,
+                max_tokens: 4096,
                 top_p: 1
             },
             {
